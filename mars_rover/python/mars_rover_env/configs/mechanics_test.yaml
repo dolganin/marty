@@ -1,0 +1,9 @@
+mechanics:
+  - type: Sand
+    params: {friction_mul: 0.55, sink_rate: 0.035, energy_drain_mul: 1.7}
+  - type: Ice
+    params: {friction_mul: 0.15}
+  - type: Wind
+    params: {wind_force: -4.0}
+  - type: LowGravity
+    params: {gravity_mul: 0.32}
