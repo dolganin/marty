@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/mars_rover/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/mars_rover/python"],
+  "cmake.sourceDirectory": "${workspaceFolder}/mars_rover/cpp"
+}

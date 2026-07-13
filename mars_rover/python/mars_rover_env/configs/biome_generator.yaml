@@ -1,0 +1,86 @@
+openai:
+  # May be either an API root or the complete Responses endpoint.
+  address: "https://api.openai.com/v1"
+  api_mode: "responses"  # responses or chat_completions
+  model: "gpt-5-mini"
+  # You may paste a token here. OPENAI_API_KEY takes precedence when it is set.
+  token: ""
+  timeout_seconds: 180
+  max_output_tokens: 5000
+
+generation:
+  count: 12
+  split: "train"  # train or test
+  compiler: "g++"
+  system_prompt: |
+    You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
+    Return exactly one class derived publicly from Biome. `final` is optional. The class
+    is inserted inside `mars::generated_biomes`; do not add a namespace. It must be allocation-free,
+    noexcept, deterministic, and pure with respect to the supplied seed and provided contexts.
+
+    ROVER AND TASK MODEL:
+    - The rover is a rigid 2D body with two physical wheels, suspension springs/dampers, wheel/ground
+      contacts, inertia, body rotation, damage, gravity, buoyancy and terrain deformation. The goal is
+      progress toward +X across alternating zones while preserving energy and avoiding flips/stalls.
+    - Actions are bit flags and may be combined: gas, brake, reverse, clutch pedal, body tilt left/right,
+      shift up/down, cycle RWD/FWD/AWD, ignition, deploy/stow solar panel, and pulse lidar.
+    - The mechanical engine has RPM/inertia/drag, an idle and redline, temperature-dependent power,
+      cold-start lockout, overheating shutdown and cooling. The clutch physically couples engine and
+      wheels. There are 8 forward gears with ratios 4.20, 3.10, 2.35, 1.80, 1.40, 1.10, 0.86, 0.68;
+      high gears lug at low RPM and consume progressively more energy. Shifts require clutch and sync.
+    - The battery stores 25 energy units. Solar charging locks propulsion while the panel
+      deploys/charges/stows. Ambient temperature,
+      thermal transfer and solar rate come from the biome. Liquid zones create basins and apply
+      immersion, drag, buoyancy and enhanced thermal transfer.
+    - Lidar is an explicit costly action. A successful pulse spends base energy times lidar_energy_mul,
+      has a cooldown, remains active briefly, and reveals otherwise-hidden forward height, slope,
+      liquid/appearance and temperature samples out to base range times lidar_range_mul. A biome may
+      make scans cheap, expensive, short, long, or effectively jammed, but values must remain finite.
+    - Without active lidar the RL observation contains rover state, wheel contacts/slip, drivetrain,
+      engine/thermal/solar state and lidar status, but forward terrain and biome samples are zeroed.
+
+    BIOME CONTROL SURFACES:
+    - sample_params controls friction_mul, sink_rate, viscosity, wind_force, gravity_mul,
+      energy_drain_mul, crust_deform, ambient_temperature, thermal_transfer, solar_charge_rate,
+      lidar_energy_mul and lidar_range_mul. Gravity and wind apply to every visual type.
+    - friction_scale and apply_effects control tyre traction, slip, penetration, wheel forces and
+      energy. apply_body_effects may add arbitrary finite body force, torque and energy cost based on
+      velocity, angular velocity, mass, gravity, dt and step index.
+    - visuals controls sky, ground, liquid and particle RGB; particle rate/lift/spread/size/count;
+      ambient storm density/drift; and screen_brightness. Brightness may range from full visibility
+      down to 0 (complete darkness), forcing strategic lidar use. The normal default sky is a muted
+      Martian orange. Give different biomes coherent but varied skies and illumination. Solar charging
+      must be physically consistent with light: when screen_brightness is low, solar_charge_rate should
+      also be reduced strongly; near-total darkness should provide almost no solar charge per second.
+
+    VARIATION GOAL: maximize qualitative diversity. Change sampled parameters (including gravity,
+    wind, thermal and
+    energy behavior), friction_scale, wheel apply_effects, body apply_body_effects, and visuals.
+    Body effects may add forces, torque and energy cost. Visuals may freely choose ground/liquid/
+    particle/sky colors plus particle rate, lift, spread, size, ambient storm density/drift and
+    brightness. Do not
+    merely rescale friction; combine multiple coherent effects so the agent must adapt. Do not add
+    includes, macros, globals, static mutable state, threads, I/O, filesystem,
+    networking, exceptions, or calls outside the contract. Use biome_random01 for seeded variation.
+    The visual type controls terrain topology (for example Liquid creates basins), but visual colors
+    and particles are independent and must not uniquely reveal the hidden implementation.
+    Produce a unique snake_case id and a concise display name. Override split() with the requested
+    BiomeSplit value. Return class source only in the JSON source field, without Markdown fences.
+    Use this minimal wrapper shape exactly; most importantly, finish the class with `};`:
+      class DescriptiveName final : public Biome {
+       public:
+        std::string_view id() const noexcept override { return "unique_snake_case_id"; }
+        std::string_view display_name() const noexcept override { return "Readable name"; }
+        MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
+        BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
+        MechanicParams sample_params(uint64_t seed) const noexcept override {
+          MechanicParams p;
+          return p;
+        }
+      };
+    Each biome should create a distinct adaptation problem and a distinct successful strategy. Favor
+    meaningful interactions among 2-5 systems over one extreme scalar. Locations need not be easy:
+    use darkness, lidar tradeoffs, gear/load constraints, momentum, thermal pressure, charging risk,
+    changing traction, body torque, gravity, liquids or storms to make traversal challenging. Keep a
+    plausible route to success for a learning agent. Never copy or lightly rename an existing biome;
+    treat every implementation and id supplied in the user message as a strict novelty blacklist.

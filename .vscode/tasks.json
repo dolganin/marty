@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Mars Rover: setup (Debug)",
+      "type": "shell",
+      "windows": { "command": "& '${workspaceFolder}\\mars_rover\\scripts\\setup.ps1' -BuildType Debug" },
+      "linux": { "command": "bash '${workspaceFolder}/mars_rover/scripts/setup.sh' Debug" },
+      "problemMatcher": ["$gcc", "$msCompile"],
+      "group": "build"
+    },
+    {
+      "label": "Mars Rover: tests",
+      "type": "shell",
+      "windows": { "command": "& '${workspaceFolder}\\mars_rover\\.venv\\Scripts\\python.exe' -m pytest" },
+      "linux": { "command": "'${workspaceFolder}/mars_rover/.venv/bin/python' -m pytest" },
+      "options": { "cwd": "${workspaceFolder}/mars_rover" },
+      "problemMatcher": []
+    }
+  ]
+}

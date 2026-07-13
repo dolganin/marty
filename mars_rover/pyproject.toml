@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "pybind11>=2.11"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mars-rover-env"
+version = "0.1.0"
+description = "High-performance native 2D Mars rover RL environment"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.23",
+  "gymnasium>=0.29",
+  "PyYAML>=6.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pybind11>=2.11",
+  "pytest>=8",
+]
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.setuptools.package-data]
+mars_rover_env = ["configs/*.yaml"]
+
+[project.scripts]
+mars-rover-play = "mars_rover_env.tools.play:main"
+mars-rover-doctor = "mars_rover_env.tools.doctor:main"
+mars-rover-benchmark = "mars_rover_env.tools.benchmark:main"
+mars-rover-generate-biomes = "mars_rover_env.tools.generate_biomes:main"
