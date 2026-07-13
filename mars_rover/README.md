@@ -14,6 +14,71 @@ The Windows setup script automatically finds an installed GCC/MinGW-w64 toolchai
 MSVC. Linux uses the system GCC toolchain. Set `MARS_ROVER_OPENMP=0` only if the compiler does not
 provide OpenMP; vectorized environments use it by default.
 
+## Complete Linux start-to-finish guide
+
+All commands below are run from the `mars_rover` directory. In a container running as root, omit
+`sudo` from the package installation command.
+
+1. Install the compiler, Python tooling, Tk GUI support and TLS certificates:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y python3 python3-venv python3-dev python3-tk build-essential ca-certificates curl
+   sudo update-ca-certificates
+   ```
+
+2. Create the virtual environment and build the native extension:
+
+   ```bash
+   bash scripts/setup.sh Release
+   ```
+
+3. To generate LLM biomes, create the ignored local configuration:
+
+   ```bash
+   cp python/mars_rover_env/configs/biome_generator.yaml \
+      python/mars_rover_env/configs/biome_generator.local.yaml
+   chmod 600 python/mars_rover_env/configs/biome_generator.local.yaml
+   ```
+
+   Edit `biome_generator.local.yaml` and override the connection settings:
+
+   ```yaml
+   openai:
+     address: "https://api.openai.com/v1"
+     api_mode: "responses"
+     model: "gpt-5-mini"
+     token: "YOUR_TOKEN"
+   ```
+
+   For an OpenAI-compatible `/chat/completions` endpoint, set `api_mode: "chat_completions"`.
+   The local file is excluded from Git. `OPENAI_API_KEY` may be used instead of storing `token`.
+
+4. Validate the endpoint settings without making an API request, then generate the biome bank:
+
+   ```bash
+   .venv/bin/python -m mars_rover_env.tools.generate_biomes \
+     --split train --count 12 --replace --dry-run
+   .venv/bin/python -m mars_rover_env.tools.generate_biomes \
+     --split train --count 12 --replace
+   ```
+
+5. Rebuild after generation because biomes are compiled into the native module:
+
+   ```bash
+   bash scripts/setup.sh Release
+   ```
+
+6. Start the interactive environment:
+
+   ```bash
+   .venv/bin/mars-rover-play --debug
+   ```
+
+For later launches, only step 6 is required. Repeat steps 4 and 5 when replacing the generated
+biome bank. If no LLM-generated biomes are needed, skip steps 3-5 and start immediately after the
+initial build.
+
 ## One-command setup
 
 Run from the `mars_rover` directory.
