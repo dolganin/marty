@@ -24,7 +24,11 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   select_mechanic_layout(trial_mechanic_seed_);
   const auto& picked_params = mechanic_layout_.zones[0].params;
   TerrainConfig scaled_terrain = config_.terrain;
-  scaled_terrain.amplitude *= clamp(picked_params.terrain_amplitude_mul, 0.5f, 3.0f);
+  // Ceiling lowered from 3.0: at the old range seven of ten gen2 biomes ended with the rover
+  // jammed against terrain at 48-73 m holding a full battery, and raising the step cap to
+  // 6000 or 12000 bought no extra distance at all. Terrain that stops everyone equally ranks
+  // no one, and it hid the energy trade-off this bank is now built around.
+  scaled_terrain.amplitude *= clamp(picked_params.terrain_amplitude_mul, 0.5f, 1.8f);
   scaled_terrain.roughness *= clamp(picked_params.terrain_roughness_mul, 0.5f, 2.5f);
   scaled_terrain.crater_count = static_cast<int>(std::lround(
       static_cast<float>(scaled_terrain.crater_count) *

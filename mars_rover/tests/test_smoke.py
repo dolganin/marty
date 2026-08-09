@@ -23,7 +23,10 @@ def test_native_observation_uses_policy_friendly_scales():
     env = MarsRoverEnv(fixed_biome_id=0)
     obs, _ = env.reset(seed=42)
     assert obs[0] == pytest.approx(0.01)  # spawn x / finish_x
-    assert obs[6] == pytest.approx(1.0)  # energy / capacity
+    # The rover starts part-charged (initial_energy 6 of capacity 25) so that recharging has
+    # somewhere to go: a full tank at spawn would make the solar panel pointless.
+    assert obs[6] == pytest.approx(6.0 / 25.0)  # energy / capacity
+    assert 0.0 < obs[6] < 1.0
     obs, *_ = env.step(4095)
     assert obs[-3] == pytest.approx(1.0)  # 12-bit action mask
     assert np.max(np.abs(obs)) < 20.0
