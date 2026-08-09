@@ -106,7 +106,13 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.body.angle;
   obs_out[k++] = state_.body.angular_velocity / 10.0f;
   obs_out[k++] = state_.energy / energy_scale;
-  obs_out[k++] = state_.trial_start ? 1.0f : 0.0f;
+  // Trial/episode position is deliberately NOT exposed. A memoryless policy was
+  // reading it as a proxy for "how far into the trial am I" and scoring +20.1 higher
+  // on IDENTICAL courses merely by being told it was episode 4 rather than episode 1,
+  // which manufactured an adaptation delta out of nothing. Agents that legitimately
+  // need the boundary get it out of band: the trial reset flag is passed to
+  // Agent.reset(trial_start) and the episode boundary appears as previous_done.
+  obs_out[k++] = 0.0f;
   for (int i = 0; i < kMaxWheels; ++i) {
     const auto& w = state_.wheels[static_cast<size_t>(i)];
     obs_out[k++] = (i < state_.wheel_count && w.in_contact) ? 1.0f : 0.0f;
@@ -160,8 +166,8 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
   obs_out[k++] = static_cast<float>(state_.previous_action) / 4095.0f;
   obs_out[k++] = state_.last_reward / std::max(1.0f, config_.reward.finish_bonus);
-  obs_out[k++] = static_cast<float>(state_.episode_in_trial) /
-                 static_cast<float>(std::max(1, config_.episodes_per_trial));
+  // Same leak, other end of the observation: see the note on trial_start above.
+  obs_out[k++] = 0.0f;
 }
 
 void Env::select_mechanic_layout(uint64_t seed) {

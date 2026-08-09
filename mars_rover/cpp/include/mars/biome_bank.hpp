@@ -3731,6 +3731,183 @@ class GravityWellBrine final : public Biome {
   }
 };
 
+class QuasarSiphonVein final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "quasar_siphon_vein"; }
+  std::string_view display_name() const noexcept override { return "Quasar Siphon Vein"; }
+  std::string_view skill_stratum() const noexcept override { return "gravity_change"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Moderate grip but the gravity siphons dominate the challenge.
+    p.friction_mul = 0.50f + 0.20f * biome_random01(s);
+    p.sink_rate = 0.001f + 0.004f * biome_random01(s, 1);
+    p.viscosity = 0.0f;
+    p.energy_drain_mul = 1.60f + 0.50f * biome_random01(s, 2);
+    p.wind_force = 0.5f + 1.0f * biome_random01(s, 3);
+    // Cold and nearly dark: solar is negligible, forcing strict energy budgeting.
+    p.ambient_temperature = -80.0f + 20.0f * biome_random01(s, 4);
+    p.thermal_transfer = 2.0f + 0.6f * biome_random01(s, 5);
+    p.solar_charge_rate = 0.02f + 0.02f * biome_random01(s, 6);
+    p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 7);
+    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
+    // Expensive, very short-range lidar: the siphon veins are invisible ahead.
+    p.lidar_energy_mul = 5.0f + 1.0f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
+    // Terrain reshaped into rough, vein-like ridges with dense small craters and steps,
+    // so a generic "smooth low-gravity" policy cannot coast through.
+    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 1.60f + 0.40f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.70f + 0.40f * biome_random01(s, 13);
+    p.terrain_step_mul = 1.30f + 0.40f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Baseline grip is decent; the gravity siphons alter effective load and traction.
+    return p.friction_mul * 0.85f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Tiny sink into the fractured vein-rock; not a traction trap.
+      c.contact->penetration += p.sink_rate * c.dt * 0.1f;
+    }
+    if (c.wheel_force && c.contact) {
+      // Light rolling resistance; the siphon forces dominate in body effects.
+      *c.wheel_force += c.contact->tangent * (-0.35f * c.wheel_speed);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.015f);
+    }
+    if (c.energy_cost) {
+      // Base drain plus a small cold-soak thermal load.
+      float cold_load = std::max(0.0f, -p.ambient_temperature) * 0.002f * p.thermal_transfer;
+      *c.energy_cost += (0.006f + cold_load + std::abs(c.wheel_speed) * 0.002f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.09f);
+
+      // Siphon phase: a slow, position-dependent oscillation that alternates
+      // between 'light' (gravity ~0.4x, buoyant, hard to keep traction) and
+      // 'heavy' (gravity ~1.6x, crushing, high traction but high energy).
+      // The phase is invisible to lidar (very short, expensive) and must be
+      // inferred from suspension compression, body acceleration, and energy drain.
+      float siphon_phase = t * 0.0045f + c.velocity.x * 0.012f;
+      float siphon = 0.5f + 0.5f * std::sin(siphon_phase); // 0 = light, 1 = heavy
+
+      // A faster sub-oscillation creates 'siphon pulses': brief, extreme gravity
+      // spikes within the heavy phase that are the primary flip/stall hazard. A naive
+      // policy that merely drives forward carefully will hit a pulse while heavy and
+      // either pitch over on the rough terrain or drain its battery catastrophically.
+      float pulse_phase = t * 0.023f + c.velocity.x * 0.058f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse; // narrow, strong peaks
+
+      // Effective gravity multiplier: light ~0.35, heavy ~1.45, pulses push to ~1.9.
+      float grav_mul = 0.35f + 1.10f * siphon + 0.45f * siphon * pulse_narrow;
+      float effective_g = p.gravity_mul * grav_mul;
+      float base_g = p.gravity_mul;
+
+      // Weight force in heavy phase: presses the rover down, increasing normal load
+      // and traction but also rolling resistance. In light phase, buoyancy lifts the
+      // rover, reducing traction and making it easy to skate but hard to brake.
+      float weight = (effective_g - base_g) * c.mass * c.gravity * 0.22f;
+      float buoyancy = (base_g - effective_g) * c.mass * c.gravity * 0.18f;
+
+      // Lateral 'siphon drift': in the light phase the rover drifts sideways (very
+      // low normal load -> little grip), while in the heavy phase it is stable but
+      // sluggish. Stronger at speed.
+      float lateral_drift = std::sin(siphon_phase + 1.2f) * (1.0f - siphon) * 0.07f * c.mass * (0.5f + speed_norm);
+
+      // Damping: heavy phase has higher damping (more grip), light phase lower
+      // (easy to coast but hard to steer). Rewards timing acceleration with the
+      // heavy phase and coasting through the light phase.
+      float damping = 0.04f + 0.10f * siphon + 0.02f * speed_norm;
+
+      // Siphon pulse instability: during the narrow gravity spikes, a strong
+      // pitching torque slams the nose down or up depending on the phase. If the
+      // rover is moving fast through a pulse on the rough terrain, this can flip it.
+      // A universal 'drive carefully' policy that does not actively brake before
+      // pulses will be caught.
+      float pulse_torque = siphon * pulse_narrow * (0.5f + 0.5f * speed_norm) * 0.030f * c.mass * c.gravity * std::sin(pulse_phase + 0.7f);
+
+      c.body_force->x += lateral_drift - c.velocity.x * c.mass * damping;
+      c.body_force->y += weight + buoyancy - c.velocity.y * c.mass * (0.04f + 0.03f * siphon);
+
+      if (c.body_torque) {
+        *c.body_torque += pulse_torque - c.angular_velocity * c.mass * 0.025f;
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+      float siphon_phase = t * 0.0045f + speed * 0.012f;
+      float siphon = 0.5f + 0.5f * std::sin(siphon_phase);
+      float pulse_phase = t * 0.023f + speed * 0.058f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+      float grav_mul = 0.35f + 1.10f * siphon + 0.45f * siphon * pulse_narrow;
+
+      // Energy budget cascade: the drain is multiplicatively scaled by the current
+      // gravity phase. Driving through the heavy phase consumes energy roughly six
+      // times faster than in the light phase. On top of that, a 'siphon surge' cost
+      // spikes during the rapid gravity pulses, punishing high throttle at exactly
+      // the moment the torque is most dangerous.
+      //
+      // The successful strategy must learn to build momentum in the light phase
+      // (cheap, but low traction so coasting is safer), then ride that momentum
+      // through the heavy phase with only gentle throttle corrections, and brake
+      // carefully before each pulse to avoid the pitching torque.
+      float phase_cost = 0.008f + 0.045f * siphon;
+      float pulse_delta = pulse_narrow * siphon;
+      float surge_cost = pulse_delta * (0.006f + 0.014f * speed_norm);
+
+      // Throttle penalty: accelerating while in the heavy phase or during a pulse
+      // is extremely wasteful (fighting the extra weight), so the policy must learn
+      // to conserve throttle there.
+      float throttle_penalty = grav_mul * speed_norm * 0.006f;
+
+      // Light-phase coasting bonus: energy cost is lower when moving steadily in
+      // the light phase, rewarding a smooth, momentum-based traversal.
+      float coast_bonus = (1.0f - siphon) * speed_norm * 0.004f;
+
+      *c.energy_cost += (phase_cost + surge_cost + throttle_penalty - coast_bonus) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Dull, uniform dark grey rock with faint violet tint — visually suggests a
+    // low-gravity environment but reveals nothing about the siphon pattern. The sky
+    // is dark and hazy; screen_brightness is very low so that lidar is prohibitively
+    // expensive (and useless at this range) — the agent must rely entirely on
+    // proprioception and trial-and-error to identify the phase.
+    v.ground = {62, 58, 70};
+    v.particles = {145, 135, 160};
+    v.liquid = {38, 34, 44};
+    v.sky = {85, 80, 95};
+    v.particle_rate = 4.0f;
+    v.particle_lift = 1.6f;
+    v.particle_spread = 0.8f;
+    v.base_particles = 0;
+    v.max_particles = 16;
+    v.particle_size = 2;
+    v.ambient_particles = 6;
+    v.ambient_drift = 1.2f;
+    v.screen_brightness = 0.08f; // near-total darkness: lidar is very expensive and short-range, so the siphon must be inferred from motion
+    v.liquid_surface = false;
+    return v;
+  }
+};
+
 inline void append(std::vector<const Biome*>& out) {
   static const GranularThrottleTrap biome_0; out.push_back(&biome_0);
   static const CantileverGale biome_1; out.push_back(&biome_1);
@@ -3756,11 +3933,12 @@ inline void append(std::vector<const Biome*>& out) {
   static const TractionTideProbe biome_21; out.push_back(&biome_21);
   static const MomentumDraftLocks biome_22; out.push_back(&biome_22);
   static const GravityWellBrine biome_23; out.push_back(&biome_23);
+  static const QuasarSiphonVein biome_24; out.push_back(&biome_24);
 }
 // </MARS_GENERATED_BIOMES>
 }  // namespace generated_biomes
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:d58fd9df9c419a97f0d9607d14d5aeb545364b288faf31f74c19f5323b1f8783";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:4d0c88455b87deeef0b0664d4fcb48c6622828ce6a9be6e680f18e9e9ab8e141";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;
