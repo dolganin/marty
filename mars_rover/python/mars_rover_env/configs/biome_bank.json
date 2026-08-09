@@ -1,43 +1,43 @@
 {
   "anchor_references": {
     "bank_version": "sha256:39aff219154d8198bd74b37b3a17c29c552cbc05cdaf9c1b904dfd7fd9f188b8",
-    "created_at": "2026-08-09T19:55:21.508161+00:00",
+    "created_at": "2026-08-09T20:46:46.431994+00:00",
     "episodes_per_trial": 4,
     "items": {
       "crust": {
         "r_random": 0.2150817354343289,
-        "r_robust": 78.45298949852425
+        "r_robust": 78.36479498719166
       },
       "ice": {
         "r_random": 0.05091747893228771,
-        "r_robust": 78.3396195430724
+        "r_robust": 78.26197757623875
       },
       "liquid": {
         "r_random": 0.017528693515407135,
-        "r_robust": 89.76423020837835
+        "r_robust": 89.76460869917764
       },
       "low_gravity": {
         "r_random": 0.05977101669778406,
-        "r_robust": 45.810535462700024
+        "r_robust": 51.73666566474019
       },
       "mud": {
         "r_random": 0.1621725592154098,
-        "r_robust": 20.21223789367366
+        "r_robust": 20.20257524695071
       },
       "normal": {
         "r_random": 0.1614710623411746,
-        "r_robust": 94.52856352199021
+        "r_robust": 91.98848397725344
       },
       "sand": {
         "r_random": 0.057553808061311426,
-        "r_robust": 50.14029279939276
+        "r_robust": 49.93068451428628
       },
       "wind": {
         "r_random": 3.8472611835565886,
-        "r_robust": 172.72725864977838
+        "r_robust": 163.9598115530185
       }
     },
-    "reference_version": "sha256:3ad52ae4cbcf39c120adad420f686fb31a21d61f97d2b3514a6dd19266301fa2",
+    "reference_version": "sha256:f903f0beb98f8e82cfd4fe4b013617d4d1d031e48947007c797439fdda9cce8b",
     "schema_version": 1,
     "seeds": [
       1000,
@@ -246,7 +246,9 @@
       "r_random": -2.1374213139780864,
       "r_robust": null,
       "r_solve": 30.597698386960314,
+      "random_score": 0.0006021778081938009,
       "skill_stratum": "traction_loss",
+      "solve_score": 0.15298849193480155,
       "source_sha256": "99f76b8b8291998e0cab04e97d88ce2c46dbfd41b8ca441f36964c7315b0ea71",
       "split": "train",
       "status": "accepted"
@@ -421,7 +423,9 @@
       "r_random": 8.138858150581655,
       "r_robust": null,
       "r_solve": 199.01914784955517,
+      "random_score": 0.04069429075290827,
       "skill_stratum": "lateral_force",
+      "solve_score": 0.9950957392477756,
       "source_sha256": "08a7b33d70438e5eaaf11e6bc01d2e89ab9bc8c6d4e4af9619da27bf2335ce8d",
       "split": "train",
       "status": "accepted"
@@ -596,7 +600,9 @@
       "r_random": 1.107195907181881,
       "r_robust": null,
       "r_solve": 72.36417699138995,
+      "random_score": 0.006540400700541908,
       "skill_stratum": "inertia_hysteresis",
+      "solve_score": 0.3626079853260623,
       "source_sha256": "b6eaec39cfab38f9f9b472933c427e15e09290b6cd0135002d47784065464aa8",
       "split": "train",
       "status": "accepted"
@@ -771,7 +777,9 @@
       "r_random": 0.8212319999049669,
       "r_robust": null,
       "r_solve": 36.52940566502341,
+      "random_score": 0.004710023735308823,
       "skill_stratum": "gravity_change",
+      "solve_score": 0.1826470283251171,
       "source_sha256": "eb72a5f285f1f1be19065d1fc9410c2ee4cb0bae9cd496fb4013b8f3eb63e7df",
       "split": "train",
       "status": "accepted"
@@ -946,7 +954,9 @@
       "r_random": 0.40194692656162945,
       "r_robust": null,
       "r_solve": 64.07746545042163,
+      "random_score": 0.002910030625986792,
       "skill_stratum": "dynamic_obstacle",
+      "solve_score": 0.32038732725210817,
       "source_sha256": "f592f7bec428422f5eb423ade8625b9871d1bb6bf5438c48ba1467e390dd57a6",
       "split": "train",
       "status": "accepted"
@@ -1121,7 +1131,9 @@
       "r_random": 0.27938645190659483,
       "r_robust": null,
       "r_solve": 80.82802419183388,
+      "random_score": 0.0031055542066392833,
       "skill_stratum": "dynamic_obstacle",
+      "solve_score": 0.4041401209591694,
       "source_sha256": "d57e953224017e0392d31cd84189a880340eddbff27e1bcecab7b540445468e2",
       "split": "train",
       "status": "accepted"
@@ -1296,7 +1308,9 @@
       "r_random": 0.2870811715955767,
       "r_robust": null,
       "r_solve": 77.1524259455412,
+      "random_score": 0.0036931364335086696,
       "skill_stratum": "dynamic_obstacle",
+      "solve_score": 0.38576212972770607,
       "source_sha256": "bd423c466e30838b401b303584443796134997550e8596d8bb5e4aa8d0ca9d80",
       "split": "train",
       "status": "accepted"
@@ -1471,7 +1485,9 @@
       "r_random": 0.6728948370927241,
       "r_robust": null,
       "r_solve": 35.23333377841156,
+      "random_score": 0.00399491436889167,
       "skill_stratum": "gravity_change",
+      "solve_score": 0.17616666889205781,
       "source_sha256": "ae81748f8c17d487114708ddb842d7b498f5b2ab2193d9bba0a27cf33c189c94",
       "split": "train",
       "status": "accepted"
@@ -1646,7 +1662,9 @@
       "r_random": -0.15611780285058785,
       "r_robust": null,
       "r_solve": 35.01371349482484,
+      "random_score": 0.001091930747611002,
       "skill_stratum": "traction_loss",
+      "solve_score": 0.17506856747412422,
       "source_sha256": "c2e70601d3938576a795e8f79a140b2dc8c7c4c39f15a9b7033a62e6003d6084",
       "split": "train",
       "status": "accepted"
@@ -1821,7 +1839,9 @@
       "r_random": 0.8212319999049669,
       "r_robust": null,
       "r_solve": 36.52940566502341,
+      "random_score": 0.004710023735308823,
       "skill_stratum": "dynamic_obstacle",
+      "solve_score": 0.1826470283251171,
       "source_sha256": "059fe08d635eba85f03df47835bbae70264ce679d4b806acef36db1fa6daf0a0",
       "split": "train",
       "status": "accepted"
@@ -1996,7 +2016,9 @@
       "r_random": 0.15670563504743312,
       "r_robust": null,
       "r_solve": 147.83715820837276,
+      "random_score": 0.0028766427802364657,
       "skill_stratum": "inertia_hysteresis",
+      "solve_score": 0.7391857910418638,
       "source_sha256": "7ef6e6e678463e364e3bf56ae83dddd5f5d9284273aa9d1b6d793338cab4c130",
       "split": "train",
       "status": "accepted"
@@ -2171,7 +2193,9 @@
       "r_random": 0.9235401886500995,
       "r_robust": null,
       "r_solve": 106.39449320477445,
+      "random_score": 0.00638038102056953,
       "skill_stratum": "inertia_hysteresis",
+      "solve_score": 0.5319724660238723,
       "source_sha256": "64331a8b58fe7cf6816ce224e9fd8bb0d16973fd1263b9fd3dea5d24d6961db1",
       "split": "train",
       "status": "accepted"
@@ -2346,7 +2370,9 @@
       "r_random": 0.9427974454569039,
       "r_robust": null,
       "r_solve": 107.64918505273847,
+      "random_score": 0.006322349698679433,
       "skill_stratum": "dynamic_obstacle",
+      "solve_score": 0.5382459252636924,
       "source_sha256": "af0966412a6f335f31c069b7b77cf2ce6c86b0056ce5e02aac39af7cfccf6548",
       "split": "train",
       "status": "accepted"
@@ -2519,10 +2545,10 @@
       "class_name": "TidalBrakeVault",
       "id": "tidal_brake_vault",
       "r_random": 0.558551934272964,
-      "r_robust": 16.128375080262096,
+      "r_robust": 18.260342230965442,
       "r_solve": 31.138731332046245,
       "random_score": 0.0038585990065869284,
-      "robust_score": 0.11083443264534185,
+      "robust_score": 0.11933134118720479,
       "skill_stratum": "gravity_change",
       "solve_score": 0.15569365666023122,
       "source_sha256": "58126091802b9b70d7583c51303b1f7c61cae0d1fea007123a76018c6e690350",
@@ -2697,10 +2723,10 @@
       "class_name": "LullAndThermalScrub",
       "id": "lull_thermal_scrub",
       "r_random": 0.31491102101044816,
-      "r_robust": 18.86326592092264,
+      "r_robust": 19.640051402472817,
       "r_solve": 10.513166245934553,
       "random_score": 0.0015856863238277584,
-      "robust_score": 0.0943163296046132,
+      "robust_score": 0.0982002570123641,
       "skill_stratum": "lateral_force",
       "solve_score": 0.05256583122967277,
       "source_sha256": "b6b6319c8127ad4a3745e37ecc381f463b82ee2898a630334b42f46e8b24c10e",
@@ -2875,10 +2901,10 @@
       "class_name": "GravityWellBrine",
       "id": "gravity_well_brine",
       "r_random": 0.0021909017873554147,
-      "r_robust": 68.52500582536292,
+      "r_robust": 68.57092560792114,
       "r_solve": 22.667874707941813,
       "random_score": 0.00010694034966689967,
-      "robust_score": 0.34262502912681464,
+      "robust_score": 0.34285462803960576,
       "skill_stratum": "gravity_change",
       "solve_score": 0.11333937353970906,
       "source_sha256": "5d7552187b21aab8128daedf3dbcf3461702a51dfa8a7fac23f3cd6a5cb6ac68",
@@ -3053,10 +3079,10 @@
       "class_name": "FrictionMirageBelt",
       "id": "friction_mirage_belt",
       "r_random": 0.3509851791287019,
-      "r_robust": 69.02306407686096,
+      "r_robust": 68.84931147679973,
       "r_solve": 57.119517155236075,
       "random_score": 0.0017549258956435093,
-      "robust_score": 0.3451153203843048,
+      "robust_score": 0.3442465573839987,
       "skill_stratum": "traction_loss",
       "solve_score": 0.2855975857761804,
       "source_sha256": "3d3f204d0a87be68ca58e934f99d51998f0202d7168bd6fcb01b452781b88551",
@@ -3231,10 +3257,10 @@
       "class_name": "TideSluiceReservoir",
       "id": "tide_sluice_reservoir",
       "r_random": 0.5419725423472983,
-      "r_robust": 63.228371574111634,
+      "r_robust": 63.18727077997055,
       "r_solve": 47.509415102178856,
       "random_score": 0.0027098627117364913,
-      "robust_score": 0.3161418578705582,
+      "robust_score": 0.3159363538998528,
       "skill_stratum": "inertia_hysteresis",
       "solve_score": 0.23754707551089424,
       "source_sha256": "b3b8721ca7a45009c9ae2fc135707d47a4f424562527b334c5147ffef8c8960f",
@@ -3411,7 +3437,9 @@
       "r_random": 0.22665658201129874,
       "r_robust": null,
       "r_solve": 40.37454290164849,
+      "random_score": 0.0012522051157305327,
       "skill_stratum": "traction_loss",
+      "solve_score": 0.2018727145082424,
       "source_sha256": "73d0251d68365d3375dd929bcae375b484bb1393ef224599153ffdd91c0c21f8",
       "split": "train",
       "status": "accepted"
@@ -3586,7 +3614,9 @@
       "r_random": 0.4681111826889321,
       "r_robust": null,
       "r_solve": 53.34856518999568,
+      "random_score": 0.004232191463136672,
       "skill_stratum": "energy_mode",
+      "solve_score": 0.26674282594997845,
       "source_sha256": "d32a22760198955e48cd6bde4192cdccfb3d5738141adac72cd0391170880a68",
       "split": "train",
       "status": "accepted"
@@ -3759,10 +3789,10 @@
       "class_name": "SolarScavengerBreach",
       "id": "solar_scavenger_breach",
       "r_random": -0.2504794179811597,
-      "r_robust": 56.84602240154695,
+      "r_robust": 53.379544015941974,
       "r_solve": 11.184610332936336,
       "random_score": 0.0009240310192477636,
-      "robust_score": 0.294797673722258,
+      "robust_score": 0.2776334620276912,
       "skill_stratum": "energy_mode",
       "solve_score": 0.055923051664681686,
       "source_sha256": "4ba623e7e40c7c741405d8ba11719201bb3c41d5901343ee428311b1a260410d",
@@ -3937,10 +3967,10 @@
       "class_name": "ChargedSinkBreach",
       "id": "charged_sink_breach",
       "r_random": -0.19657260127546577,
-      "r_robust": 69.54854538776222,
+      "r_robust": 69.51402466030682,
       "r_solve": 45.40497190258916,
       "random_score": 0.0,
-      "robust_score": 0.34774272693881103,
+      "robust_score": 0.3475701233015341,
       "skill_stratum": "energy_mode",
       "solve_score": 0.22702485951294576,
       "source_sha256": "2b7e0d95abe706ab68397bbe33362c03ca0599282198be93b4942bf2908e7e4d",
@@ -4115,10 +4145,10 @@
       "class_name": "ThermalSluiceLag",
       "id": "thermal_sluice_lag",
       "r_random": -0.16984945807794247,
-      "r_robust": 64.48992430090038,
+      "r_robust": 64.45189142459249,
       "r_solve": 17.467832659142733,
       "random_score": 1.8245958197439907e-05,
-      "robust_score": 0.32244962150450196,
+      "robust_score": 0.32225945712296244,
       "skill_stratum": "inertia_hysteresis",
       "solve_score": 0.08733916329571367,
       "source_sha256": "41706c2383d496ea41abb3b08a97c5cf2b9521574d49a8944c06b5406b3b027d",
@@ -4293,10 +4323,10 @@
       "class_name": "GyreLagoon",
       "id": "gyre_lagoon",
       "r_random": -0.34150814294725934,
-      "r_robust": 65.45603684375916,
+      "r_robust": 65.46756314779932,
       "r_solve": 41.33545025051071,
       "random_score": 0.0,
-      "robust_score": 0.3272801842187959,
+      "robust_score": 0.3273378157389966,
       "skill_stratum": "inertia_hysteresis",
       "solve_score": 0.20667725125255357,
       "source_sha256": "e8665c952d0ef124047b28ec27bfade2cbc1a0175813b50bc9c3ddc28bd2a50f",
@@ -4471,10 +4501,10 @@
       "class_name": "QuakeSwellRidge",
       "id": "quake_swell_ridge",
       "r_random": -1.9899588617515973,
-      "r_robust": 39.81175887423031,
+      "r_robust": 40.99009916827399,
       "r_solve": 62.09439675940846,
       "random_score": 0.000325444463908525,
-      "robust_score": 0.2181658885680589,
+      "robust_score": 0.21977484139605533,
       "skill_stratum": "dynamic_obstacle",
       "solve_score": 0.31047198379704233,
       "source_sha256": "6d44364f86abc645e3b41347dad0153b55308d40209db43a0d8b0a8b0d065fe3",
@@ -4504,7 +4534,7 @@
         256,
         1024
       ],
-      "reference_version": "sha256:3ad52ae4cbcf39c120adad420f686fb31a21d61f97d2b3514a6dd19266301fa2",
+      "reference_version": "sha256:f903f0beb98f8e82cfd4fe4b013617d4d1d031e48947007c797439fdda9cce8b",
       "robust_max": 0.35,
       "seed_begin": 1000,
       "solve_min": null,
@@ -4538,7 +4568,7 @@
       "tau_low": 0.2
     }
   },
-  "reference_version": "sha256:3ad52ae4cbcf39c120adad420f686fb31a21d61f97d2b3514a6dd19266301fa2",
+  "reference_version": "sha256:f903f0beb98f8e82cfd4fe4b013617d4d1d031e48947007c797439fdda9cce8b",
   "schema_version": 2,
   "test_version": "sha256:03a785f19b6d66f1fe2c3210d24cd2ea93710da918838f479af6625a5d7ac957",
   "train_version": "sha256:1ed850a106b889e32ca1c14c3acc0eff20d2b65397c981c02213db44b51feda4"
