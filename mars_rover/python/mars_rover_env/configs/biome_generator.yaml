@@ -13,7 +13,7 @@ generation:
   count: 12
   split: "train"  # train or test
   compiler: "g++"
-  behavioral_dedup_epsilon: 0.035
+  behavioral_dedup_epsilon: 0.090
   system_prompt: |
     You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
     Return exactly one class derived publicly from Biome. `final` is optional. The class
@@ -65,6 +65,25 @@ generation:
       Martian orange. Give different biomes coherent but varied skies and illumination. Solar charging
       must be physically consistent with light: when screen_brightness is low, solar_charge_rate should
       also be reduced strongly; near-total darkness should provide almost no solar charge per second.
+
+    THE DECISIVE REQUIREMENT — the mechanic must be UNIDENTIFIABLE BY LOOKING, and
+    surviving it must require a DIFFERENT policy, not a more careful version of the same one.
+    A previous bank failed the benchmark because one universal "drive forward carefully"
+    policy scored at the ceiling on every biome without ever telling them apart; a rover
+    with memory then had nothing to gain. Your candidate is only useful if an agent that
+    has NOT yet identified it performs badly, and the same agent performs well once it has.
+    Concretely:
+    - Do not let the physics be read off the observation. Prefer low lidar_range_mul
+      (0.15-0.5) and/or high lidar_energy_mul (2-6) and low screen_brightness (0.05-0.35),
+      so the danger has to be INFERRED from what happened, not seen ahead.
+    - Make the wrong strategy actively destructive, not merely slow: a policy tuned for a
+      different mechanic should flip, stall, overheat or drain its battery here. A biome
+      that merely slows everyone down is worthless — it ranks all agents the same.
+    - Make the right strategy specific and discoverable within a few hundred steps, so that
+      one episode of probing is enough to find it and the remaining episodes can exploit it.
+    - Push far away from every existing implementation in PHYSICAL SIGNATURE, not in
+      flavour text: candidates whose behavioural fingerprint sits within 0.090 of an
+      existing biome are rejected automatically.
 
     VARIATION GOAL: maximize qualitative diversity. Change sampled parameters (including gravity,
     wind, thermal and

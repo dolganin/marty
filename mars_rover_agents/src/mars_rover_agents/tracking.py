@@ -10,29 +10,46 @@ from typing import Any
 
 
 DEFAULT_TRACKING_URI = "http://swagstation.netcraze.pro:4249"
-DEFAULT_EXPERIMENT = "Marty/mars_rover_agents"
+# Experiment 12 ("Marty/mars_rover_agents") was created while the server's
+# default artifact root was a schemeless local path, so its artifact_location is
+# baked to /mlruns/artifacts/12 and every GIF "uploaded" there silently stayed on
+# the client's disk. MLflow never rewrites artifact_location for an existing
+# experiment, so the only fix is a new one, created after the server gained
+# --serve-artifacts.
+DEFAULT_EXPERIMENT = "mars-rover-meta-rl"
 
 
 def artifact_exists(tracking_uri: str, run_id: str, remote_path: str) -> bool:
-    """Confirm a logged artifact actually landed in the tracking server's store.
+    """Confirm an artifact actually landed in the TRACKING SERVER's store.
 
-    ``mlflow.log_artifact`` resolves the experiment's ``artifact_location`` on
-    the *client's own filesystem* whenever that location is a bare local path
-    (no ``mlflow-artifacts:``/``s3:``/... scheme). If the server was started
-    without artifact proxying and the client isn't on a filesystem shared with
-    the server, the upload silently no-ops onto local disk and the run shows
-    an empty artifact tree in the UI. Callers use this to avoid deleting the
-    only copy of a local file when that has happened.
+    This asks the server over REST instead of going through MlflowClient. The
+    client resolves a schemeless ``artifact_location`` against its OWN filesystem,
+    so ``list_artifacts`` happily confirms a file that only exists locally and the
+    server has never seen — which is exactly the failure this guard exists to
+    catch. It previously returned True for an upload the server could not list,
+    which would have authorised deleting the only copy.
+
+    Returns False on any error: callers use this to decide whether it is safe to
+    delete a local file, so uncertainty must never read as "safe".
     """
-    import mlflow
+    import json
+    import urllib.parse
+    import urllib.request
 
-    client = mlflow.MlflowClient(tracking_uri=tracking_uri)
     directory = remote_path.rsplit("/", 1)[0] if "/" in remote_path else ""
+    query = urllib.parse.urlencode(
+        {"run_id": run_id, **({"path": directory} if directory else {})}
+    )
+    url = f"{tracking_uri.rstrip('/')}/api/2.0/mlflow/artifacts/list?{query}"
     try:
-        entries = client.list_artifacts(run_id, path=directory or None)
+        with urllib.request.urlopen(url, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
     except Exception:
         return False
-    return any(entry.path == remote_path and not entry.is_dir for entry in entries)
+    return any(
+        entry.get("path") == remote_path and not entry.get("is_dir", False)
+        for entry in payload.get("files", [])
+    )
 
 
 def flatten_params(values: dict[str, Any], prefix: str = "") -> dict[str, str]:
