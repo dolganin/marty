@@ -78,9 +78,23 @@ def _catalog_for_split(split: Split) -> list[dict[str, Any]]:
 
 
 def _normalization_bounds(manifest: dict[str, Any]) -> dict[str, tuple[float, float]]:
+    """Per-biome (floor, ceiling) used to put every mechanic on one scale.
+
+    The ceiling is the privileged ORACLE, not the memoryless robust reference. Once the
+    bank was made to require adaptation, robust stopped clearing random on the very biomes
+    that force it (r_robust -0.56 vs r_random -0.35 on momentum_draft_locks), so a
+    robust-based band inverted its own sign there and was undefined on 2 of 9 test biomes.
+    The oracle represents what is achievable once the mechanic is known, which is exactly
+    the ceiling an adaptive agent should be measured against, and it is well-defined on all
+    of them. Robust remains recorded in the manifest as a reference point, but it no longer
+    sets the scale.
+    """
     result: dict[str, tuple[float, float]] = {}
     for item in manifest.get("biomes", []):
-        low, high = item.get("r_random"), item.get("r_robust")
+        low = item.get("r_random")
+        high = item.get("r_solve")
+        if high is None:
+            high = item.get("r_robust")
         if low is not None and high is not None and float(high) > float(low) + 1.0e-8:
             result[str(item["id"])] = (float(low), float(high))
     for biome_id, item in manifest.get("anchor_references", {}).get("items", {}).items():

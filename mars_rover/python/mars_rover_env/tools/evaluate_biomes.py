@@ -326,16 +326,34 @@ def gate_bank(args: argparse.Namespace) -> None:
             )
             item["r_robust"] = robust_result.mean_return
             item["robust_score"] = robust_result.mean_score
+            # Solvability is established by the privileged oracle, NOT by the memoryless
+            # reference. Requiring robust >> random (the old rule) demanded that a policy
+            # which cannot identify the mechanic still succeed — the exact property this
+            # benchmark exists to deny. It rejected biomes where the oracle scored 33-47
+            # while robust scored below zero (precisely the ones that force adaptation)
+            # and admitted biomes where robust outscored the oracle.
+            solve_result = evaluate_policy(
+                biome_index,
+                lambda _seed: privileged_gate_oracle_policy,
+                seeds,
+                args.max_steps,
+                args.config,
+                _privileged_gate_oracle=True,
+            )
+            item["r_solve"] = solve_result.mean_return
+            item["solve_score"] = solve_result.mean_score
             accepted = (
                 random_result.mean_score < args.tau_low
+                and solve_result.mean_score > args.solve_min
                 and robust_result.mean_score < args.robust_max
-                and robust_result.mean_return
+                and solve_result.mean_return
                 > random_result.mean_return + args.min_reference_gap
             )
         item["status"] = "accepted" if accepted else "rejected_difficulty"
         print(item["id"], item["status"], json.dumps({
             "random": asdict(random_result),
-            "solve_or_robust": asdict(solve_result if args.split == "train" else robust_result),
+            "solve_or_robust": asdict(solve_result),
+            "robust": asdict(robust_result) if args.split == "test" else None,
         }, sort_keys=True))
         if not accepted:
             failed.append(str(item["id"]))
@@ -371,7 +389,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--tau-low", "--random-max", dest="tau_low", type=float, default=0.20)
     parser.add_argument("--solve-min", type=float, default=0.05)
-    parser.add_argument("--robust-max", type=float, default=0.85)
+    # A test biome is only useful if the MEMORYLESS reference fails on it. 0.85 was a
+    # "not trivially solved" bound back when robust was also the solvability proxy; now
+    # that the oracle proves solvability, this is the real selection pressure.
+    parser.add_argument("--robust-max", type=float, default=0.35)
     parser.add_argument("--min-reference-gap", type=float, default=1.0)
     return parser
 

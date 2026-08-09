@@ -121,12 +121,16 @@ def audit(manifest_path: Path, require_reference: bool, require_test_gate: bool)
         ]
         if rejected:
             raise RuntimeError("Test gate is incomplete for: " + ", ".join(rejected))
+        # The normalisation ceiling is the oracle (see harness._normalization_bounds):
+        # on a bank that requires adaptation, robust legitimately fails some biomes and
+        # cannot define a scale there.
         invalid_bands = [
             item["id"]
             for item in test
-            if not math.isfinite(float(item["r_random"]))
-            or not math.isfinite(float(item["r_robust"]))
-            or float(item["r_robust"]) <= float(item["r_random"])
+            if item.get("r_solve") is None
+            or not math.isfinite(float(item["r_random"]))
+            or not math.isfinite(float(item["r_solve"]))
+            or float(item["r_solve"]) <= float(item["r_random"])
         ]
         if invalid_bands:
             raise RuntimeError(
