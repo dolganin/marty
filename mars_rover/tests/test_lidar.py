@@ -6,7 +6,7 @@ from _mars_rover_cpp import EnvConfig, MarsRoverBatchEnv
 
 def test_lidar_spends_energy_and_reveals_forward_observation() -> None:
     config = EnvConfig()
-    config.biome_split = 2
+    config.fixed_biome_id = 0  # Stable Normal anchor; isolate the lidar system.
     config.physics.initial_energy = 50.0
     config.physics.energy_capacity = 50.0
     config.physics.lidar_energy_cost = 2.0

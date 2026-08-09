@@ -2,12 +2,16 @@
 
 #include <cstdint>
 #include <random>
+#include <string_view>
 
 #include "mars/observation.hpp"
 #include "mars/physics.hpp"
 #include "mars/reward.hpp"
 
 namespace mars {
+
+inline constexpr std::string_view kEnvironmentVersion =
+    "mars-env-v4-disjoint-train-test-anchor-splits";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -16,7 +20,8 @@ struct EnvConfig {
   TerminationConfig termination{};
   RoverRig rig = RoverRig::default_two_wheel();
   int episodes_per_trial = 4;
-  int biome_split = 1;  // 0: all generated, 1: train, 2: test; built-ins are always available.
+  // 0: all biomes (debug), 1: train only, 2: test only, 3: anchors only.
+  int biome_split = 1;
   int fixed_biome_id = -1;  // >= 0 selects one registry entry for deterministic debugging.
   bool debug = false;
 };
@@ -46,7 +51,8 @@ class Env {
   int action_dim() const { return 4096; }
 
  private:
-  void generate_mechanic_layout(uint64_t seed);
+  void select_mechanic_layout(uint64_t seed);
+  void finalize_mechanic_layout();
   bool is_flipped() const;
   bool is_stuck() const;
 
@@ -61,6 +67,7 @@ class Env {
   uint64_t trial_mechanic_seed_ = 0;
   bool has_trial_mechanic_seed_ = false;
   int stuck_counter_ = 0;
+  float pending_basin_depth_ = -1.0f;
 };
 
 }  // namespace mars

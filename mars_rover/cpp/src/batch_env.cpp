@@ -20,7 +20,7 @@ void BatchEnv::reset_all(uint64_t seed, float* obs_out) {
   const int n = num_envs();
   const int observation_dim = obs_dim();
 #if defined(MARS_ROVER_HAS_OPENMP)
-#pragma omp parallel for schedule(static) if (n >= 512)
+#pragma omp parallel for schedule(static) if (n >= 64)
 #endif
   for (int i = 0; i < n; ++i) {
     envs_[static_cast<size_t>(i)].reset(seed + static_cast<uint64_t>(i) * 9973ULL, true,
@@ -37,7 +37,7 @@ void BatchEnv::step_batch(const int* actions, float* obs_out, float* rewards_out
   const int n = num_envs();
   const int observation_dim = obs_dim();
 #if defined(MARS_ROVER_HAS_OPENMP)
-#pragma omp parallel for schedule(static) if (n >= 512)
+#pragma omp parallel for schedule(static) if (n >= 64)
 #endif
   for (int i = 0; i < n; ++i) {
     const auto out =

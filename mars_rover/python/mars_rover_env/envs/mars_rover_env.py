@@ -14,6 +14,10 @@ from mars_rover_env.config import load_env_config
 
 
 class MarsRoverEnv(gym.Env):
+    BIOME_MODE_ALL = 0
+    BIOME_MODE_TRAIN = 1
+    BIOME_MODE_TEST = 2
+    BIOME_MODE_ANCHOR = 3
     metadata = {"render_modes": [None, "rgb_array", "debug_rgb_array"], "render_fps": 60}
 
     def __init__(
@@ -57,7 +61,11 @@ class MarsRoverEnv(gym.Env):
             trial_start = bool(options["trial_start"])
         else:
             trial_start = self._next_trial_start
-        seed_value = 0 if seed is None else int(seed)
+        seed_value = (
+            int(self.np_random.integers(0, np.iinfo(np.uint32).max, dtype=np.uint32))
+            if seed is None
+            else int(seed)
+        )
         self._batch.reset_at(0, seed_value, trial_start, self._obs[0])
         if trial_start:
             self._episodes_seen_in_trial = 1

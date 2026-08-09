@@ -31,6 +31,15 @@ struct MechanicParams {
   float solar_charge_rate = 1.0f;
   float lidar_energy_mul = 1.0f;
   float lidar_range_mul = 1.0f;
+  // Terrain noise-law knobs: a biome may reshape the actual obstacle geometry for
+  // the episode, not just the physics coefficients applied on top of it. Defaults
+  // of 1.0 reproduce the fixed baseline terrain law exactly (backward compatible
+  // with every biome that does not set these). Env clamps these to a safe range
+  // so a biome can never generate literally unsolvable terrain.
+  float terrain_amplitude_mul = 1.0f;
+  float terrain_roughness_mul = 1.0f;
+  float terrain_crater_mul = 1.0f;
+  float terrain_step_mul = 1.0f;
 };
 
 constexpr int kMaxMechanicZones = 96;

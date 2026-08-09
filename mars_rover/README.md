@@ -136,6 +136,40 @@ The local configuration is ignored by Git. The player prints the compiled biome 
 opening the window. Re-run the setup command after generation so the native extension includes the
 new bank.
 
+The benchmark bank is split and frozen by construction:
+
+- `train` and held-out `test` generation each enforce the six skill strata and deterministic
+  behavioral fingerprint deduplication. Every environment slot samples one biome for the complete
+  episode; test is held out, while train sampling intentionally includes the common anchors used
+  for equating. Anchor-only evaluation remains a separate mode.
+- Run the train difficulty gate before training the reference policy:
+
+  ```bash
+  .venv/bin/mars-rover-gate-biomes --split train --solve-min 0.05
+  .venv/bin/mars-rover-audit-bank
+  ```
+
+- `mars-rover-train-robust-ppo` refuses to run without CUDA. It uses the native batched C++ env
+  (`--num-envs 256` by default) and trains only on frozen train + common anchors, never on test. It
+  never falls back to CPU. `mars-rover-train-robust-ppo --preflight` constructs the exact model and
+  executes one CUDA batch without calling `learn()` or writing an artifact. Actual runs checkpoint
+  every 250k transitions; `--resume` accepts only a checkpoint whose immutable run specification,
+  train hash, environment version, config hash, seed and hyperparameters still match.
+- After freezing that artifact, run the test gate with `--robust-model`; its model hash,
+  `train_version`, environment contract, and train/test provenance are checked before any rollout.
+  Rejected items can be removed with `mars-rover-generate-biomes --prune-rejected` and replaced in
+  their missing strata. `mars-rover-audit-bank --require-reference --require-test-gate` is the final
+  scoring preflight. Evaluate the same agents on
+  anchors with `mars-rover-anchor-eval`, and fit the common-item transform with
+  `mars-rover-equate-banks`. `mars-rover-score-bank` then evaluates random, scripted, PPO, or an
+  imported `module:function` policy on every test item, applies the stored random/robust
+  normalization and writes the score JSON. Callable policies are instantiated once per trial and
+  retain recurrent state across its four episodes, so RL² adaptation is measured rather than reset
+  away. For 2-3 regenerated banks, pass those files to
+  `mars-rover-ranking-stability`. Before replacing a bank,
+  `mars-rover-snapshot-bank` archives the exact C++ header, manifest state and environment config
+  under its full hash; rerunning it verifies immutability instead of overwriting the snapshot.
+
 ## VS Code debugging
 
 Open the repository root in VS Code, install the Python and C/C++ extensions, and run the

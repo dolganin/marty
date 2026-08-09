@@ -47,6 +47,8 @@ constexpr int kDebugGearCount = 8;
 }  // namespace
 
 PYBIND11_MODULE(_mars_rover_cpp, m) {
+  m.def("biome_bank_version", [] { return std::string(mars::kBiomeBankVersion); });
+  m.def("environment_version", [] { return std::string(mars::kEnvironmentVersion); });
   py::enum_<mars::CollisionType>(m, "CollisionType")
       .value("None_", mars::CollisionType::None)
       .value("Box", mars::CollisionType::Box)
@@ -339,6 +341,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       item["index"] = i;
       item["id"] = std::string(biome.id());
       item["name"] = std::string(biome.display_name());
+      item["skill_stratum"] = std::string(biome.skill_stratum());
+      item["is_anchor"] = biome.is_anchor();
       item["split"] = static_cast<int>(biome.split());
       item["visual_type"] = static_cast<int>(biome.visual_type());
       const auto params = biome.sample_params(0x4d415253ULL);

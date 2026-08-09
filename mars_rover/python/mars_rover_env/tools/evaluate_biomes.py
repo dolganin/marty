@@ -1,0 +1,384 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Callable
+
+import numpy as np
+
+from mars_rover_env import MarsRoverEnv
+from mars_rover_env.actions import ACTION_MACROS
+from mars_rover_env.config import DEFAULT_ENV_CONFIG
+from mars_rover_env.bank import (
+    DEFAULT_MANIFEST,
+    load_manifest,
+    require_compiled_bank,
+    write_json,
+)
+
+
+Policy = Callable[[np.ndarray, dict, int], int]
+GATE_PROTOCOL_VERSION = "rollout-v2-public-macro-random"
+
+
+def policy_provenance(
+    policy_name: str,
+    *,
+    model_path: str | Path | None = None,
+    callable_module=None,
+    callable_target: str | None = None,
+) -> dict:
+    if policy_name == "random":
+        return {
+            "kind": "random",
+            "numpy_version": np.__version__,
+            "action_macros": list(ACTION_MACROS),
+        }
+    if policy_name == "scripted":
+        source = Path(__file__).read_bytes()
+        return {"kind": "scripted", "source_sha256": hashlib.sha256(source).hexdigest()}
+    if policy_name == "ppo":
+        if model_path is None:
+            raise ValueError("PPO provenance requires a model path")
+        path = Path(model_path)
+        archive = path if path.suffix == ".zip" else path.with_suffix(".zip")
+        if not archive.is_file():
+            raise FileNotFoundError(archive)
+        return {
+            "kind": "ppo",
+            "model_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+        }
+    if callable_module is None or callable_target is None:
+        raise ValueError("Callable provenance requires its imported module")
+    module_path = Path(callable_module.__file__)
+    return {
+        "kind": "callable",
+        "target": callable_target,
+        "module_sha256": hashlib.sha256(module_path.read_bytes()).hexdigest(),
+    }
+
+
+@dataclass
+class RolloutSummary:
+    mean_return: float
+    std_return: float
+    mean_score: float
+    success_rate: float
+    episodes: int
+    trials: int
+
+
+def random_policy(rng: np.random.Generator) -> Policy:
+    def act(_obs: np.ndarray, _debug: dict, _step: int) -> int:
+        return int(ACTION_MACROS[rng.integers(0, len(ACTION_MACROS))])
+
+    return act
+
+
+def privileged_gate_oracle_policy(_obs: np.ndarray, debug: dict, step: int) -> int:
+    """Internal solvability oracle; never exposed as a comparable baseline."""
+    if not debug.get("engine_running"):
+        return 1 << 9
+    gear = debug.get("gear", "N")
+    if gear == "N" or (isinstance(gear, (int, float)) and gear <= 0):
+        return (1 << 3) | (1 << 6)
+    if debug.get("should_shift_down") and debug.get("shift_cooldown", 0.0) <= 0.0:
+        return (1 << 3) | (1 << 7)
+    if debug.get("upshift_recommended") and debug.get("shift_cooldown", 0.0) <= 0.0:
+        return (1 << 3) | (1 << 6)
+    action = 1
+    if abs(float(debug.get("angle", 0.0))) > 0.35:
+        action |= 1 << (5 if debug["angle"] > 0 else 4)
+    if step % 240 == 0:
+        action |= 1 << 11
+    return action
+
+
+def model_policy(model_path: str | Path) -> Policy:
+    try:
+        from stable_baselines3 import PPO
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError("Install the benchmark extra to evaluate robust-PPO") from exc
+    model_path = Path(model_path)
+    action_macros = None
+    artifact = model_path.parent / "artifact.json"
+    if artifact.is_file():
+        artifact_data = json.loads(artifact.read_text(encoding="utf-8"))
+        archive_path = (
+            model_path if model_path.suffix == ".zip" else model_path.with_suffix(".zip")
+        )
+        expected_hash = artifact_data.get("model_sha256")
+        if expected_hash is not None:
+            if not archive_path.is_file():
+                raise RuntimeError(f"Model archive is missing: {archive_path}")
+            actual_hash = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+            if actual_hash != expected_hash:
+                raise RuntimeError("Model archive hash does not match artifact metadata")
+        action_macros = artifact_data.get("action_macros")
+        environment_version = artifact_data.get("environment_version")
+        if environment_version is not None:
+            import _mars_rover_cpp as native
+
+            if environment_version != native.environment_version():
+                raise RuntimeError("Model artifact targets a different environment version")
+    model = PPO.load(str(model_path))
+
+    def act(obs: np.ndarray, _debug: dict, _step: int) -> int:
+        action, _ = model.predict(obs, deterministic=True)
+        action = int(action)
+        return int(action_macros[action]) if action_macros is not None else action
+
+    return act
+
+
+def evaluate_policy(
+    biome_id: int,
+    policy_factory: Callable[[int], Policy],
+    seeds: list[int],
+    max_steps: int,
+    config_path: str | None = None,
+    *,
+    _privileged_gate_oracle: bool = False,
+) -> RolloutSummary:
+    returns: list[float] = []
+    scores: list[float] = []
+    successes = 0
+    for seed in seeds:
+        env = MarsRoverEnv(
+            config_path=config_path,
+            biome_split=MarsRoverEnv.BIOME_MODE_ALL,
+            fixed_biome_id=biome_id,
+        )
+        obs, _ = env.reset(seed=seed, options={"trial_start": True})
+        policy = policy_factory(seed)
+        episode_return = 0.0
+        terminated = truncated = False
+        for step in range(max_steps):
+            evaluator_state = env.debug_info() if _privileged_gate_oracle else {}
+            action = policy(obs, evaluator_state, step)
+            obs, reward, terminated, truncated, _ = env.step(action)
+            episode_return += reward
+            if terminated or truncated:
+                break
+        debug = env.debug_info()
+        success = float(debug.get("x", 0.0)) >= float(env._config.termination.finish_x)
+        successes += int(success)
+        scale = max(
+            1.0,
+            float(env._config.termination.finish_x) + float(env._config.reward.finish_bonus),
+        )
+        returns.append(episode_return)
+        scores.append(float(np.clip(episode_return / scale, 0.0, 1.0)))
+        env.close()
+    return RolloutSummary(
+        mean_return=float(np.mean(returns)),
+        std_return=float(np.std(returns)),
+        mean_score=float(np.mean(scores)),
+        success_rate=successes / len(seeds),
+        episodes=len(seeds),
+        trials=len(seeds),
+    )
+
+
+def evaluate_adaptive_policy(
+    biome_id: int,
+    policy_factory: Callable[[int], Policy],
+    trial_seeds: list[int],
+    episodes_per_trial: int,
+    max_steps: int,
+    config_path: str | None = None,
+) -> RolloutSummary:
+    """Evaluate full trials while preserving policy and hidden biome state across episodes."""
+    if episodes_per_trial < 1:
+        raise ValueError("episodes_per_trial must be positive")
+    returns: list[float] = []
+    scores: list[float] = []
+    successes = 0
+    for trial_seed in trial_seeds:
+        env = MarsRoverEnv(
+            config_path=config_path,
+            biome_split=MarsRoverEnv.BIOME_MODE_ALL,
+            fixed_biome_id=biome_id,
+        )
+        policy = policy_factory(trial_seed)
+        for episode in range(episodes_per_trial):
+            episode_seed = trial_seed + episode * 1_000_003
+            obs, _ = env.reset(
+                seed=episode_seed,
+                options={"trial_start": episode == 0},
+            )
+            episode_return = 0.0
+            for step in range(max_steps):
+                action = policy(obs, {}, step)
+                obs, reward, terminated, truncated, _ = env.step(action)
+                episode_return += reward
+                if terminated or truncated:
+                    break
+            debug = env.debug_info()
+            success = float(debug.get("x", 0.0)) >= float(env._config.termination.finish_x)
+            successes += int(success)
+            scale = max(
+                1.0,
+                float(env._config.termination.finish_x)
+                + float(env._config.reward.finish_bonus),
+            )
+            returns.append(episode_return)
+            scores.append(float(np.clip(episode_return / scale, 0.0, 1.0)))
+        env.close()
+    return RolloutSummary(
+        mean_return=float(np.mean(returns)),
+        std_return=float(np.std(returns)),
+        mean_score=float(np.mean(scores)),
+        success_rate=successes / len(returns),
+        episodes=len(returns),
+        trials=len(trial_seeds),
+    )
+
+
+def _catalog_by_id() -> dict[str, dict]:
+    import _mars_rover_cpp as native
+
+    return {str(item["id"]): dict(item) for item in native.biome_catalog()}
+
+
+def gate_bank(args: argparse.Namespace) -> None:
+    manifest = load_manifest(args.manifest)
+    require_compiled_bank(manifest)
+    gate_config_path = Path(args.config) if args.config else DEFAULT_ENV_CONFIG
+    gate_config_sha256 = hashlib.sha256(gate_config_path.read_bytes()).hexdigest()
+    catalog = _catalog_by_id()
+    seeds = list(range(args.seed, args.seed + args.episodes))
+    model_factory = None
+    if args.split == "test":
+        if not args.robust_model:
+            raise SystemExit("--robust-model is required for the test difficulty gate")
+        model_path = Path(args.robust_model)
+        archive_path = model_path if model_path.suffix == ".zip" else model_path.with_suffix(".zip")
+        if not archive_path.is_file():
+            raise SystemExit(f"Missing frozen robust-PPO model: {archive_path}")
+        artifact_path = model_path.parent / "artifact.json"
+        if not artifact_path.is_file():
+            raise SystemExit(f"Missing frozen robust-PPO metadata: {artifact_path}")
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        if artifact.get("artifact_type") != "robust_ppo":
+            raise SystemExit("Test gate requires a versioned robust_ppo artifact")
+        model_sha256 = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+        if artifact.get("model_sha256") != model_sha256:
+            raise SystemExit("Robust-PPO model hash does not match artifact metadata")
+        if artifact.get("reference_version") != "sha256:" + model_sha256:
+            raise SystemExit("Robust-PPO reference_version does not match its model hash")
+        if artifact.get("train_version") != manifest.get("train_version"):
+            raise SystemExit("Robust-PPO was trained against a different train_version")
+        if (
+            set(artifact.get("trained_splits", [])) != {"train"}
+            or not {"anchor", "test"}.issubset(set(artifact.get("excluded_splits", [])))
+        ):
+            raise SystemExit("Robust-PPO metadata does not prove train-only training")
+        if artifact.get("reference_version") != manifest.get("reference_version"):
+            raise SystemExit("Manifest and robust-PPO reference_version disagree")
+        import _mars_rover_cpp as native
+
+        if artifact.get("environment_version") != native.environment_version():
+            raise SystemExit("Robust-PPO was trained with a different environment version")
+        if artifact.get("config_sha256") != gate_config_sha256:
+            raise SystemExit("Robust-PPO was trained with a different environment config")
+        robust = model_policy(args.robust_model)
+        model_factory = lambda _seed: robust
+    failed: list[str] = []
+    for item in manifest.get("biomes", []):
+        if item.get("split") != args.split:
+            continue
+        biome = catalog.get(str(item["id"]))
+        if not biome:
+            raise SystemExit(f"Biome {item['id']!r} is not present in the compiled native catalog")
+        biome_index = int(biome["index"])
+        random_result = evaluate_policy(
+            biome_index,
+            lambda seed: random_policy(np.random.default_rng(seed)),
+            seeds,
+            args.max_steps,
+            args.config,
+        )
+        item["r_random"] = random_result.mean_return
+        item["random_score"] = random_result.mean_score
+        if args.split == "train":
+            solve_result = evaluate_policy(
+                biome_index,
+                lambda _seed: privileged_gate_oracle_policy,
+                seeds,
+                args.max_steps,
+                args.config,
+                _privileged_gate_oracle=True,
+            )
+            item["r_solve"] = solve_result.mean_return
+            item["solve_score"] = solve_result.mean_score
+            accepted = (
+                random_result.mean_score < args.tau_low
+                and solve_result.mean_score > args.solve_min
+            )
+        else:
+            assert model_factory is not None
+            robust_result = evaluate_policy(
+                biome_index, model_factory, seeds, args.max_steps, args.config
+            )
+            item["r_robust"] = robust_result.mean_return
+            item["robust_score"] = robust_result.mean_score
+            accepted = (
+                random_result.mean_score < args.tau_low
+                and robust_result.mean_score < args.robust_max
+                and robust_result.mean_return
+                > random_result.mean_return + args.min_reference_gap
+            )
+        item["status"] = "accepted" if accepted else "rejected_difficulty"
+        print(item["id"], item["status"], json.dumps({
+            "random": asdict(random_result),
+            "solve_or_robust": asdict(solve_result if args.split == "train" else robust_result),
+        }, sort_keys=True))
+        if not accepted:
+            failed.append(str(item["id"]))
+    manifest.setdefault("difficulty_gates", {})[args.split] = {
+        "protocol_version": GATE_PROTOCOL_VERSION,
+        "episodes": args.episodes,
+        "max_steps": args.max_steps,
+        "seed_begin": args.seed,
+        "tau_low": args.tau_low,
+        "solve_min": args.solve_min if args.split == "train" else None,
+        "robust_max": args.robust_max if args.split == "test" else None,
+        "min_reference_gap": args.min_reference_gap if args.split == "test" else None,
+        "reference_version": (
+            manifest.get("reference_version") if args.split == "test" else None
+        ),
+        "environment_version": __import__("_mars_rover_cpp").environment_version(),
+        "config_sha256": gate_config_sha256,
+        "random_action_macros": list(ACTION_MACROS),
+    }
+    write_json(args.manifest, manifest)
+    if failed:
+        raise SystemExit("Difficulty gate rejected: " + ", ".join(failed))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Rollout difficulty gates for a compiled biome bank")
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--split", choices=("train", "test"), required=True)
+    parser.add_argument("--config")
+    parser.add_argument("--robust-model")
+    parser.add_argument("--episodes", type=int, default=20)
+    parser.add_argument("--max-steps", type=int, default=3000)
+    parser.add_argument("--seed", type=int, default=1000)
+    parser.add_argument("--tau-low", "--random-max", dest="tau_low", type=float, default=0.20)
+    parser.add_argument("--solve-min", type=float, default=0.05)
+    parser.add_argument("--robust-max", type=float, default=0.85)
+    parser.add_argument("--min-reference-gap", type=float, default=1.0)
+    return parser
+
+
+def main() -> None:
+    gate_bank(build_parser().parse_args())
+
+
+if __name__ == "__main__":
+    main()

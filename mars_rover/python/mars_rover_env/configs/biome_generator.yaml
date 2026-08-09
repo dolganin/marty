@@ -7,11 +7,13 @@ openai:
   token: ""
   timeout_seconds: 180
   max_output_tokens: 5000
+  temperature: 0.9
 
 generation:
   count: 12
   split: "train"  # train or test
   compiler: "g++"
+  behavioral_dedup_epsilon: 0.035
   system_prompt: |
     You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
     Return exactly one class derived publicly from Biome. `final` is optional. The class
@@ -20,8 +22,9 @@ generation:
 
     ROVER AND TASK MODEL:
     - The rover is a rigid 2D body with two physical wheels, suspension springs/dampers, wheel/ground
-      contacts, inertia, body rotation, damage, gravity, buoyancy and terrain deformation. The goal is
-      progress toward +X across alternating zones while preserving energy and avoiding flips/stalls.
+      contacts, inertia, body rotation, damage, gravity, buoyancy and terrain deformation. One env
+      slot contains exactly one biome for the whole episode. The goal is progress toward +X while
+      preserving energy and avoiding flips/stalls.
     - Actions are bit flags and may be combined: gas, brake, reverse, clutch pedal, body tilt left/right,
       shift up/down, cycle RWD/FWD/AWD, ignition, deploy/stow solar panel, and pulse lidar.
     - The mechanical engine has RPM/inertia/drag, an idle and redline, temperature-dependent power,
@@ -30,7 +33,7 @@ generation:
       high gears lug at low RPM and consume progressively more energy. Shifts require clutch and sync.
     - The battery stores 25 energy units. Solar charging locks propulsion while the panel
       deploys/charges/stows. Ambient temperature,
-      thermal transfer and solar rate come from the biome. Liquid zones create basins and apply
+      thermal transfer and solar rate come from the biome. Liquid biomes create basins and apply
       immersion, drag, buoyancy and enhanced thermal transfer.
     - Lidar is an explicit costly action. A successful pulse spends base energy times lidar_energy_mul,
       has a cooldown, remains active briefly, and reveals otherwise-hidden forward height, slope,
@@ -43,6 +46,16 @@ generation:
     - sample_params controls friction_mul, sink_rate, viscosity, wind_force, gravity_mul,
       energy_drain_mul, crust_deform, ambient_temperature, thermal_transfer, solar_charge_rate,
       lidar_energy_mul and lidar_range_mul. Gravity and wind apply to every visual type.
+    - sample_params ALSO controls the terrain noise law itself, not just physics coefficients
+      layered on top of a fixed course: terrain_amplitude_mul scales height-field amplitude,
+      terrain_roughness_mul scales the sharpness of random bumps, terrain_crater_mul scales
+      crater density, and terrain_step_mul scales cliff/step density. All default to 1.0 (the
+      baseline course) and are clamped by the engine to [0.5, 3.0] / [0.5, 2.5] / [0.3, 3.0] /
+      [0.3, 3.0] respectively, so you cannot make a course literally unsolvable — use this
+      headroom deliberately. A biome that only rescales friction on an identical obstacle course
+      is a weak candidate; prefer reshaping the actual geometry (rougher/craterier/steppier or
+      calmer/smoother, whichever fits the mechanic) together with the physics coefficients so a
+      generic policy trained elsewhere cannot coast through on muscle memory of the same terrain.
     - friction_scale and apply_effects control tyre traction, slip, penetration, wheel forces and
       energy. apply_body_effects may add arbitrary finite body force, torque and energy cost based on
       velocity, angular velocity, mass, gravity, dt and step index.
@@ -65,12 +78,15 @@ generation:
     The visual type controls terrain topology (for example Liquid creates basins), but visual colors
     and particles are independent and must not uniquely reveal the hidden implementation.
     Produce a unique snake_case id and a concise display name. Override split() with the requested
-    BiomeSplit value. Return class source only in the JSON source field, without Markdown fences.
+    BiomeSplit value. The request supplies one required skill_stratum; return it as the JSON
+    skill_stratum field and as a literal from the C++ skill_stratum() override. Return class source
+    only in the JSON source field, without Markdown fences.
     Use this minimal wrapper shape exactly; most importantly, finish the class with `};`:
       class DescriptiveName final : public Biome {
        public:
         std::string_view id() const noexcept override { return "unique_snake_case_id"; }
         std::string_view display_name() const noexcept override { return "Readable name"; }
+        std::string_view skill_stratum() const noexcept override { return "traction_loss"; }
         MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
         BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
         MechanicParams sample_params(uint64_t seed) const noexcept override {

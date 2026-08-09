@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mars-rover-agents"
+version = "0.1.0"
+description = "Public-agent baselines, evaluation harness, and MLflow training for Mars Rover"
+requires-python = ">=3.10"
+dependencies = [
+  "mars-rover-env>=0.1.0",
+  "numpy>=1.23",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+train = [
+  "stable-baselines3>=2.3",
+  "mlflow>=2.12",
+  "pillow>=10",
+]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mars-agent-eval = "mars_rover_agents.cli:main"
+mars-agent-freeze-anchors = "mars_rover_agents.calibration:main"
+mars-agent-finalize-reference = "mars_rover_agents.finalize_reference:main"
+mars-agent-finalize-rl2 = "mars_rover_agents.finalize_rl2:main"
+mars-agent-train-robust-ppo = "mars_rover_agents.train_robust_ppo:main"
+mars-agent-train-rl2 = "mars_rover_agents.train_rl2:main"
+mars-agent-adaptation-guard = "mars_rover_agents.adaptation_guard:main"
+mars-agent-memory-probe = "mars_rover_agents.memory_probe:main"
+mars-agent-episode-probe = "mars_rover_agents.episode_position_probe:main"
+mars-agent-train-single-biome = "mars_rover_agents.train_single_biome_ppo:main"
+mars-agent-collect-ad = "mars_rover_agents.algorithm_distillation:main"
+mars-agent-train-ad = "mars_rover_agents.train_algorithm_distillation:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-from mars_rover_env import MarsRoverEnv
+from mars_rover_env.tools.train_robust_ppo import main as train_robust_ppo
 
 
 def main() -> None:
-    try:
-        from stable_baselines3 import PPO
-    except ImportError as exc:
-        raise ImportError("Install stable-baselines3 to run this baseline") from exc
-
-    env = MarsRoverEnv()
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=100_000)
+    # Keep the historical entry point, but use the same frozen-bank, batched,
+    # CUDA-only implementation as the versioned reference workflow.
+    train_robust_ppo()
 
 
 if __name__ == "__main__":

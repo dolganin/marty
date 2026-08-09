@@ -6,7 +6,7 @@ from _mars_rover_cpp import EnvConfig, MarsRoverBatchEnv
 
 def _batch(config: EnvConfig, seed: int):
     # Engine regression tests target built-in thermal behavior, not an LLM bank.
-    config.biome_split = 2
+    config.fixed_biome_id = 2  # Frozen Ice anchor.
     batch = MarsRoverBatchEnv(1, config)
     obs = np.zeros((1, batch.obs_dim), dtype=np.float32)
     rewards = np.zeros(1, dtype=np.float32)

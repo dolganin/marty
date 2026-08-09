@@ -15,6 +15,9 @@ from _mars_rover_cpp import (
 )
 
 
+DEFAULT_ENV_CONFIG = Path(__file__).resolve().parent / "configs" / "env.yaml"
+
+
 def _load_mapping(path: str | Path) -> dict[str, Any]:
     path = Path(path)
     text = path.read_text()
@@ -61,6 +64,8 @@ def _apply_section(obj: Any, data: dict[str, Any], fields: tuple[str, ...]) -> N
 def load_env_config(config_path: str | Path | None = None, rig_path: str | Path | None = None) -> EnvConfig:
     cfg = EnvConfig()
 
+    if config_path is None:
+        config_path = DEFAULT_ENV_CONFIG
     if config_path is not None:
         data = _load_mapping(config_path)
         if "env" in data:
