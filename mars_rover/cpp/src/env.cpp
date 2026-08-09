@@ -157,7 +157,16 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.engine_stalled ? 1.0f : 0.0f;
   obs_out[k++] = state_.clutch_engagement;
   obs_out[k++] = state_.engine_temperature / 120.0f;
-  obs_out[k++] = state_.ambient_temperature / 100.0f;
+  // Withheld: ambient temperature comes straight from the biome's MechanicParams and ranged
+  // from -70 to +26 across the test bank, so a single scalar identified the world on step one.
+  // Measured consequence: observations from different biomes were already 0.33 apart after ONE
+  // step of identical actions and no further apart after forty — the mechanic was fully visible
+  // immediately, so a memoryless reflex policy could match anything memory could do. That is why
+  // separating biomes, hiding lidar, raising crash costs and starving the battery all failed to
+  // dislodge the memoryless ceiling. The rover still feels temperature through its consequences
+  // (engine_temperature, cold-start lockout, overheating, solar output), which is what it must
+  // now infer the world from.
+  obs_out[k++] = 0.0f;
   obs_out[k++] = state_.engine_overheated ? 1.0f : 0.0f;
   obs_out[k++] = state_.engine_cold_locked ? 1.0f : 0.0f;
   obs_out[k++] = state_.solar_panel_deployment;

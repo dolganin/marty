@@ -824,143 +824,6 @@ class GravityPendulumHollow final : public Biome {
   }
 };
 
-class ThermalSiphonReactor final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "thermal_siphon_reactor"; }
-  std::string_view display_name() const noexcept override { return "Thermal Siphon Reactor"; }
-  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip but high rolling resistance; the real challenge is thermal routing.
-    p.friction_mul = 0.60f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.001f + 0.003f * biome_random01(s, 1);
-    p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.60f + 0.40f * biome_random01(s, 2);
-    p.wind_force = 0.5f + 1.0f * biome_random01(s, 3);
-    // Hot but survivable; thermal transfer is high enough to matter.
-    p.ambient_temperature = 20.0f + 30.0f * biome_random01(s, 4);
-    p.thermal_transfer = 2.8f + 0.8f * biome_random01(s, 5);
-    // Solar is moderate but completely suppressed during thermal spikes (below).
-    p.solar_charge_rate = 0.30f + 0.15f * biome_random01(s, 6);
-    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
-    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
-    // Lidar is cheap but short-range; thermal spikes are invisible to it.
-    p.lidar_energy_mul = 0.20f + 0.10f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.30f + 0.15f * biome_random01(s, 10);
-    // Moderate terrain: rolling roughness, not extreme craters/steps.
-    p.terrain_amplitude_mul = 1.20f + 0.30f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 1.00f + 0.30f * biome_random01(s, 12);
-    p.terrain_crater_mul = 1.00f + 0.40f * biome_random01(s, 13);
-    p.terrain_step_mul = 1.00f + 0.30f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Slightly below baseline to increase rolling resistance and energy cost.
-    return p.friction_mul * 0.90f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.wheel_force && c.contact) {
-      // Moderate rolling resistance; thermal effects dominate in body.
-      *c.wheel_force += c.contact->tangent * (-0.5f * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.02f);
-    }
-    if (c.energy_cost) {
-      // Base drain plus thermal load that scales with ambient temperature.
-      float heat_load = std::max(0.0f, p.ambient_temperature) * 0.006f * p.thermal_transfer;
-      *c.energy_cost += (0.008f + heat_load + std::abs(c.wheel_speed) * 0.003f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      // Thermal siphon phase: a slow, position-dependent cycle that determines
-      // whether the ground is "charging" (cool, higher solar) or "venting" (hot,
-      // saps energy and grip). The agent must learn to push through vent phases
-      // efficiently and use charge phases to recover.
-      float phase = t * 0.005f + c.velocity.x * 0.013f;
-      float vent = 0.5f + 0.5f * std::sin(phase);
-
-      // Thermal spikes: brief, intense heat events that reduce grip and add a
-      // constant energy drain. They are invisible but follow a deterministic
-      // pattern tied to the phase. High throttle during a spike is punished
-      // with extra energy loss and instability.
-      float spike_phase = t * 0.037f + c.velocity.x * 0.08f;
-      float spike = 0.5f + 0.5f * std::sin(spike_phase);
-      spike = spike * spike * spike;  // narrow, strong peaks
-
-      // Combined thermal intensity: baseline vent plus spikes.
-      float thermal = vent * (0.6f + 0.8f * spike);
-
-      // Grip reduction: high thermal makes the crust slippery (heat-softened).
-      float grip_factor = 1.0f - 0.4f * thermal;
-
-      // Thermal buoyancy: hot air creates slight lift, reducing normal load and
-      // traction, especially during spikes.
-      float lift = 0.04f * c.mass * c.gravity * thermal;
-
-      // Lateral thermal wind: hot air pushes sideways, stronger during spikes.
-      float lateral = std::sin(spike_phase + 0.8f) * 0.03f * c.mass * (0.5f + thermal);
-
-      // Damping is lower during high thermal (less control), higher when cool.
-      float damping = 0.05f + 0.05f * (1.0f - thermal);
-
-      c.body_force->x += lateral - c.velocity.x * c.mass * damping * grip_factor;
-      c.body_force->y += lift - c.velocity.y * c.mass * (0.04f + 0.02f * thermal);
-
-      if (c.body_torque) {
-        // Thermal gradients induce rocking torque, strongest during spikes.
-        float torque = std::sin(spike_phase + 1.1f) * thermal * 0.015f * c.mass * c.gravity;
-        *c.body_torque += torque - c.angular_velocity * c.mass * 0.02f;
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float phase = t * 0.005f + speed * 0.013f;
-      float vent = 0.5f + 0.5f * std::sin(phase);
-      float spike_phase = t * 0.037f + speed * 0.08f;
-      float spike = 0.5f + 0.5f * std::sin(spike_phase);
-      spike = spike * spike * spike;
-      float thermal = vent * (0.6f + 0.8f * spike);
-
-      // Energy drain scales with thermal intensity and speed. High throttle
-      // during spikes is punished double. Steady, moderate speed through vent
-      // phases is efficient.
-      float thermal_drain = thermal * 0.020f * p.thermal_transfer;
-      float speed_drain = speed * 0.002f * (1.0f + thermal);
-      *c.energy_cost += (0.005f + thermal_drain + speed_drain) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Dark, heat-stressed rock with glowing veins — suggests thermal activity
-    // but not the siphon/spike pattern.
-    v.ground = {88, 44, 28};
-    v.particles = {255, 140, 40};
-    v.liquid = {40, 20, 12};
-    v.sky = {160, 80, 30};
-    v.particle_rate = 8.0f;
-    v.particle_lift = 1.2f;
-    v.particle_spread = 1.0f;
-    v.base_particles = 2;
-    v.max_particles = 30;
-    v.particle_size = 2;
-    v.ambient_particles = 12;
-    v.ambient_drift = 1.5f;
-    v.screen_brightness = 0.20f;  // dark: lidar is cheap but the thermal pattern is hidden
-    v.liquid_surface = false;
-    return v;
-  }
-};
-
 class AvalancheProbe final : public Biome {
  public:
   std::string_view id() const noexcept override { return "avalanche_probe"; }
@@ -1924,144 +1787,6 @@ class FlywheelBrakeLag final : public Biome {
   }
 };
 
-class ThermalBatteryCascade final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "thermal_battery_cascade"; }
-  std::string_view display_name() const noexcept override { return "Thermal Battery Cascade"; }
-  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip, but the thermal cascade is the real hazard.
-    p.friction_mul = 0.55f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.001f + 0.003f * biome_random01(s, 1);
-    p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.40f + 0.40f * biome_random01(s, 2);
-    p.wind_force = 0.5f + 1.0f * biome_random01(s, 3);
-    // Hot but survivable; thermal transfer is high enough to matter.
-    p.ambient_temperature = 30.0f + 25.0f * biome_random01(s, 4);
-    p.thermal_transfer = 3.0f + 1.0f * biome_random01(s, 5);
-    // Solar is moderate but completely suppressed during thermal spikes (below).
-    p.solar_charge_rate = 0.25f + 0.15f * biome_random01(s, 6);
-    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
-    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
-    // Lidar is cheap but very short-range; thermal spikes are invisible to it.
-    p.lidar_energy_mul = 0.15f + 0.08f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.18f + 0.08f * biome_random01(s, 10);
-    // Terrain: rolling moderate bumps, not extreme craters/steps,
-    // so the thermal cascade is the real challenge, not geometry.
-    p.terrain_amplitude_mul = 1.10f + 0.30f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 1.00f + 0.30f * biome_random01(s, 12);
-    p.terrain_crater_mul = 0.80f + 0.30f * biome_random01(s, 13);
-    p.terrain_step_mul = 0.80f + 0.30f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Slightly below baseline to increase rolling resistance and energy cost.
-    return p.friction_mul * 0.85f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.wheel_force && c.contact) {
-      // Moderate rolling resistance; thermal effects dominate in body.
-      *c.wheel_force += c.contact->tangent * (-0.5f * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.02f);
-    }
-    if (c.energy_cost) {
-      // Base drain plus thermal load that scales with ambient temperature.
-      float heat_load = std::max(0.0f, p.ambient_temperature) * 0.006f * p.thermal_transfer;
-      *c.energy_cost += (0.008f + heat_load + std::abs(c.wheel_speed) * 0.003f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      // Thermal cascade phase: a slow, position-dependent cycle that determines
-      // whether the ground is "charging" (cool, higher solar) or "venting" (hot,
-      // saps energy and grip). The agent must learn to push through vent phases
-      // efficiently and use charge phases to recover.
-      float phase = t * 0.005f + c.velocity.x * 0.013f;
-      float vent = 0.5f + 0.5f * std::sin(phase);
-
-      // Thermal spikes: brief, intense heat events that reduce grip and add a
-      // constant energy drain. They are invisible but follow a deterministic
-      // pattern tied to the phase. High throttle during a spike is punished
-      // with extra energy loss and instability.
-      float spike_phase = t * 0.031f + c.velocity.x * 0.07f;
-      float spike = 0.5f + 0.5f * std::sin(spike_phase);
-      spike = spike * spike * spike;  // narrow, strong peaks
-
-      // Combined thermal intensity: baseline vent plus spikes.
-      float thermal = vent * (0.6f + 0.9f * spike);
-
-      // Grip reduction: high thermal makes the crust slippery (heat-softened).
-      float grip_factor = 1.0f - 0.45f * thermal;
-
-      // Thermal buoyancy: hot air creates slight lift, reducing normal load and
-      // traction, especially during spikes.
-      float lift = 0.05f * c.mass * c.gravity * thermal;
-
-      // Lateral thermal wind: hot air pushes sideways, stronger during spikes.
-      float lateral = std::sin(spike_phase + 0.8f) * 0.04f * c.mass * (0.5f + thermal);
-
-      // Damping is lower during high thermal (less control), higher when cool.
-      float damping = 0.05f + 0.06f * (1.0f - thermal);
-
-      c.body_force->x += lateral - c.velocity.x * c.mass * damping * grip_factor;
-      c.body_force->y += lift - c.velocity.y * c.mass * (0.04f + 0.02f * thermal);
-
-      if (c.body_torque) {
-        // Thermal gradients induce rocking torque, strongest during spikes.
-        float torque = std::sin(spike_phase + 1.1f) * thermal * 0.018f * c.mass * c.gravity;
-        *c.body_torque += torque - c.angular_velocity * c.mass * 0.02f;
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float phase = t * 0.005f + speed * 0.013f;
-      float vent = 0.5f + 0.5f * std::sin(phase);
-      float spike_phase = t * 0.031f + speed * 0.07f;
-      float spike = 0.5f + 0.5f * std::sin(spike_phase);
-      spike = spike * spike * spike;
-      float thermal = vent * (0.6f + 0.9f * spike);
-
-      // Energy drain scales with thermal intensity and speed. High throttle
-      // during spikes is punished double. Steady, moderate speed through vent
-      // phases is efficient.
-      float thermal_drain = thermal * 0.022f * p.thermal_transfer;
-      float speed_drain = speed * 0.002f * (1.0f + thermal);
-      *c.energy_cost += (0.005f + thermal_drain + speed_drain) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Pale, heat-bleached rock with faint orange cracks — suggests thermal
-    // activity but not the cascade pattern.
-    v.ground = {108, 68, 38};
-    v.particles = {255, 160, 70};
-    v.liquid = {60, 30, 14};
-    v.sky = {175, 95, 35};
-    v.particle_rate = 7.0f;
-    v.particle_lift = 1.0f;
-    v.particle_spread = 0.9f;
-    v.base_particles = 2;
-    v.max_particles = 26;
-    v.particle_size = 2;
-    v.ambient_particles = 10;
-    v.ambient_drift = 1.5f;
-    v.screen_brightness = 0.18f;  // very dark: lidar is cheap but the thermal pattern is hidden
-    v.liquid_surface = false;
-    return v;
-  }
-};
-
 class HystereticRotorField final : public Biome {
  public:
   std::string_view id() const noexcept override { return "hysteretic_rotor_field"; }
@@ -2340,160 +2065,6 @@ class RotorRhythmField final : public Biome {
   }
 };
 
-class ThermalCrosswindLull final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "thermal_crosswind_lull"; }
-  std::string_view display_name() const noexcept override { return "Thermal Crosswind Lull"; }
-  std::string_view skill_stratum() const noexcept override { return "lateral_force"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip, but the thermal crosswinds dominate.
-    p.friction_mul = 0.45f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.001f + 0.004f * biome_random01(s, 1);
-    p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.40f + 0.50f * biome_random01(s, 2);
-    p.wind_force = 2.0f + 4.0f * biome_random01(s, 3);
-    // Hot but survivable; thermal transfer is high enough to matter.
-    p.ambient_temperature = 25.0f + 30.0f * biome_random01(s, 4);
-    p.thermal_transfer = 2.5f + 0.8f * biome_random01(s, 5);
-    // Solar is weak in the hazy dark, forcing energy discipline.
-    p.solar_charge_rate = 0.10f + 0.08f * biome_random01(s, 6);
-    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
-    p.crust_deform = 0.003f + 0.008f * biome_random01(s, 8);
-    // Lidar is expensive and very short-range: the crosswind pattern must be inferred from drift.
-    p.lidar_energy_mul = 4.00f + 1.50f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.15f + 0.10f * biome_random01(s, 10);
-    // Terrain: moderate amplitude, low roughness, sparse craters, low steps —
-    // the crosswind is the hazard, not the geometry.
-    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 0.60f + 0.20f * biome_random01(s, 12);
-    p.terrain_crater_mul = 0.60f + 0.25f * biome_random01(s, 13);
-    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Decent mechanical grip, but thermal softening in body effects reduces it during heat peaks.
-    return p.friction_mul * 0.90f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.wheel_force && c.contact) {
-      // Moderate rolling resistance; thermal effects dominate in body.
-      *c.wheel_force += c.contact->tangent * (-0.35f * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.015f);
-    }
-    if (c.energy_cost) {
-      // Base drain plus thermal load that scales with ambient temperature.
-      float heat_load = std::max(0.0f, p.ambient_temperature) * 0.006f * p.thermal_transfer;
-      *c.energy_cost += (0.008f + heat_load + std::abs(c.wheel_speed) * 0.003f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      // Thermal load: heat from ambient temperature creates warm air currents + heat-softened ground.
-      float heat = std::max(0.0f, p.ambient_temperature) * p.thermal_transfer;
-      float heat_factor = 0.5f + 0.5f * std::tanh((heat - 25.0f) * 0.03f);
-
-      // Crosswind lull cycle: a slow, position-dependent oscillation that determines whether
-      // the rover is in a 'venting' zone (strong thermal crosswind, unstable, hot) or a
-      // 'lull' zone (calm, stable, efficient). The phase is invisible without lidar
-      // (which is expensive and short here), so it must be inferred from drift and heat.
-      float lull_phase = t * 0.005f + c.velocity.x * 0.014f;
-      float lull = 0.5f + 0.5f * std::sin(lull_phase);  // 1 = lull (calm), 0 = vent (windy)
-
-      // Thermal gusts: brief, intense heat spikes within the venting zones that create
-      // strong lateral pushes and reduce grip. These are correlated with the lull phase
-      // but are faster and more violent, forcing the agent to predict and brace.
-      float gust_phase = t * 0.027f + c.velocity.x * 0.06f;
-      float gust = 0.5f + 0.5f * std::sin(gust_phase);
-      gust = gust * gust * gust;  // narrow, strong peaks
-
-      // Combined thermal intensity: high in vents + gusts, low in lulls.
-      float thermal = (1.0f - lull) * (0.45f + 0.90f * gust);
-
-      // Thermal-driven crosswind: the dominant hazard. Strong lateral force during vents,
-      // especially during gusts. In lulls, the force drops to near zero, giving the rover
-      // a calm window to make progress and recover.
-      float lateral_force = heat_factor * thermal * (0.15f + 0.25f * speed_norm) * c.mass * p.wind_force;
-
-      // Thermal buoyancy: hot air creates lift, reducing normal load and traction,
-      // especially during gusts. Makes the rover skittish and harder to control.
-      float lift = thermal * 0.03f * c.mass * c.gravity;
-
-      // Thermal damping: lower during hot vents (hot air less dense, less resistance),
-      // higher during lulls (efficient cruising). This rewards pushing through lulls
-      // and coasting through vents.
-      float damping = 0.04f + 0.03f * lull + 0.02f * speed_norm;
-
-      // Crosswind torque: the lateral force creates a yaw torque, stronger during gusts
-      // and at speed. In lulls, the torque nearly vanishes, allowing straight-line driving.
-      float lateral_torque = heat_factor * thermal * (0.012f + 0.02f * speed_norm) * c.mass;
-      lateral_torque *= std::sin(gust_phase + 0.7f);
-
-      c.body_force->x += lateral_force - c.velocity.x * c.mass * damping;
-      c.body_force->y += lift - c.velocity.y * c.mass * (0.04f + 0.02f * thermal);
-
-      if (c.body_torque) {
-        *c.body_torque += lateral_torque - c.angular_velocity * c.mass * 0.02f;
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      float heat = std::max(0.0f, p.ambient_temperature) * p.thermal_transfer;
-      float heat_factor = 0.5f + 0.5f * std::tanh((heat - 25.0f) * 0.03f);
-
-      float lull_phase = t * 0.005f + speed * 0.014f;
-      float lull = 0.5f + 0.5f * std::sin(lull_phase);
-
-      float gust_phase = t * 0.027f + speed * 0.06f;
-      float gust = 0.5f + 0.5f * std::sin(gust_phase);
-      gust = gust * gust * gust;
-
-      float thermal = (1.0f - lull) * (0.45f + 0.90f * gust);
-
-      // Energy drain scales with thermal intensity and speed. High throttle during
-      // vents is punished with extra energy loss. The efficient strategy is to
-      // cruise through lulls and coast/steer through vents, using momentum already built.
-      float thermal_drain = thermal * heat_factor * 0.015f * p.thermal_transfer;
-      float speed_drain = speed * 0.002f * (1.0f + thermal);
-      *c.energy_cost += (0.006f + thermal_drain + speed_drain) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Sun-bleached rock with shimmering heat-haze particles - suggests heat
-    // but not the specific crosswind pattern.
-    v.ground = {142, 118, 84};  // pale tan rock
-    v.particles = {255, 180, 80};  // glowing ember dust
-    v.liquid = {60, 48, 32};  // dark hollows
-    v.sky = {180, 130, 60};  // hazy amber sky
-    v.particle_rate = 10.0f;
-    v.particle_lift = 1.5f;
-    v.particle_spread = 1.3f;
-    v.base_particles = 3;
-    v.max_particles = 36;
-    v.particle_size = 2;
-    v.ambient_particles = 22;
-    v.ambient_drift = 3.0f;  // heat shimmer particles, but the actual force pattern is hidden
-    v.screen_brightness = 0.12f;  // very dark: lidar is cheap but very short, so the thermal pattern must be inferred from motion
-    v.liquid_surface = false;
-    return v;
-  }
-};
-
 class TidalBrakeVault final : public Biome {
  public:
   std::string_view id() const noexcept override { return "tidal_brake_vault"; }
@@ -2628,303 +2199,6 @@ class TidalBrakeVault final : public Biome {
     v.ambient_drift = 1.5f;
     v.screen_brightness = 0.10f;  // very dark: lidar is cheap but the tide is hidden, forcing inference from motion
     v.liquid_surface = false;
-    return v;
-  }
-};
-
-class SwayingLidarPulse final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "swaying_lidar_pulse"; }
-  std::string_view display_name() const noexcept override { return "Swaying Lidar Pulse"; }
-  std::string_view skill_stratum() const noexcept override { return "dynamic_obstacle"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Mud; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    p.friction_mul = 0.40f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.008f + 0.020f * biome_random01(s, 1);
-    p.viscosity = 1.20f + 1.60f * biome_random01(s, 2);
-    p.energy_drain_mul = 1.35f + 0.40f * biome_random01(s, 3);
-    p.wind_force = 0.0f;
-    p.ambient_temperature = -65.0f + 20.0f * biome_random01(s, 4);
-    p.thermal_transfer = 1.30f + 0.40f * biome_random01(s, 5);
-    p.solar_charge_rate = 0.12f + 0.08f * biome_random01(s, 6);
-    p.gravity_mul = 0.92f + 0.10f * biome_random01(s, 7);
-    p.crust_deform = 0.006f + 0.014f * biome_random01(s, 8);
-    p.lidar_energy_mul = 4.20f + 1.20f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.16f + 0.10f * biome_random01(s, 10);
-    // Reshape terrain for hidden swaying pockets: moderate roughness, dense craters, low steps.
-    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 1.60f + 0.40f * biome_random01(s, 12);
-    p.terrain_crater_mul = 1.50f + 0.40f * biome_random01(s, 13);
-    p.terrain_step_mul = 0.40f + 0.20f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    return p.friction_mul * 0.60f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      // Sinking into soft swaying sediment, speed-dependent but saturating.
-      float speed = std::abs(c.wheel_speed);
-      float sat = std::tanh(speed * 0.20f);
-      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.6f * sat);
-    }
-    if (c.wheel_force && c.contact) {
-      float depth = c.contact->penetration * 30.0f;
-      // Viscous drag plus depth-induced normal resistance.
-      *c.wheel_force += c.contact->tangent * (-(0.30f + p.viscosity * 1.5f * (1.0f + depth)) * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.04f + 0.10f * depth));
-    }
-    if (c.energy_cost) {
-      float depth = c.contact->penetration * 30.0f;
-      *c.energy_cost += (0.010f + depth * 0.15f + std::abs(c.wheel_speed) * 0.005f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      // Swaying pulse phase: a slow, position-dependent oscillation that determines
-      // whether the ground is 'swaying' (unstable, strong lateral forces) or 'stable'
-      // (compact, efficient). The phase is invisible without lidar (which is expensive
-      // and short here), so it must be inferred from the rover's own motion and energy.
-      float phase = t * 0.005f + c.velocity.x * 0.013f;
-      float sway = 0.5f + 0.5f * std::sin(phase);
-
-      // A faster sub-oscillation creates 'pockets' of stronger sway within the
-      // swaying phase, forcing the rover to brace or steer through them.
-      float pocket_phase = t * 0.021f + c.velocity.x * 0.05f;
-      float pocket = 0.5f + 0.5f * std::sin(pocket_phase);
-      pocket = pocket * pocket;  // narrow, strong pockets
-
-      // Effective sway intensity: high during swaying phase, especially in pockets.
-      float sway_intensity = sway * (0.5f + 0.8f * pocket);
-
-      // Swaying ground: strong lateral forces that grow with speed, pushing the rover
-      // sideways. During stable phases, the ground compacts and gives a small forward assist.
-      float lateral_force = sway_intensity * (0.10f + 0.20f * speed_norm) * c.mass * c.gravity * 0.5f;
-      float assist = (1.0f - sway) * 0.015f * c.mass * c.gravity;
-
-      // Damping: higher during swaying phases (grippy), lower during stable phases (efficient).
-      float damping = 0.05f + 0.12f * sway_intensity + 0.02f * speed_norm;
-
-      c.body_force->x += assist - c.velocity.x * c.mass * damping;
-      c.body_force->x += lateral_force;
-      c.body_force->y -= sway_intensity * 0.02f * c.mass * c.gravity - c.velocity.y * c.mass * (0.04f + 0.02f * sway_intensity);
-
-      if (c.body_torque) {
-        // Asymmetric sway creates a rocking torque, stronger during swaying phases and at speed.
-        float torque = std::sin(pocket_phase + 1.2f) * sway_intensity * 0.018f * c.mass * c.gravity * (0.5f + speed_norm);
-        *c.body_torque += torque - c.angular_velocity * c.mass * 0.02f;
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      float phase = t * 0.005f + speed * 0.013f;
-      float sway = 0.5f + 0.5f * std::sin(phase);
-      float pocket_phase = t * 0.021f + speed * 0.05f;
-      float pocket = 0.5f + 0.5f * std::sin(pocket_phase);
-      pocket = pocket * pocket;
-      float sway_intensity = sway * (0.5f + 0.8f * pocket);
-
-      // Energy cost: high during swaying phases (fighting lateral forces), low during stable
-      // phases. But there is a small energy bonus during swaying pockets (slight forward assist),
-      // making it optimal to brake and steer through them rather than accelerate.
-      float sway_cost = sway_intensity * (0.010f + 0.010f * speed_norm);
-      float stable_bonus = (1.0f - sway) * 0.003f;
-      float speed_penalty = speed * 0.002f * (1.0f + sway_intensity);
-
-      *c.energy_cost += (0.005f + sway_cost + speed_penalty - stable_bonus) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Dark, muddy soil with faint greenish glow – suggests unstable ground but hides
-    // the swaying pulse pattern completely.
-    v.ground = {42, 50, 44};  // dark green-brown
-    v.particles = {70, 130, 90};  // faint green dust
-    v.liquid = {24, 30, 24};  // murky pools
-    v.sky = {80, 100, 85};  // dim overcast
-    v.particle_rate = 7.0f;
-    v.particle_lift = 0.7f;
-    v.particle_spread = 0.9f;
-    v.base_particles = 2;
-    v.max_particles = 28;
-    v.particle_size = 2;
-    v.ambient_particles = 8;
-    v.ambient_drift = 1.2f;
-    v.screen_brightness = 0.14f;  // very dark: lidar is expensive and short, forcing inference
-    v.liquid_surface = false;
-    return v;
-  }
-};
-
-class SolarSluiceHarvest final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "solar_sluice_harvest"; }
-  std::string_view display_name() const noexcept override { return "Solar Sluice Harvest"; }
-  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip but the liquid is the secondary hazard: it forces the rover into
-    // the sluices, where solar harvesting is strongest but the terrain is most dangerous.
-    p.friction_mul = 0.30f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.002f + 0.008f * biome_random01(s, 1);
-    p.viscosity = 0.70f + 1.00f * biome_random01(s, 2);
-    p.energy_drain_mul = 1.20f + 0.30f * biome_random01(s, 3);
-    p.wind_force = 0.0f;
-    p.ambient_temperature = -45.0f + 20.0f * biome_random01(s, 4);
-    p.thermal_transfer = 2.4f + 0.6f * biome_random01(s, 5);
-    // Strong solar in bright zones, but the sluices are dark so charge must be
-    // harvested deliberately by entering bright zones and stopping/turning.
-    p.solar_charge_rate = 1.60f + 0.60f * biome_random01(s, 6);
-    p.gravity_mul = 0.90f + 0.15f * biome_random01(s, 7);
-    p.crust_deform = 0.001f + 0.004f * biome_random01(s, 8);
-    // Cheap and long-range lidar, but the sluice pattern is dense and the rover
-    // must use it to identify safe bright zones, not just the geometry.
-    p.lidar_energy_mul = 0.20f + 0.10f * biome_random01(s, 9);
-    p.lidar_range_mul = 1.20f + 0.40f * biome_random01(s, 10);
-    // Terrain: dense, narrow sluice channels with high steps and moderate craters,
-    // forcing the rover to weave between bright zones and avoid deep basins.
-    p.terrain_amplitude_mul = 1.20f + 0.40f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 1.30f + 0.40f * biome_random01(s, 12);
-    p.terrain_crater_mul = 1.40f + 0.50f * biome_random01(s, 13);
-    p.terrain_step_mul = 1.80f + 0.50f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Slick in water, moderate on land; the sluice channels are the real challenge.
-    return p.friction_mul * 0.45f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      // Slight sink into the liquid, more in deeper water.
-      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.2f * c.immersion);
-    }
-    if (c.wheel_force && c.contact) {
-      float speed = std::abs(c.wheel_speed);
-      float depth = c.contact->penetration * 25.0f;
-      // Viscous drag plus a modest rolling resistance; the sluice forces come from body effects.
-      *c.wheel_force += c.contact->tangent * (-(0.20f + p.viscosity * 1.8f * (1.0f + depth) * c.immersion + 0.15f * c.immersion) * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.10f * depth * c.immersion));
-    }
-    if (c.energy_cost) {
-      float depth = c.contact->penetration * 25.0f;
-      // Energy cost is higher in water (fighting drag) but the real cost comes from
-      // the sluice timing in body effects.
-      *c.energy_cost += (0.008f + c.immersion * depth * 0.12f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      // Sluice phase: a slow, position-dependent oscillation that alternates between
-      // 'bright' zones (high solar, but unstable, with strong lateral sluice forces)
-      // and 'dark' zones (stable, efficient, but almost no solar). The phase is
-      // invisible without lidar, which is cheap here but the pattern is dense.
-      float phase = t * 0.006f + c.velocity.x * 0.016f;
-      float bright = 0.5f + 0.5f * std::sin(phase);
-
-      // A faster sub-oscillation creates 'sluice pulses' within the bright zone:
-      // brief, strong sideways pushes that can flip the rover if it's moving fast.
-      float pulse_phase = t * 0.029f + c.velocity.x * 0.08f;
-      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
-      pulse = pulse * pulse;  // narrow, strong peaks
-
-      // Combined sluice intensity: high in bright zones, especially during pulses.
-      float sluice = bright * (0.5f + 0.9f * pulse);
-
-      // Sluice lateral force: the bright zones are turbulent, pushing the rover
-      // sideways with a force that grows with speed. This makes it dangerous to
-      // cruise fast through bright zones; the rover must slow down to harvest safely.
-      float lateral_force = sluice * (0.08f + 0.15f * speed_norm) * c.mass * c.gravity;
-
-      // But there is a forward assist during the dark zones: the water recedes,
-      // giving a small push that rewards efficient cruising between harvests.
-      float assist = (1.0f - bright) * 0.02f * c.mass * c.gravity;
-
-      // Damping is higher in bright zones (turbulent water), lower in dark zones (efficient).
-      float damping = 0.04f + 0.08f * sluice + 0.02f * speed_norm;
-
-      c.body_force->x += lateral_force + assist - c.velocity.x * c.mass * damping;
-      // Water immersion adds buoyancy, stronger in bright zones (more water), reducing
-      // traction and making control harder.
-      c.body_force->y += sluice * 0.03f * c.mass * c.gravity - c.velocity.y * c.mass * (0.05f + 0.03f * sluice);
-
-      if (c.body_torque) {
-        // Sluice pulses induce a rocking torque, strongest during bright zones and at speed.
-        float torque = std::sin(pulse_phase + 1.3f) * sluice * 0.020f * c.mass * c.gravity * (0.5f + speed_norm);
-        *c.body_torque += torque - c.angular_velocity * c.mass * 0.03f;
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-
-      // Sluice phase: same as above but using speed for the spatial component.
-      float phase = t * 0.006f + speed * 0.016f;
-      float bright = 0.5f + 0.5f * std::sin(phase);
-      float pulse_phase = t * 0.029f + speed * 0.08f;
-      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
-      pulse = pulse * pulse;
-      float sluice = bright * (0.5f + 0.9f * pulse);
-
-      // Energy harvest: strong in bright zones (solar through the water), especially
-      // during pulses, but requires enduring the lateral sluice forces. Dark zones
-      // have a small net drain, so the rover must alternate between harvests and
-      // efficient cruising to gain energy.
-      float charge_gain = bright * p.solar_charge_rate * 0.20f;
-      charge_gain += pulse * bright * 0.04f;  // extra pulse bonus
-
-      // Drain: fighting the sluice forces and water drag, higher in bright zones.
-      float sluice_drain = sluice * 0.015f * p.energy_drain_mul;
-      float cruise_drain = (1.0f - bright) * (0.004f + speed_norm * 0.002f) * p.energy_drain_mul;
-      float pulse_penalty = pulse * bright * 0.008f * p.energy_drain_mul;
-
-      // Net: positive during bright zones (harvest), negative during dark zones (cruise).
-      *c.energy_cost += (sluice_drain + cruise_drain + pulse_penalty - charge_gain) * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Watery, but with bright glinting patches on the surface that suggest solar
-    // potential, hiding the sluice timing pattern. Dark enough to make lidar useful.
-    v.ground = {65, 78, 72};  // dark greenish-brown mud
-    v.particles = {170, 210, 180};  // bright glinting spray
-    v.liquid = {90, 160, 140};  // shallow green water
-    v.sky = {140, 180, 160};  // hazy daylight with bright patches
-    v.particle_rate = 12.0f;
-    v.particle_lift = 1.4f;
-    v.particle_spread = 1.5f;
-    v.base_particles = 3;
-    v.max_particles = 40;
-    v.particle_size = 2;
-    v.ambient_particles = 16;
-    v.ambient_drift = 3.0f;
-    v.screen_brightness = 0.45f;  // moderate: lidar is cheap but the sluice pattern is dense and hidden
-    v.liquid_surface = true;
     return v;
   }
 };
@@ -3074,165 +2348,6 @@ class LullAndThermalScrub final : public Biome {
     v.ambient_drift = 2.0f;
     v.screen_brightness = 0.15f;  // dark: lidar is moderately costly and short-range, so the lull must be inferred
     v.liquid_surface = false;
-    return v;
-  }
-};
-
-class MomentumDraftLocks final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "momentum_draft_locks"; }
-  std::string_view display_name() const noexcept override { return "Momentum Draft Locks"; }
-  std::string_view skill_stratum() const noexcept override { return "inertia_hysteresis"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip but the fluid drafting and lock hysteresis dominate.
-    p.friction_mul = 0.40f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.002f + 0.006f * biome_random01(s, 1);
-    p.viscosity = 0.40f + 0.60f * biome_random01(s, 2);
-    p.energy_drain_mul = 1.30f + 0.40f * biome_random01(s, 3);
-    p.wind_force = 0.0f;
-    p.ambient_temperature = -55.0f + 20.0f * biome_random01(s, 4);
-    p.thermal_transfer = 3.0f + 1.0f * biome_random01(s, 5);
-    p.solar_charge_rate = 0.10f + 0.08f * biome_random01(s, 6);
-    p.gravity_mul = 0.85f + 0.15f * biome_random01(s, 7);
-    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
-    // Expensive, short-range lidar: the lock phase must be felt, not seen.
-    p.lidar_energy_mul = 4.0f + 1.5f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
-    // Terrain: broad, deep basins with high amplitude and dense craters, but very few steps.
-    // The hazard is the fluid momentum lock, not sharp geometry.
-    p.terrain_amplitude_mul = 1.40f + 0.40f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 0.55f + 0.20f * biome_random01(s, 12);
-    p.terrain_crater_mul = 1.60f + 0.40f * biome_random01(s, 13);
-    p.terrain_step_mul = 0.25f + 0.10f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Moderate grip in fluid; the lock hysteresis creates the real struggle.
-    return p.friction_mul * 0.55f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      // Slight sink into the fluid, more in deeper water.
-      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.2f * c.immersion);
-    }
-    if (c.wheel_force && c.contact) {
-      // Viscous drag plus a modest rolling resistance; the lock forces come from body effects.
-      float depth = c.contact->penetration * 25.0f;
-      float drag = (0.25f + p.viscosity * 2.0f * (1.0f + depth) * c.immersion + 0.15f * c.immersion) * c.wheel_speed;
-      *c.wheel_force += c.contact->tangent * (-drag);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.10f * depth * c.immersion));
-    }
-    if (c.energy_cost) {
-      float depth = c.contact->penetration * 25.0f;
-      // Energy cost is higher in water (fighting drag) and at speed.
-      *c.energy_cost += (0.008f + c.immersion * depth * 0.10f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.09f);
-
-      // Draft lock phase: a slow, position-dependent oscillation that determines
-      // whether the fluid is in a 'locked' state (dense, resists acceleration but
-      // releases a strong forward assist when momentum is already high) or an
-      // 'unlocked' state (free-flowing, low resistance but no assist). The phase
-      // is invisible to lidar (expensive, very short) and must be inferred from
-      // the rover's acceleration response and the delayed surge that follows.
-      float lock_phase = t * 0.0045f + c.velocity.x * 0.012f;
-      float lock = 0.5f + 0.5f * std::sin(lock_phase);  // 1 = locked, 0 = unlocked
-
-      // Hysteresis memory: builds with speed but lags behind, so accelerating
-      // into a locked zone is punished more than steady cruising through it.
-      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.30f) * 6.0f);
-
-      // Locked-phase drag: resists acceleration strongly, but only when the rover
-      // is already moving (the fluid 'grabs' moving objects). At rest, the fluid
-      // does not resist as much, giving the rover a chance to start moving.
-      float lock_drag = lock * memory * (0.14f + 0.10f * speed_norm) * c.mass * c.gravity;
-
-      // Delayed elastic release: once the rover builds enough momentum, the locked
-      // fluid suddenly releases as a forward assist, carrying the rover efficiently
-      // through the rest of the locked zone. This rewards building momentum in the
-      // unlocked phase and sustaining it through the locked phase.
-      float release = lock * memory * (0.05f + 0.08f * std::sin(lock_phase + 0.9f)) * c.mass * c.gravity;
-
-      // Unlocked-phase assist: the free-flowing fluid gives a small, constant
-      // forward push that makes it easy to build momentum here.
-      float free_assist = (1.0f - lock) * 0.025f * c.mass * c.gravity;
-
-      // Lateral 'draft': the fluid swirls with a delayed, memory-dependent oscillation.
-      // In locked phases this is strong and can shove the rover off course; in
-      // unlocked phases it is gentle.
-      float draft = lock * std::sin(t * 0.024f + speed * 0.05f + memory * 2.0f) * 0.05f * c.mass * (0.4f + memory);
-
-      // Damping is lower when momentum is high (momentum carries through) and
-      // higher when speed is low (the fluid grips harder).
-      float damping = 0.04f + 0.10f * lock * (1.0f - memory) + 0.015f * speed_norm;
-
-      c.body_force->x -= lock_drag;
-      c.body_force->x += release + free_assist + draft;
-      c.body_force->x -= c.velocity.x * c.mass * damping;
-
-      // Vertical: locked fluid provides slight buoyancy (reduces normal load and
-      // traction), making control harder at speed. Unlocked fluid is denser and
-      // gives better grip.
-      c.body_force->y += lock * memory * 0.03f * c.mass * c.gravity * std::sin(t * 0.021f + 0.4f);
-      c.body_force->y -= c.velocity.y * c.mass * (0.04f + 0.03f * (1.0f - lock));
-
-      if (c.body_torque) {
-        // Draft asymmetry induces a rocking torque that grows with memory and lock,
-        // strongest during deceleration when the release surges.
-        float decel = std::max(0.0f, 0.5f - speed_norm);
-        float torque = lock * memory * (0.014f + 0.012f * decel) * std::sin(t * 0.033f + speed * 0.04f) * c.mass;
-        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (1.0f + 0.3f * lock);
-      }
-    }
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.09f);
-      float lock_phase = t * 0.0045f + speed * 0.012f;
-      float lock = 0.5f + 0.5f * std::sin(lock_phase);
-      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.30f) * 6.0f);
-
-      // Energy cost: peaks when fighting the lock (high memory, high lock) and
-      // when accelerating from low speed in a locked zone. The efficient strategy
-      // is to build momentum in unlocked zones and carry it through locked zones
-      // without excessive throttle.
-      float lock_cost = lock * memory * 0.014f;
-      float start_cost = lock * (1.0f - memory) * (0.010f + 0.006f * speed_norm);
-      float cruise_cost = speed * 0.0015f * (1.0f + 0.3f * lock);
-      *c.energy_cost += (0.006f + lock_cost + start_cost + cruise_cost) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Dark, deep liquid with swirling blue-grey particles - suggests fluid
-    // but not the lock pattern itself.
-    v.ground = {58, 66, 78};  // dark blue-grey mud
-    v.particles = {130, 190, 220};  // swirling light-blue spray
-    v.liquid = {40, 90, 130};  // deep blue liquid
-    v.sky = {90, 120, 150};  // dim overcast
-    v.particle_rate = 11.0f;
-    v.particle_lift = 1.8f;
-    v.particle_spread = 1.6f;
-    v.base_particles = 3;
-    v.max_particles = 40;
-    v.particle_size = 2;
-    v.ambient_particles = 14;
-    v.ambient_drift = 2.5f;
-    v.screen_brightness = 0.10f;  // very dark: lidar is expensive and short, so the lock phase must be inferred from motion
-    v.liquid_surface = true;
     return v;
   }
 };
@@ -3402,183 +2517,6 @@ class GravityWellBrine final : public Biome {
     v.ambient_drift = 1.5f;
     v.screen_brightness = 0.10f;  // very dark: lidar is cheap but short, so the wells must be inferred from motion
     v.liquid_surface = true;
-    return v;
-  }
-};
-
-class QuasarSiphonVein final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "quasar_siphon_vein"; }
-  std::string_view display_name() const noexcept override { return "Quasar Siphon Vein"; }
-  std::string_view skill_stratum() const noexcept override { return "gravity_change"; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    // Moderate grip but the gravity siphons dominate the challenge.
-    p.friction_mul = 0.50f + 0.20f * biome_random01(s);
-    p.sink_rate = 0.001f + 0.004f * biome_random01(s, 1);
-    p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.60f + 0.50f * biome_random01(s, 2);
-    p.wind_force = 0.5f + 1.0f * biome_random01(s, 3);
-    // Cold and nearly dark: solar is negligible, forcing strict energy budgeting.
-    p.ambient_temperature = -80.0f + 20.0f * biome_random01(s, 4);
-    p.thermal_transfer = 2.0f + 0.6f * biome_random01(s, 5);
-    p.solar_charge_rate = 0.02f + 0.02f * biome_random01(s, 6);
-    p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 7);
-    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
-    // Expensive, very short-range lidar: the siphon veins are invisible ahead.
-    p.lidar_energy_mul = 5.0f + 1.0f * biome_random01(s, 9);
-    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
-    // Terrain reshaped into rough, vein-like ridges with dense small craters and steps,
-    // so a generic "smooth low-gravity" policy cannot coast through.
-    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 1.60f + 0.40f * biome_random01(s, 12);
-    p.terrain_crater_mul = 1.70f + 0.40f * biome_random01(s, 13);
-    p.terrain_step_mul = 1.30f + 0.40f * biome_random01(s, 14);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    // Baseline grip is decent; the gravity siphons alter effective load and traction.
-    return p.friction_mul * 0.85f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      // Tiny sink into the fractured vein-rock; not a traction trap.
-      c.contact->penetration += p.sink_rate * c.dt * 0.1f;
-    }
-    if (c.wheel_force && c.contact) {
-      // Light rolling resistance; the siphon forces dominate in body effects.
-      *c.wheel_force += c.contact->tangent * (-0.35f * c.wheel_speed);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.015f);
-    }
-    if (c.energy_cost) {
-      // Base drain plus a small cold-soak thermal load.
-      float cold_load = std::max(0.0f, -p.ambient_temperature) * 0.002f * p.thermal_transfer;
-      *c.energy_cost += (0.006f + cold_load + std::abs(c.wheel_speed) * 0.002f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    if (c.body_force) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.09f);
-
-      // Siphon phase: a slow, position-dependent oscillation that alternates
-      // between 'light' (gravity ~0.4x, buoyant, hard to keep traction) and
-      // 'heavy' (gravity ~1.6x, crushing, high traction but high energy).
-      // The phase is invisible to lidar (very short, expensive) and must be
-      // inferred from suspension compression, body acceleration, and energy drain.
-      float siphon_phase = t * 0.0045f + c.velocity.x * 0.012f;
-      float siphon = 0.5f + 0.5f * std::sin(siphon_phase); // 0 = light, 1 = heavy
-
-      // A faster sub-oscillation creates 'siphon pulses': brief, extreme gravity
-      // spikes within the heavy phase that are the primary flip/stall hazard. A naive
-      // policy that merely drives forward carefully will hit a pulse while heavy and
-      // either pitch over on the rough terrain or drain its battery catastrophically.
-      float pulse_phase = t * 0.023f + c.velocity.x * 0.058f;
-      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
-      float pulse_narrow = pulse * pulse; // narrow, strong peaks
-
-      // Effective gravity multiplier: light ~0.35, heavy ~1.45, pulses push to ~1.9.
-      float grav_mul = 0.35f + 1.10f * siphon + 0.45f * siphon * pulse_narrow;
-      float effective_g = p.gravity_mul * grav_mul;
-      float base_g = p.gravity_mul;
-
-      // Weight force in heavy phase: presses the rover down, increasing normal load
-      // and traction but also rolling resistance. In light phase, buoyancy lifts the
-      // rover, reducing traction and making it easy to skate but hard to brake.
-      float weight = (effective_g - base_g) * c.mass * c.gravity * 0.22f;
-      float buoyancy = (base_g - effective_g) * c.mass * c.gravity * 0.18f;
-
-      // Lateral 'siphon drift': in the light phase the rover drifts sideways (very
-      // low normal load -> little grip), while in the heavy phase it is stable but
-      // sluggish. Stronger at speed.
-      float lateral_drift = std::sin(siphon_phase + 1.2f) * (1.0f - siphon) * 0.07f * c.mass * (0.5f + speed_norm);
-
-      // Damping: heavy phase has higher damping (more grip), light phase lower
-      // (easy to coast but hard to steer). Rewards timing acceleration with the
-      // heavy phase and coasting through the light phase.
-      float damping = 0.04f + 0.10f * siphon + 0.02f * speed_norm;
-
-      // Siphon pulse instability: during the narrow gravity spikes, a strong
-      // pitching torque slams the nose down or up depending on the phase. If the
-      // rover is moving fast through a pulse on the rough terrain, this can flip it.
-      // A universal 'drive carefully' policy that does not actively brake before
-      // pulses will be caught.
-      float pulse_torque = siphon * pulse_narrow * (0.5f + 0.5f * speed_norm) * 0.030f * c.mass * c.gravity * std::sin(pulse_phase + 0.7f);
-
-      c.body_force->x += lateral_drift - c.velocity.x * c.mass * damping;
-      c.body_force->y += weight + buoyancy - c.velocity.y * c.mass * (0.04f + 0.03f * siphon);
-
-      if (c.body_torque) {
-        *c.body_torque += pulse_torque - c.angular_velocity * c.mass * 0.025f;
-      }
-    }
-
-    if (c.energy_cost) {
-      float t = static_cast<float>(c.step_index);
-      float speed = std::abs(c.velocity.x);
-      float speed_norm = std::tanh(speed * 0.10f);
-      float siphon_phase = t * 0.0045f + speed * 0.012f;
-      float siphon = 0.5f + 0.5f * std::sin(siphon_phase);
-      float pulse_phase = t * 0.023f + speed * 0.058f;
-      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
-      float pulse_narrow = pulse * pulse;
-      float grav_mul = 0.35f + 1.10f * siphon + 0.45f * siphon * pulse_narrow;
-
-      // Energy budget cascade: the drain is multiplicatively scaled by the current
-      // gravity phase. Driving through the heavy phase consumes energy roughly six
-      // times faster than in the light phase. On top of that, a 'siphon surge' cost
-      // spikes during the rapid gravity pulses, punishing high throttle at exactly
-      // the moment the torque is most dangerous.
-      //
-      // The successful strategy must learn to build momentum in the light phase
-      // (cheap, but low traction so coasting is safer), then ride that momentum
-      // through the heavy phase with only gentle throttle corrections, and brake
-      // carefully before each pulse to avoid the pitching torque.
-      float phase_cost = 0.008f + 0.045f * siphon;
-      float pulse_delta = pulse_narrow * siphon;
-      float surge_cost = pulse_delta * (0.006f + 0.014f * speed_norm);
-
-      // Throttle penalty: accelerating while in the heavy phase or during a pulse
-      // is extremely wasteful (fighting the extra weight), so the policy must learn
-      // to conserve throttle there.
-      float throttle_penalty = grav_mul * speed_norm * 0.006f;
-
-      // Light-phase coasting bonus: energy cost is lower when moving steadily in
-      // the light phase, rewarding a smooth, momentum-based traversal.
-      float coast_bonus = (1.0f - siphon) * speed_norm * 0.004f;
-
-      *c.energy_cost += (phase_cost + surge_cost + throttle_penalty - coast_bonus) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    // Dull, uniform dark grey rock with faint violet tint — visually suggests a
-    // low-gravity environment but reveals nothing about the siphon pattern. The sky
-    // is dark and hazy; screen_brightness is very low so that lidar is prohibitively
-    // expensive (and useless at this range) — the agent must rely entirely on
-    // proprioception and trial-and-error to identify the phase.
-    v.ground = {62, 58, 70};
-    v.particles = {145, 135, 160};
-    v.liquid = {38, 34, 44};
-    v.sky = {85, 80, 95};
-    v.particle_rate = 4.0f;
-    v.particle_lift = 1.6f;
-    v.particle_spread = 0.8f;
-    v.base_particles = 0;
-    v.max_particles = 16;
-    v.particle_size = 2;
-    v.ambient_particles = 6;
-    v.ambient_drift = 1.2f;
-    v.screen_brightness = 0.08f; // near-total darkness: lidar is very expensive and short-range, so the siphon must be inferred from motion
-    v.liquid_surface = false;
     return v;
   }
 };
@@ -3947,37 +2885,1156 @@ class TideSluiceReservoir final : public Biome {
   }
 };
 
+class GritShiftLode final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "grit_shift_lode"; }
+  std::string_view display_name() const noexcept override { return "Grit Shift Lode"; }
+  std::string_view skill_stratum() const noexcept override { return "traction_loss"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Sand; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Moderate nominal grip, but the grit bed is unstable and speed-dependent.
+    p.friction_mul = 0.45f + 0.20f * biome_random01(s);
+    p.sink_rate = 0.012f + 0.020f * biome_random01(s, 1);
+    p.viscosity = 0.0f;
+    p.energy_drain_mul = 1.35f + 0.45f * biome_random01(s, 2);
+    p.wind_force = 0.0f;
+    p.ambient_temperature = -50.0f + 25.0f * biome_random01(s, 3);
+    p.thermal_transfer = 0.65f + 0.25f * biome_random01(s, 4);
+    // Solar is weak: recharging is a trap, forcing frugal driving and momentum.
+    p.solar_charge_rate = 0.15f + 0.10f * biome_random01(s, 5);
+    p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 6);
+    p.crust_deform = 0.010f + 0.020f * biome_random01(s, 7);
+    // Expensive, very short-range lidar: the bed state must be inferred from wheel response.
+    p.lidar_energy_mul = 4.50f + 1.50f * biome_random01(s, 8);
+    p.lidar_range_mul = 0.12f + 0.05f * biome_random01(s, 9);
+    // Terrain: moderate amplitude, high roughness (loose, shifting grit), moderate craters, low steps.
+    // This is not a flat sandbox; the bed is uneven and the grip shifts with speed.
+    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 10);
+    p.terrain_roughness_mul = 1.40f + 0.40f * biome_random01(s, 11);
+    p.terrain_crater_mul = 1.30f + 0.40f * biome_random01(s, 12);
+    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 13);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Nominal, but the bed's grip law is imposed in body effects.
+    return p.friction_mul * 0.65f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Grit penetrates with speed but saturates; deeper penetration is sticky.
+      float speed = std::abs(c.wheel_speed);
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.2f * std::tanh(speed * 0.15f));
+    }
+    if (c.wheel_force && c.contact) {
+      float depth = c.contact->penetration * 30.0f;
+      float speed = std::abs(c.wheel_speed);
+      // Drag rises with depth and speed, but the critical traction law is in body effects.
+      *c.wheel_force += c.contact->tangent * (-(0.25f + 0.18f * depth * speed));
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.02f + 0.08f * depth));
+    }
+    if (c.energy_cost) {
+      float depth = c.contact->penetration * 30.0f;
+      *c.energy_cost += (0.010f + depth * 0.20f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Grit shift phase: a slow, position-dependent oscillation that flips between
+      // 'compact' (stable, high grip) and 'shift' (loose, low grip, speed-dependent).
+      // The phase is invisible: lidar is extremely short and costly, and the visual
+      // is uniform dark grit. Only the rover's own slip and acceleration reveal it.
+      float phase = t * 0.0052f + c.velocity.x * 0.013f;
+      float shift = 0.5f + 0.5f * std::sin(phase);  // 1 = loose, 0 = compact
+
+      // A faster sub-oscillation creates 'grit pulses': brief, sharp grip drops
+      // within the loose phase. These cannot be seen ahead; the rover must learn
+      // to brake or coast through them.
+      float pulse_phase = t * 0.031f + c.velocity.x * 0.073f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;  // narrow, strong dips
+
+      // Core traction law: in the compact phase, grip rises gently with speed.
+      // In the loose phase, grip collapses with speed (grains fluidize), with a
+      // narrow 'bite' band at low speed where grains interlock. This forces a
+      // completely different policy from sand or mud: slow crawling is bad, high
+      // speed is deadly, but a specific moderate 'bite' speed is optimal.
+      float compact_grip = (1.0f - shift) * (0.80f + 0.15f * speed_norm);
+      float bite = 0.65f + 0.35f * std::exp(-(speed - 1.8f) * (speed - 1.8f) * 0.6f);
+      float fluidize = 1.0f / (1.0f + 0.55f * speed * speed);
+      float loose_grip = shift * bite * (0.45f + 0.35f * fluidize);
+      float grip = compact_grip + loose_grip;
+      // Grit pulses dip grip further.
+      grip *= (1.0f - 0.55f * shift * pulse_narrow);
+      grip = std::max(0.05f, grip);
+
+      // This grip directly modulates the ground's ability to produce forward force.
+      // Instead of modifying wheel_force (already applied), we add a corrective body
+      // force: when grip is high, we get a forward assist; when grip is low, we get
+      // a backward drag. The exact magnitude is scaled to make the difference matter.
+      float grip_correction = grip - 0.85f;  // relative to baseline friction_scale
+      float forward_correction = grip_correction * 0.30f * c.mass * c.gravity * (0.4f + speed_norm);
+
+      // Lateral instability: in loose phase, especially during pulses, the bed
+      // shoves sideways with a force that grows with speed. This is the flip hazard.
+      float lateral_force = shift * pulse_narrow * (0.10f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 1.1f);
+
+      // Damping reflects grip: low grip means less damping (rover slides), high
+      // grip means more solid feel.
+      float damping = 0.04f + 0.14f * grip;
+
+      // Vertical: in the loose phase, the bed 'swallows' the rover slightly,
+      // increasing downward force at speed (worsening sink), but also providing
+      // a small 'bite' lift at the optimal speed (rewarding the right throttle).
+      float sink_force = shift * (0.05f + 0.04f * speed_norm) * c.mass * c.gravity;
+      float bite_lift = shift * grip * 0.01f * c.mass * c.gravity * (1.0f - std::abs(speed - 1.8f) * 0.4f);
+
+      c.body_force->x += forward_correction + lateral_force;
+      c.body_force->x -= c.velocity.x * c.mass * damping;
+      c.body_force->y -= sink_force - bite_lift - c.velocity.y * c.mass * (0.04f + 0.03f * shift);
+
+      if (c.body_torque) {
+        // Grit pulses cause asymmetric sink, creating a rocking torque that can
+        // flip the rover if it's moving fast through a pulse. The torque is
+        // strongest during loose-phase pulses and at speed.
+        float torque = shift * pulse_narrow * (0.5f + 0.6f * speed_norm) * 0.030f * c.mass * c.gravity * std::sin(pulse_phase + 0.8f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * grip);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      float phase = t * 0.0052f + speed * 0.013f;
+      float shift = 0.5f + 0.5f * std::sin(phase);
+      float pulse_phase = t * 0.031f + speed * 0.073f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      // Energy budget: compact phase is cheap and rewards steady cruising. Loose
+      // phase scales cost with speed, but there's a shallow minimum near the
+      // 'bite' speed. Pulses add a sharp penalty. This forces the agent to find
+      // and maintain the optimal 'bite' speed in loose zones, coast through pulses,
+      // and push efficiently in compact zones.
+      float compact_cost = (1.0f - shift) * (0.004f + 0.004f * speed_norm) * p.energy_drain_mul;
+      float loose_cost = shift * (0.008f + 0.030f * speed * speed * 0.1f) * p.energy_drain_mul;
+      float bite_bonus = shift * std::exp(-(speed - 1.8f) * (speed - 1.8f) * 0.6f) * 0.008f * p.energy_drain_mul;
+      float pulse_penalty = shift * pulse_narrow * (0.010f + 0.015f * speed_norm) * p.energy_drain_mul;
+      float base_cost = 0.005f;
+
+      *c.energy_cost += (base_cost + compact_cost + loose_cost - bite_bonus + pulse_penalty) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Dark, uniform grit with faint brownish shimmer. No visual cue reveals the
+    // shift phase. Screen brightness is very low and lidar is nearly blind, so the
+    // hazard must be inferred from wheel slip and energy drain.
+    v.ground = {30, 24, 18};        // dark grit
+    v.particles = {110, 90, 60};     // dusty spray
+    v.liquid = {18, 14, 10};         // dark hollows
+    v.sky = {45, 38, 30};            // dim, hazy sky
+    v.particle_rate = 8.0f;
+    v.particle_lift = 0.6f;
+    v.particle_spread = 1.0f;
+    v.base_particles = 2;
+    v.max_particles = 24;
+    v.particle_size = 2;
+    v.ambient_particles = 8;
+    v.ambient_drift = 1.5f;
+    v.screen_brightness = 0.10f;  // very dark: lidar is extremely expensive and short
+    v.liquid_surface = false;
+    return v;
+  }
+};
+
+class AscendantSootBank final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "ascendant_soot_bank"; }
+  std::string_view display_name() const noexcept override { return "Ascendant Soot Bank"; }
+  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Moderate baseline grip; the soot/ash coupling dominates.
+    p.friction_mul = 0.55f + 0.20f * biome_random01(s);
+    p.sink_rate = 0.004f + 0.008f * biome_random01(s, 1);
+    p.viscosity = 0.0f;
+    p.energy_drain_mul = 1.10f + 0.20f * biome_random01(s, 2);
+    p.wind_force = 0.5f + 1.0f * biome_random01(s, 3);
+    // Warm but not scorching; thermal transfer is low so heat buildup is slow.
+    p.ambient_temperature = -10.0f + 20.0f * biome_random01(s, 4);
+    p.thermal_transfer = 0.35f + 0.15f * biome_random01(s, 5);
+    // Solar is weak in the soot haze, so recharging is a trap.
+    p.solar_charge_rate = 0.05f + 0.04f * biome_random01(s, 6);
+    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
+    p.crust_deform = 0.004f + 0.010f * biome_random01(s, 8);
+    // Lidar is expensive and very short-range: the soot plume must be felt, not seen.
+    p.lidar_energy_mul = 4.50f + 1.50f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.12f + 0.06f * biome_random01(s, 10);
+    // Terrain: broad, gently sloped ash fields with moderate craters and low steps.
+    // The hazard is the soot plume, not the geometry.
+    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 0.70f + 0.20f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.40f + 0.40f * biome_random01(s, 13);
+    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Baseline grip is decent; the soot plume changes effective traction via body effects.
+    return p.friction_mul * 0.90f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Slight sink into the loose ash bed; not a mud trap.
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 0.4f * std::abs(c.wheel_speed));
+    }
+    if (c.wheel_force && c.contact) {
+      // Light rolling resistance; the soot forces dominate in body effects.
+      *c.wheel_force += c.contact->tangent * (-0.30f * c.wheel_speed);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.015f);
+    }
+    if (c.energy_cost) {
+      // Base drain plus a small ash-friction load.
+      *c.energy_cost += (0.005f + std::abs(c.wheel_speed) * 0.002f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Soot plume phase: a slow, position-dependent oscillation that determines
+      // whether the rover is in a 'lift' zone (rising soot, strong upward force,
+      // low traction, high energy drain) or a 'settle' zone (settled ash, stable,
+      // efficient cruising). The phase is completely invisible: lidar is very
+      // short-range and expensive, the visual is uniformly dark ash, and only the
+      // rover's own vertical motion and energy drain reveal which zone it is in.
+      float lift_phase = t * 0.0052f + c.velocity.x * 0.013f;
+      float lift_zone = 0.5f + 0.5f * std::sin(lift_phase);  // 1 = lift, 0 = settle
+
+      // A faster sub-oscillation creates 'plume pulses': brief, intense upward
+      // surges within the lift zone. These are the primary flip/stall hazard.
+      // A naive policy that simply drives forward carefully will be caught by a
+      // pulse while the rover is already light and unstable.
+      float pulse_phase = t * 0.029f + c.velocity.x * 0.071f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;  // narrow, strong peaks
+
+      // Effective upward force from the soot plume. In the lift zone, the plume
+      // lifts the rover, reducing normal load and thus traction. Pulses create
+      // brief, strong lift spikes that can destabilise the rover if it is moving
+      // fast. In the settle zone, the ash is compact and gives a small downward
+      // assist, improving traction.
+      float lift_force = lift_zone * (0.16f + 0.28f * pulse_narrow) * c.mass * c.gravity;
+      float settle_force = (1.0f - lift_zone) * 0.02f * c.mass * c.gravity;
+
+      // Lateral drift: in the lift zone, the rover drifts sideways (low normal
+      // load means little grip), stronger at speed and during pulses. In the
+      // settle zone, the ash gives a slight forward assist (settling compaction).
+      float lateral_drift = lift_zone * pulse_narrow * (0.10f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 1.2f);
+      float settle_assist = (1.0f - lift_zone) * 0.015f * c.mass * c.gravity;
+
+      // Damping is lower in the lift zone (less grip, easier to coast but harder
+      // to steer), higher in the settle zone (good grip, efficient cruising).
+      float damping = 0.04f + 0.10f * (1.0f - lift_zone) + 0.02f * speed_norm;
+
+      // Vertical: the plume lift reduces normal load, making the rover skittish;
+      // the settle force adds weight, improving grip.
+      c.body_force->x += lateral_drift + settle_assist - c.velocity.x * c.mass * damping;
+      c.body_force->y -= lift_force - settle_force - c.velocity.y * c.mass * (0.04f + 0.02f * (1.0f - lift_zone));
+
+      if (c.body_torque) {
+        // Plume pulses induce a rocking torque, strongest during lift-zone pulses
+        // and at higher speed. This is the flip hazard: a policy that maintains
+        // constant speed through the lift zone will be destabilised.
+        float torque = lift_zone * pulse_narrow * (0.5f + 0.7f * speed_norm) * 0.030f * c.mass * c.gravity * std::sin(pulse_phase + 0.8f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * (1.0f - lift_zone));
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Same phase but computed using speed for the spatial component.
+      float lift_phase = t * 0.0052f + speed * 0.013f;
+      float lift_zone = 0.5f + 0.5f * std::sin(lift_phase);
+      float pulse_phase = t * 0.029f + speed * 0.071f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      // Energy budget cascade: the drain scales multiplicatively with the lift zone.
+      // In the lift zone, fighting the plume and maintaining traction costs much
+      // more than in the settle zone. Plume pulses add a sharp penalty, punishing
+      // high throttle at exactly the moment the torque is most dangerous.
+      //
+      // The successful strategy must learn to build momentum in the settle zone
+      // (cheap, high grip), then coast through the lift zone with only gentle
+      // throttle corrections, and brake carefully before each pulse to avoid the
+      // rocking torque. Recharging is a trap: solar is nearly zero in the dark ash.
+      float lift_cost = lift_zone * (0.012f + 0.022f * speed_norm) * p.energy_drain_mul;
+      float settle_cost = (1.0f - lift_zone) * (0.004f + 0.003f * speed_norm) * p.energy_drain_mul;
+      float pulse_penalty = lift_zone * pulse_narrow * (0.010f + 0.018f * speed_norm) * p.energy_drain_mul;
+
+      // Thermal drain: the warm soot gently saps battery, slightly more in the lift zone.
+      float thermal_drain = p.thermal_transfer * 0.002f * (1.0f + lift_zone * 0.6f);
+
+      *c.energy_cost += (lift_cost + settle_cost + pulse_penalty + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Uniform, dark soot-black terrain with faint ember glow particles. No visual
+    // cue reveals the lift/settle pattern; it must be inferred from vertical motion
+    // and energy drain. Screen brightness is very low and lidar is nearly blind,
+    // forcing the agent to learn the pattern through proprioception.
+    v.ground = {18, 16, 14};        // near-black soot
+    v.particles = {90, 70, 50};       // faint ember dust
+    v.liquid = {10, 8, 6};           // dark melt pools
+    v.sky = {25, 22, 18};            // dim, smoky sky
+    v.particle_rate = 6.0f;
+    v.particle_lift = 1.8f;          // rising soot particles
+    v.particle_spread = 1.2f;
+    v.base_particles = 2;
+    v.max_particles = 24;
+    v.particle_size = 2;
+    v.ambient_particles = 8;
+    v.ambient_drift = 2.5f;          // drifting ember haze
+    v.screen_brightness = 0.08f;     // near-total darkness: lidar is very expensive and short
+    v.liquid_surface = false;
+    return v;
+  }
+};
+
+class SolarScavengerBreach final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "solar_scavenger_breach"; }
+  std::string_view display_name() const noexcept override { return "Solar Scavenger Breach"; }
+  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Mud; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Moderate baseline grip, but the harvest windows dominate.
+    p.friction_mul = 0.38f + 0.20f * biome_random01(s);
+    p.sink_rate = 0.004f + 0.010f * biome_random01(s, 1);
+    p.viscosity = 0.50f + 0.80f * biome_random01(s, 2);
+    p.energy_drain_mul = 1.35f + 0.35f * biome_random01(s, 3);
+    p.wind_force = 0.0f;
+    // Warm, humid mud: thermal transfer is high but solar is strong in "clear" windows only.
+    p.ambient_temperature = -5.0f + 20.0f * biome_random01(s, 4);
+    p.thermal_transfer = 2.2f + 0.8f * biome_random01(s, 5);
+    p.solar_charge_rate = 2.2f + 0.8f * biome_random01(s, 6);
+    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
+    p.crust_deform = 0.008f + 0.016f * biome_random01(s, 8);
+    // Lidar is moderately expensive and short: the clear window cannot be seen ahead.
+    p.lidar_energy_mul = 2.0f + 0.8f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
+    // Terrain: uneven, cratered mudscape with steps. The hazard is the alternation of clear sky and stormy murk.
+    p.terrain_amplitude_mul = 1.40f + 0.40f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 0.80f + 0.30f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.70f + 0.50f * biome_random01(s, 13);
+    p.terrain_step_mul = 1.10f + 0.40f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    return p.friction_mul * 0.62f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Sinking into the mud, slightly more at speed and in storms (wet ground).
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.2f * std::abs(c.wheel_speed));
+    }
+    if (c.wheel_force && c.contact) {
+      float depth = c.contact->penetration * 20.0f;
+      // Viscous drag and normal resistance increase with depth.
+      *c.wheel_force += c.contact->tangent * (-(0.25f + p.viscosity * 1.8f * (1.0f + depth)) * c.wheel_speed);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.04f + 0.08f * depth));
+    }
+    if (c.energy_cost) {
+      float depth = c.contact->penetration * 20.0f;
+      *c.energy_cost += (0.008f + depth * 0.15f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Harvest phase: alternates between 'clear' (bright sky, strong solar, dry firm ground)
+      // and 'storm' (dark murk, almost no solar, wet slippery ground with strong gusts).
+      float phase = t * 0.0046f + c.velocity.x * 0.011f;
+      float clear = 0.5f + 0.5f * std::sin(phase);  // 1 = clear, 0 = storm
+      float storm = 1.0f - clear;
+
+      // Faster sub-oscillation creates 'breach pulses': brief, extreme storm gusts that
+      // slam the rover sideways and downward, especially when moving fast.
+      float pulse_phase = t * 0.033f + c.velocity.x * 0.079f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;  // narrow, strong peaks
+
+      // Clear phase: firm, dry ground, higher grip, slight solar assist (lift from heat), low drag.
+      // Storm phase: wet mud, low grip, high drag, and strong lateral gusts that grow with speed.
+      float storm_lateral = storm * (0.14f + 0.22f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 1.2f);
+      float storm_drag = storm * 0.12f * c.mass * c.gravity * speed_norm;
+      float clear_assist = clear * 0.02f * c.mass * c.gravity;
+
+      // Breach pulses: strongest in storm, cause a sudden sideways shove that can flip the rover.
+      float pulse_force = storm * pulse_narrow * (0.10f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 0.7f);
+
+      // Damping: higher in clear (dry grip), lower in storm (slippery), leading to drift.
+      float damping = 0.05f + 0.10f * clear + 0.02f * speed_norm;
+
+      // Vertical: clear phase gives slight lift from thermal buoyancy; storm phase presses down
+      // with rain weight, increasing drag and sink.
+      float clear_lift = clear * 0.015f * c.mass * c.gravity;
+      float storm_weight = storm * 0.03f * c.mass * c.gravity * (1.0f + 0.7f * speed_norm);
+
+      c.body_force->x += clear_assist + storm_lateral + pulse_force;
+      c.body_force->x -= storm_drag + c.velocity.x * c.mass * damping;
+      c.body_force->y += clear_lift - storm_weight - c.velocity.y * c.mass * (0.04f + 0.02f * storm);
+
+      if (c.body_torque) {
+        // Storm pulses induce a rocking torque, strongest when moving fast through a storm pulse.
+        float torque = storm * pulse_narrow * (0.5f + 0.7f * speed_norm) * 0.028f * c.mass * c.gravity * std::sin(pulse_phase + 1.0f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * clear);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      float phase = t * 0.0046f + speed * 0.011f;
+      float clear = 0.5f + 0.5f * std::sin(phase);
+      float storm = 1.0f - clear;
+      float pulse_phase = t * 0.033f + speed * 0.079f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      // Energy budget: storm phase costs much more (fighting wet mud and gusts), clear phase is cheap.
+      // But the clear phase is also when solar charging is strong, so stopping to deploy the panel
+      // is profitable only there. The storm phase drains heavily and offers no useful charge.
+      float storm_drain = storm * (0.015f + 0.025f * speed_norm) * p.energy_drain_mul;
+      float clear_drain = clear * (0.005f + 0.003f * speed_norm) * p.energy_drain_mul;
+      float pulse_penalty = storm * pulse_narrow * (0.012f + 0.020f * speed_norm) * p.energy_drain_mul;
+
+      // Thermal drain: warm mud saps battery, more in storm (wet conductive ground).
+      float thermal_drain = p.thermal_transfer * 0.003f * (1.0f + storm * 0.8f);
+
+      // Solar credit is handled by the engine using solar_charge_rate; we expose a strong clear-phase
+      // signal only through the brightness and the actual charge, which the agent must learn to use.
+      *c.energy_cost += (storm_drain + clear_drain + pulse_penalty + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Dark, muddy terrain with faint warm glow; brightness oscillates but is hidden from the agent.
+    v.ground = {42, 34, 26};        // dark mud
+    v.particles = {120, 86, 50};     // dusty spray
+    v.liquid = {30, 24, 18};         // dark puddles
+    v.sky = {70, 50, 34};            // dim, stormy amber
+    v.particle_rate = 8.0f;
+    v.particle_lift = 1.0f;
+    v.particle_spread = 1.3f;
+    v.base_particles = 2;
+    v.max_particles = 28;
+    v.particle_size = 2;
+    v.ambient_particles = 14;
+    v.ambient_drift = 2.0f;
+    v.screen_brightness = 0.12f;     // very dark: lidar is expensive and short, so the clear window must be inferred from charge rate
+    v.liquid_surface = false;
+    return v;
+  }
+};
+
+class ChargedSinkBreach final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "charged_sink_breach"; }
+  std::string_view display_name() const noexcept override { return "Charged Sink Breach"; }
+  std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Slippery, electrically active brine: moderate grip but strong coupling to energy and lift.
+    p.friction_mul = 0.30f + 0.15f * biome_random01(s);
+    p.sink_rate = 0.004f + 0.008f * biome_random01(s, 1);
+    p.viscosity = 1.0f + 1.2f * biome_random01(s, 2);
+    p.energy_drain_mul = 1.45f + 0.35f * biome_random01(s, 3);
+    p.wind_force = 0.0f;
+    // Cold, conductive brine: high thermal transfer, but solar is moderate in "charge" windows only.
+    p.ambient_temperature = -40.0f + 15.0f * biome_random01(s, 4);
+    p.thermal_transfer = 2.5f + 0.8f * biome_random01(s, 5);
+    p.solar_charge_rate = 1.8f + 0.6f * biome_random01(s, 6);
+    p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 7);
+    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
+    // Lidar is moderately expensive and short: the charge window must be inferred from lift and energy drain.
+    p.lidar_energy_mul = 3.0f + 0.8f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
+    // Terrain: broad, smooth basins with gentle craters and low steps. The hazard is the charge cycle, not the geometry.
+    p.terrain_amplitude_mul = 1.20f + 0.30f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 0.50f + 0.20f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.30f + 0.40f * biome_random01(s, 13);
+    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Moderate grip, but the charge cycle modulates normal force and traction.
+    return p.friction_mul * 0.70f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Slight sink into conductive brine, more with speed and immersion.
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 0.8f * std::abs(c.wheel_speed) + 0.4f * c.immersion);
+    }
+    if (c.wheel_force && c.contact) {
+      float depth = c.contact->penetration * 20.0f;
+      // Viscous drag plus depth-induced normal resistance.
+      float drag = (0.25f + p.viscosity * 1.8f * (1.0f + depth) * c.immersion + 0.15f * c.immersion) * c.wheel_speed;
+      *c.wheel_force += c.contact->tangent * (-drag);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.08f * depth * c.immersion));
+    }
+    if (c.energy_cost) {
+      float depth = c.contact->penetration * 20.0f;
+      *c.energy_cost += (0.010f + depth * 0.12f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Charge cycle: a slow, position-dependent oscillation alternates between
+      // 'charge' (electrically active brine, slight upward lift, strong solar,
+      // but also traction loss and instability) and 'drain' (passive brine,
+      // stable, efficient, but almost no solar). The cycle is invisible to lidar
+      // and visually uniform, so the agent must infer it from the rover's lift
+      // and energy drain.
+      float cycle_phase = t * 0.0045f + c.velocity.x * 0.011f;
+      float charge = 0.5f + 0.5f * std::sin(cycle_phase);  // 1 = charge, 0 = drain
+      float drain = 1.0f - charge;
+
+      // A faster sub-oscillation creates 'surge pulses': brief, intense upward
+      // lifts within the charge phase, reducing normal load and traction. These
+      // are the flip hazard; a policy that drives at constant speed through the
+      // charge phase gets caught.
+      float pulse_phase = t * 0.031f + c.velocity.x * 0.073f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;  // narrow, strong peaks
+
+      // Charge phase: the brine is charged, creating a slight upward lift that
+      // reduces traction, and a lateral instability that grows with speed. The
+      // drain phase is passive, with stable grip and a small forward assist.
+      float charge_lift = charge * 0.06f * c.mass * c.gravity;
+      float drain_lift = drain * 0.02f * c.mass * c.gravity;
+      float net_lift = charge_lift - drain_lift;
+
+      float charge_lateral = charge * (0.10f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 1.1f);
+      float drain_assist = drain * 0.02f * c.mass * c.gravity;
+
+      // Surge pulses: strongest in charge phase, cause a brief upward shove that
+      // can destabilise the rover if moving fast.
+      float pulse_lift = charge * pulse_narrow * 0.14f * c.mass * c.gravity;
+      float pulse_lateral = charge * pulse_narrow * (0.05f + 0.10f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 0.8f);
+
+      // Damping: higher in drain (stable), lower in charge (slippery), leading to drift.
+      float damping = 0.05f + 0.08f * drain + 0.02f * speed_norm;
+
+      // Vertical: net lift from charge phase reduces normal load; drain phase is
+      // slightly heavier, improving grip.
+      c.body_force->x += drain_assist + charge_lateral + pulse_lateral;
+      c.body_force->x -= c.velocity.x * c.mass * damping;
+      c.body_force->y += net_lift + pulse_lift - c.velocity.y * c.mass * (0.04f + 0.02f * drain);
+
+      if (c.body_torque) {
+        // Charge pulses induce a rocking torque, strongest at speed through a pulse.
+        float torque = charge * pulse_narrow * (0.5f + 0.6f * speed_norm) * 0.026f * c.mass * c.gravity * std::sin(pulse_phase + 0.9f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * drain);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      float cycle_phase = t * 0.0045f + speed * 0.011f;
+      float charge = 0.5f + 0.5f * std::sin(cycle_phase);
+      float drain = 1.0f - charge;
+      float pulse_phase = t * 0.031f + speed * 0.073f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      // Energy budget: drain phase is cheap and efficient. Charge phase costs
+      // more (fighting lift and instability), but that is exactly when solar
+      // charging is strong, so stopping to deploy the panel is profitable. The
+      // challenge is that the charge phase also has surge pulses that can flip
+      // the rover, so recharging must be timed carefully within the charge phase.
+      float drain_cost = drain * (0.004f + 0.003f * speed_norm) * p.energy_drain_mul;
+      float charge_cost = charge * (0.012f + 0.020f * speed_norm) * p.energy_drain_mul;
+      float pulse_penalty = charge * pulse_narrow * (0.010f + 0.016f * speed_norm) * p.energy_drain_mul;
+
+      // Thermal drain: cold brine saps battery, slightly more in charge phase.
+      float thermal_drain = p.thermal_transfer * 0.002f * (1.0f + charge * 0.4f);
+
+      *c.energy_cost += (drain_cost + charge_cost + pulse_penalty + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Dark, electrically-charged brine with faint cyan glow. No visual cue
+    // reveals the charge/drain pattern; it must be inferred from lift and energy.
+    v.ground = {20, 28, 36};
+    v.particles = {90, 180, 210};
+    v.liquid = {16, 50, 70};
+    v.sky = {30, 55, 70};
+    v.particle_rate = 6.0f;
+    v.particle_lift = 1.2f;
+    v.particle_spread = 0.9f;
+    v.base_particles = 2;
+    v.max_particles = 20;
+    v.particle_size = 2;
+    v.ambient_particles = 8;
+    v.ambient_drift = 1.0f;
+    v.screen_brightness = 0.15f;  // dark: lidar is expensive and short, forcing inference
+    v.liquid_surface = true;
+    return v;
+  }
+};
+
+class ThermalSluiceLag final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "thermal_sluice_lag"; }
+  std::string_view display_name() const noexcept override { return "Thermal Sluice Lag"; }
+  std::string_view skill_stratum() const noexcept override { return "inertia_hysteresis"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Slippery, warm brine: the fluid dynamics dominate over the tyre model.
+    p.friction_mul = 0.30f + 0.15f * biome_random01(s);
+    p.sink_rate = 0.005f + 0.010f * biome_random01(s, 1);
+    p.viscosity = 1.2f + 1.6f * biome_random01(s, 2);
+    p.energy_drain_mul = 1.65f + 0.50f * biome_random01(s, 3);
+    p.wind_force = 0.5f + 1.0f * biome_random01(s, 4);
+    // Warm but not scorching: thermal transfer high but not the primary hazard.
+    p.ambient_temperature = 15.0f + 20.0f * biome_random01(s, 5);
+    p.thermal_transfer = 2.0f + 0.8f * biome_random01(s, 6);
+    // Moderate solar: recharging is possible but must be timed with the sluice phase.
+    p.solar_charge_rate = 0.90f + 0.50f * biome_random01(s, 7);
+    p.gravity_mul = 0.85f + 0.15f * biome_random01(s, 8);
+    p.crust_deform = 0.003f + 0.007f * biome_random01(s, 9);
+    // Lidar is cheap and long enough to see some terrain, but not the sluice phase —
+    // the agent must infer the fluid state from its own momentum and drag.
+    p.lidar_energy_mul = 0.60f + 0.30f * biome_random01(s, 10);
+    p.lidar_range_mul = 0.40f + 0.20f * biome_random01(s, 11);
+    // Smooth, low-amplitude terrain with shallow craters and few steps: the
+    // sluice lag is the real hazard, not the geometry. This prevents a generic
+    // obstacle-avoidance policy from scoring.
+    p.terrain_amplitude_mul = 1.20f + 0.30f * biome_random01(s, 12);
+    p.terrain_roughness_mul = 0.50f + 0.20f * biome_random01(s, 13);
+    p.terrain_crater_mul = 1.20f + 0.30f * biome_random01(s, 14);
+    p.terrain_step_mul = 0.25f + 0.15f * biome_random01(s, 15);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Moderate baseline grip, but the fluid inertia dominates through body effects.
+    return p.friction_mul * 0.70f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Slow sink into the warm, buoyant brine; not a mud trap.
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 0.5f * std::abs(c.wheel_speed));
+    }
+    if (c.wheel_force && c.contact) {
+      float depth = c.contact->penetration * 20.0f;
+      // Viscous drag plus depth-induced normal resistance.
+      float drag = (0.25f + p.viscosity * 1.8f * (1.0f + depth) * c.immersion) * c.wheel_speed;
+      *c.wheel_force += c.contact->tangent * (-drag);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.08f * depth * c.immersion));
+    }
+    if (c.energy_cost) {
+      float depth = c.contact->penetration * 20.0f;
+      *c.energy_cost += (0.008f + depth * 0.12f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Thermal sluice phase: a slow, position-dependent oscillation alternates
+      // between 'hot' (warm, buoyant brine, low viscosity but also low traction
+      // and high energy drain) and 'cool' (thicker, heavier brine, high drag but
+      // also high traction and lower energy drain). The phase is invisible to
+      // lidar (which sees only terrain) and visually uniform, so the agent must
+      // infer it from its own acceleration response and drag.
+      float phase = t * 0.0044f + c.velocity.x * 0.011f;
+      float hot = 0.5f + 0.5f * std::sin(phase);  // 1 = hot, 0 = cool
+      float cool = 1.0f - hot;
+
+      // A faster sub-oscillation creates 'thermals': brief, sharp buoyancy spikes
+      // within the hot phase. These are the flip hazard — a policy that maintains
+      // constant speed through the hot phase gets destabilised.
+      float thermal_phase = t * 0.027f + c.velocity.x * 0.065f;
+      float thermal = 0.5f + 0.5f * std::sin(thermal_phase);
+      float thermal_narrow = thermal * thermal;  // narrow, strong peaks
+
+      // Thermal memory: builds with speed but lags behind, creating a hysteresis
+      // loop where acceleration is punished but steady momentum is rewarded.
+      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.30f) * 6.0f);
+
+      // Hot phase: low viscosity, low drag, but also low traction. The rover
+      // accelerates easily but slides laterally and has poor braking. Cool phase:
+      // high viscosity, high drag, but also high traction and stability.
+      float hot_assist = hot * 0.03f * c.mass * c.gravity;
+      float cool_drag = cool * 0.12f * c.mass * c.gravity * speed_norm;
+
+      // Crucially, the thermal memory creates a delayed forward surge when the
+      // rover decelerates from high speed through a hot zone. This is the
+      // signature hazard: braking hard while hot causes a sudden forward lurch
+      // that can cause a flip or a stall. The correct strategy is to ease off
+      // the throttle gradually and let the momentum bleed off naturally.
+      float decel = std::max(0.0f, 0.5f - speed_norm);
+      float surge = hot * memory * decel * 0.16f * c.mass * c.gravity;
+
+      // Lateral instability: hot phase causes the rover to drift sideways,
+      // stronger at speed and during thermals. Cool phase is stable.
+      float lateral = hot * (0.10f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(thermal_phase + 1.1f);
+      float thermal_lateral = hot * thermal_narrow * (0.10f + 0.16f * speed_norm) * c.mass * c.gravity * std::sin(thermal_phase + 0.8f);
+      float cool_stabilize = cool * 0.02f * c.mass * c.gravity;
+
+      // Damping: lower in hot (slippery), higher in cool (viscous).
+      float damping = 0.04f + 0.10f * cool + 0.02f * speed_norm;
+
+      // Vertical: hot phase gives slight lift from thermal buoyancy, reducing
+      // traction. Cool phase presses down slightly, increasing grip.
+      float buoyancy = hot * 0.05f * c.mass * c.gravity;
+      float weight = cool * 0.03f * c.mass * c.gravity;
+
+      c.body_force->x += hot_assist + surge + lateral + thermal_lateral + cool_stabilize;
+      c.body_force->x -= cool_drag + c.velocity.x * c.mass * damping;
+      c.body_force->y += buoyancy - weight - c.velocity.y * c.mass * (0.04f + 0.03f * cool);
+
+      if (c.body_torque) {
+        // Thermals induce a rocking torque, strongest at speed through a hot thermal.
+        float torque = hot * thermal_narrow * (0.5f + 0.6f * speed_norm) * 0.028f * c.mass * c.gravity * std::sin(thermal_phase + 0.9f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * cool);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      float phase = t * 0.0044f + speed * 0.011f;
+      float hot = 0.5f + 0.5f * std::sin(phase);
+      float cool = 1.0f - hot;
+      float thermal_phase = t * 0.027f + speed * 0.065f;
+      float thermal = 0.5f + 0.5f * std::sin(thermal_phase);
+      float thermal_narrow = thermal * thermal;
+      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.30f) * 6.0f);
+
+      // Energy budget: hot phase is cheaper per unit distance (low drag) but
+      // punishes acceleration with a memory-dependent cost and thermals add a
+      // sharp penalty. Cool phase is more expensive (high viscosity) but stable.
+      // The optimal strategy is to build momentum slowly in the cool phase,
+      // then coast through the hot phase, easing off gradually before thermals.
+      float hot_cost = hot * (0.006f + 0.018f * memory) * p.energy_drain_mul;
+      float cool_cost = cool * (0.014f + 0.010f * speed_norm) * p.energy_drain_mul;
+      float thermal_penalty = hot * thermal_narrow * (0.012f + 0.016f * speed_norm) * p.energy_drain_mul;
+
+      // Thermal drain: warm brine saps battery, more in hot phase.
+      float thermal_drain = p.thermal_transfer * 0.003f * (1.0f + hot * 0.5f);
+
+      *c.energy_cost += (hot_cost + cool_cost + thermal_penalty + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Uniform, warm amber brine with faint shimmer. No visual cue reveals the
+    // hot/cool phase or the thermals; it must be inferred from drag and energy drain.
+    v.ground = {58, 42, 28};        // dark amber mud
+    v.particles = {190, 150, 90};     // warm heat-haze particles
+    v.liquid = {48, 62, 36};         // murky green-amber brine
+    v.sky = {70, 58, 40};            // dim, hazy amber sky
+    v.particle_rate = 7.0f;
+    v.particle_lift = 1.2f;
+    v.particle_spread = 1.1f;
+    v.base_particles = 2;
+    v.max_particles = 24;
+    v.particle_size = 2;
+    v.ambient_particles = 10;
+    v.ambient_drift = 1.6f;
+    v.screen_brightness = 0.25f;     // moderately dark: lidar is cheap but the phase is invisible
+    v.liquid_surface = true;
+    return v;
+  }
+};
+
+class GyreLagoon final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "gyre_lagoon"; }
+  std::string_view display_name() const noexcept override { return "Gyre Lagoon"; }
+  std::string_view skill_stratum() const noexcept override { return "inertia_hysteresis"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    p.friction_mul = 0.30f + 0.15f * biome_random01(s);
+    p.sink_rate = 0.004f + 0.008f * biome_random01(s, 1);
+    p.viscosity = 0.60f + 0.80f * biome_random01(s, 2);
+    p.energy_drain_mul = 1.50f + 0.40f * biome_random01(s, 3);
+    p.wind_force = 0.0f;
+    p.ambient_temperature = -55.0f + 20.0f * biome_random01(s, 4);
+    p.thermal_transfer = 2.2f + 0.7f * biome_random01(s, 5);
+    p.solar_charge_rate = 0.08f + 0.05f * biome_random01(s, 6);
+    p.gravity_mul = 0.85f + 0.15f * biome_random01(s, 7);
+    p.crust_deform = 0.002f + 0.005f * biome_random01(s, 8);
+    p.lidar_energy_mul = 4.5f + 1.0f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.12f + 0.05f * biome_random01(s, 10);
+    p.terrain_amplitude_mul = 1.30f + 0.30f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 0.50f + 0.15f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.40f + 0.40f * biome_random01(s, 13);
+    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    return p.friction_mul * 0.65f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 0.6f * std::abs(c.wheel_speed) + 0.4f * c.immersion);
+    }
+    if (c.wheel_force && c.contact) {
+      float depth = c.contact->penetration * 20.0f;
+      float drag = (0.20f + p.viscosity * 1.6f * (1.0f + depth) * c.immersion + 0.10f * c.immersion) * c.wheel_speed;
+      *c.wheel_force += c.contact->tangent * (-drag);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.08f * depth * c.immersion));
+    }
+    if (c.energy_cost) {
+      float depth = c.contact->penetration * 20.0f;
+      *c.energy_cost += (0.010f + depth * 0.12f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.09f);
+
+      float phase = t * 0.0046f + c.velocity.x * 0.012f;
+      float gyre = 0.5f + 0.5f * std::sin(phase);  // 1 = forward eddy, 0 = reverse eddy
+      float reverse = 1.0f - gyre;
+
+      float pulse_phase = t * 0.027f + c.velocity.x * 0.064f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.28f) * 6.0f);
+
+      float grav_mul = 0.70f + 0.60f * gyre + 0.40f * gyre * pulse_narrow;
+      float effective_g = p.gravity_mul * grav_mul;
+      float base_g = p.gravity_mul;
+
+      float forward_assist = gyre * (0.025f + 0.06f * memory) * c.mass * c.gravity * (0.5f + 0.5f * memory);
+      float reverse_drag = reverse * memory * (0.10f + 0.06f * (1.0f - memory)) * c.mass * c.gravity * 0.55f;
+
+      float delayed_release = gyre * memory * (0.035f + 0.055f * std::sin(phase + 1.0f)) * c.mass * c.gravity * 0.5f;
+      float reverse_assist = reverse * 0.020f * c.mass * c.gravity * (0.5f + 0.5f * speed_norm);
+
+      float lateral_drift = std::sin(t * 0.022f + speed * 0.048f + memory * 2.0f) * (0.4f + 0.6f * gyre) * 0.05f * c.mass * (0.5f + memory);
+
+      float weight = (effective_g - base_g) * c.mass * c.gravity * 0.25f;
+      float buoyancy = (base_g - effective_g) * c.mass * c.gravity * 0.20f;
+
+      float damping = 0.035f + 0.085f * reverse * (1.0f - memory) + 0.02f * speed_norm;
+
+      float pulse_surge = gyre * pulse_narrow * (0.10f + 0.16f * speed_norm) * c.mass * c.gravity * 0.5f;
+
+      c.body_force->x -= reverse_drag;
+      c.body_force->x += forward_assist + delayed_release + reverse_assist + lateral_drift + pulse_surge;
+      c.body_force->x -= c.velocity.x * c.mass * damping;
+      c.body_force->y += weight + buoyancy - c.velocity.y * c.mass * (0.04f + 0.03f * gyre);
+
+      if (c.body_torque) {
+        float torque = gyre * pulse_narrow * (0.5f + 0.7f * speed_norm) * 0.030f * c.mass * c.gravity * std::sin(pulse_phase + 0.7f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * gyre);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.09f);
+
+      float phase = t * 0.0046f + speed * 0.012f;
+      float gyre = 0.5f + 0.5f * std::sin(phase);
+      float reverse = 1.0f - gyre;
+      float pulse_phase = t * 0.027f + speed * 0.064f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+      float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.28f) * 6.0f);
+
+      float windup_cost = reverse * memory * 0.018f;
+      float start_cost = reverse * (1.0f - memory) * (0.010f + 0.007f * speed_norm);
+      float pulse_penalty = gyre * pulse_narrow * (0.010f + 0.014f * speed_norm);
+      float gyre_cost = gyre * (0.008f + 0.010f * speed_norm) * p.energy_drain_mul;
+      float reverse_cost = reverse * (0.014f + 0.012f * speed_norm) * p.energy_drain_mul;
+      float free_bonus = reverse * (0.003f + 0.002f * speed_norm);
+      float thermal_drain = p.thermal_transfer * 0.003f * (1.0f + gyre * 0.3f);
+
+      *c.energy_cost += (windup_cost + start_cost + pulse_penalty + gyre_cost + reverse_cost - free_bonus + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.ground = {12, 18, 24};
+    v.particles = {64, 96, 128};
+    v.liquid = {8, 22, 36};
+    v.sky = {18, 28, 38};
+    v.particle_rate = 3.0f;
+    v.particle_lift = 1.1f;
+    v.particle_spread = 0.7f;
+    v.base_particles = 2;
+    v.max_particles = 18;
+    v.particle_size = 2;
+    v.ambient_particles = 5;
+    v.ambient_drift = 0.8f;
+    v.screen_brightness = 0.05f;
+    v.liquid_surface = true;
+    return v;
+  }
+};
+
+class QuakeSwellRidge final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "quake_swell_ridge"; }
+  std::string_view display_name() const noexcept override { return "Quake-Swell Ridge"; }
+  std::string_view skill_stratum() const noexcept override { return "dynamic_obstacle"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    // Decent baseline grip; the pulse changes effective traction via body effects.
+    p.friction_mul = 0.60f + 0.20f * biome_random01(s);
+    p.sink_rate = 0.002f + 0.006f * biome_random01(s, 1);
+    p.viscosity = 0.0f;
+    p.energy_drain_mul = 1.30f + 0.40f * biome_random01(s, 2);
+    p.wind_force = 0.5f + 1.5f * biome_random01(s, 3);
+    p.ambient_temperature = -60.0f + 20.0f * biome_random01(s, 4);
+    p.thermal_transfer = 0.70f + 0.20f * biome_random01(s, 5);
+    // Solar is nearly zero: recharging is a trap, forcing frugal driving.
+    p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
+    p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
+    p.crust_deform = 0.004f + 0.008f * biome_random01(s, 8);
+    // Lidar is very expensive and short: the quake phase must be inferred from motion.
+    p.lidar_energy_mul = 4.0f + 1.5f * biome_random01(s, 9);
+    p.lidar_range_mul = 0.15f + 0.08f * biome_random01(s, 10);
+    // Terrain: broad, undulating ridges with moderate craters and low steps.
+    // The quake phase is the hazard, not the geometry.
+    p.terrain_amplitude_mul = 1.40f + 0.40f * biome_random01(s, 11);
+    p.terrain_roughness_mul = 0.60f + 0.20f * biome_random01(s, 12);
+    p.terrain_crater_mul = 1.40f + 0.40f * biome_random01(s, 13);
+    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 14);
+    return p;
+  }
+
+  float friction_scale(const MechanicParams& p) const noexcept override {
+    // Decent baseline grip; the pulse changes effective traction via body effects.
+    return p.friction_mul * 0.92f;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (c.contact) {
+      // Slight sink into the fractured rock floor; not a mud trap.
+      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 0.4f * std::abs(c.wheel_speed));
+    }
+    if (c.wheel_force && c.contact) {
+      // Light rolling resistance; the surge forces dominate in body effects.
+      *c.wheel_force += c.contact->tangent * (-0.25f * c.wheel_speed);
+      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.015f);
+    }
+    if (c.energy_cost) {
+      // Base drain plus a small rock-friction load.
+      *c.energy_cost += (0.005f + std::abs(c.wheel_speed) * 0.002f) * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
+    if (c.body_force) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      // Quake phase: a slow, position-dependent oscillation determines whether the
+      // rock mesh is in a 'calm' state (stable, low energy drain) or a 'quake'
+      // state (pulsing lateral shoves, rising energy drain, unstable torque). The
+      // phase is invisible to lidar (very short, expensive) and visually uniform,
+      // so the agent must infer it from the rover's own drift and energy drain.
+      float quake_phase = t * 0.0048f + c.velocity.x * 0.0125f;
+      float quake = 0.5f + 0.5f * std::sin(quake_phase);  // 1 = quake, 0 = calm
+      float calm = 1.0f - quake;
+
+      // Pulse sub-oscillation: brief, sharp lateral shoves within the quake state.
+      // These are the principal flip hazard; a naive 'drive carefully' policy that
+      // keeps a constant speed through the quake gets destabilised.
+      float pulse_phase = t * 0.031f + c.velocity.x * 0.076f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;  // narrow, strong peaks
+
+      // Quake state: strong lateral pulsing force that grows with speed, plus a
+      // slight upward lift that reduces normal load and traction. Calm state:
+      // steady, weak forward assist and strong damping for stable cruising.
+      float quake_lateral = quake * p.wind_force * (0.20f + 0.28f * speed_norm) * c.mass * c.gravity * (0.6f + 0.4f * std::sin(pulse_phase + 1.0f));
+      float calm_assist = calm * 0.025f * c.mass * c.gravity * (0.5f + 0.5f * speed_norm);
+      float quake_lift = quake * 0.02f * c.mass * c.gravity * (0.5f + 0.5f * std::sin(pulse_phase + 0.5f));
+
+      // Pulse bursts: strongest lateral surge and torque, proportional to speed.
+      float pulse_lateral = quake * pulse_narrow * (0.14f + 0.24f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 0.8f);
+
+      // Damping is moderate; higher in calm (stable), lower in quake (easier to be shoved).
+      float damping = 0.05f + 0.03f * calm + 0.02f * speed_norm;
+
+      c.body_force->x += quake_lateral + calm_assist + pulse_lateral;
+      c.body_force->x -= c.velocity.x * c.mass * damping;
+      c.body_force->y += quake_lift - c.velocity.y * c.mass * (0.05f + 0.02f * calm);
+
+      if (c.body_torque) {
+        // Pulse bursts induce a yawing torque that tries to spin the rover,
+        // strongest at speed through a quake pulse. Counter-steering is essential.
+        float torque = (quake * pulse_narrow * (0.5f + 0.7f * speed_norm) + calm * 0.10f * (0.5f + 0.3f * speed_norm)) * 0.018f * c.mass * c.gravity * std::sin(pulse_phase + 1.2f);
+        *c.body_torque += torque - c.angular_velocity * c.mass * 0.025f * (0.5f + 0.4f * calm);
+      }
+    }
+
+    if (c.energy_cost) {
+      float t = static_cast<float>(c.step_index);
+      float speed = std::abs(c.velocity.x);
+      float speed_norm = std::tanh(speed * 0.10f);
+
+      float quake_phase = t * 0.0048f + speed * 0.0125f;
+      float quake = 0.5f + 0.5f * std::sin(quake_phase);
+      float calm = 1.0f - quake;
+      float pulse_phase = t * 0.031f + speed * 0.076f;
+      float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
+      float pulse_narrow = pulse * pulse;
+
+      // Energy budget: calm state is cheap and rewards steady cruising; quake state
+      // scales cost with speed, and pulses add a sharp penalty. This forces the agent
+      // to learn to push in calm and coast through quake pulses.
+      float calm_cost = calm * (0.004f + 0.004f * speed_norm) * p.energy_drain_mul;
+      float quake_cost = quake * (0.010f + 0.022f * speed_norm) * p.energy_drain_mul;
+      float pulse_penalty = quake * pulse_narrow * (0.012f + 0.016f * speed_norm) * p.energy_drain_mul;
+
+      // Thermal drain: cold fractured rock saps battery slightly, more in quake state.
+      float thermal_drain = p.thermal_transfer * 0.002f * (1.0f + quake * 0.4f);
+
+      *c.energy_cost += (calm_cost + quake_cost + pulse_penalty + thermal_drain) * c.dt;
+    }
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    // Uniform, pale hazy desert with faint shimmer — visually ambiguous, reveals
+    // nothing about the quake phase. Very dark to force inference from drift.
+    v.ground = {118, 104, 84};       // pale sand
+    v.particles = {200, 185, 160};    // fine wind-blown dust
+    v.liquid = {55, 48, 38};         // dark hollows
+    v.sky = {215, 195, 170};         // hazy, dusty daylight
+    v.particle_rate = 8.0f;
+    v.particle_lift = 0.8f;
+    v.particle_spread = 1.4f;
+    v.base_particles = 2;
+    v.max_particles = 30;
+    v.particle_size = 2;
+    v.ambient_particles = 22;
+    v.ambient_drift = 2.5f;          // strong wind-blown dust, but the actual force is hidden
+    v.screen_brightness = 0.09f;     // very dark: lidar is extremely expensive and nearly blind
+    v.liquid_surface = false;
+    return v;
+  }
+};
+
 inline void append(std::vector<const Biome*>& out) {
   static const GranularThrottleTrap biome_0; out.push_back(&biome_0);
   static const CantileverGale biome_1; out.push_back(&biome_1);
   static const BarometricBrakeWells biome_2; out.push_back(&biome_2);
   static const GravityPendulumHollow biome_3; out.push_back(&biome_3);
-  static const ThermalSiphonReactor biome_4; out.push_back(&biome_4);
-  static const AvalancheProbe biome_5; out.push_back(&biome_5);
-  static const StrobePitfall biome_6; out.push_back(&biome_6);
-  static const StroboscopicCrust biome_7; out.push_back(&biome_7);
-  static const AccordionGravityLadder biome_8; out.push_back(&biome_8);
-  static const RuttedThrottleBasin biome_9; out.push_back(&biome_9);
-  static const PendulumHollow biome_10; out.push_back(&biome_10);
-  static const FlywheelBrakeLag biome_11; out.push_back(&biome_11);
-  static const ThermalBatteryCascade biome_12; out.push_back(&biome_12);
-  static const HystereticRotorField biome_13; out.push_back(&biome_13);
-  static const RotorRhythmField biome_14; out.push_back(&biome_14);
-  static const ThermalCrosswindLull biome_15; out.push_back(&biome_15);
-  static const TidalBrakeVault biome_16; out.push_back(&biome_16);
-  static const SwayingLidarPulse biome_17; out.push_back(&biome_17);
-  static const SolarSluiceHarvest biome_18; out.push_back(&biome_18);
-  static const LullAndThermalScrub biome_19; out.push_back(&biome_19);
-  static const MomentumDraftLocks biome_20; out.push_back(&biome_20);
-  static const GravityWellBrine biome_21; out.push_back(&biome_21);
-  static const QuasarSiphonVein biome_22; out.push_back(&biome_22);
-  static const FrictionMirageBelt biome_23; out.push_back(&biome_23);
-  static const TideSluiceReservoir biome_24; out.push_back(&biome_24);
+  static const AvalancheProbe biome_4; out.push_back(&biome_4);
+  static const StrobePitfall biome_5; out.push_back(&biome_5);
+  static const StroboscopicCrust biome_6; out.push_back(&biome_6);
+  static const AccordionGravityLadder biome_7; out.push_back(&biome_7);
+  static const RuttedThrottleBasin biome_8; out.push_back(&biome_8);
+  static const PendulumHollow biome_9; out.push_back(&biome_9);
+  static const FlywheelBrakeLag biome_10; out.push_back(&biome_10);
+  static const HystereticRotorField biome_11; out.push_back(&biome_11);
+  static const RotorRhythmField biome_12; out.push_back(&biome_12);
+  static const TidalBrakeVault biome_13; out.push_back(&biome_13);
+  static const LullAndThermalScrub biome_14; out.push_back(&biome_14);
+  static const GravityWellBrine biome_15; out.push_back(&biome_15);
+  static const FrictionMirageBelt biome_16; out.push_back(&biome_16);
+  static const TideSluiceReservoir biome_17; out.push_back(&biome_17);
+  static const GritShiftLode biome_18; out.push_back(&biome_18);
+  static const AscendantSootBank biome_19; out.push_back(&biome_19);
+  static const SolarScavengerBreach biome_20; out.push_back(&biome_20);
+  static const ChargedSinkBreach biome_21; out.push_back(&biome_21);
+  static const ThermalSluiceLag biome_22; out.push_back(&biome_22);
+  static const GyreLagoon biome_23; out.push_back(&biome_23);
+  static const QuakeSwellRidge biome_24; out.push_back(&biome_24);
 }
 // </MARS_GENERATED_BIOMES>
 }  // namespace generated_biomes
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:1fc12d865110611e8f4d144e287e5588bbbe4902b9a1fdd360530d2dd8020b4f";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:39aff219154d8198bd74b37b3a17c29c552cbc05cdaf9c1b904dfd7fd9f188b8";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;
