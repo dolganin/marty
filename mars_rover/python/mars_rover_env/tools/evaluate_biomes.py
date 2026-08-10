@@ -319,7 +319,11 @@ def strategy_spread(profile: dict[str, float]) -> float:
     return float((best - median) / abs(best))
 
 
-def strategy_regret(profile: dict[str, float], peers: list[dict[str, float]]) -> float:
+def strategy_regret(
+    profile: dict[str, float],
+    peers: list[dict[str, float]],
+    achievable: float | None = None,
+) -> float:
     """What the bank's current best single reflex gives up on this biome, relative to its best.
 
     This is the quantity the readiness gate is actually about, measured per candidate instead
@@ -335,8 +339,12 @@ def strategy_regret(profile: dict[str, float], peers: list[dict[str, float]]) ->
         return 1.0
     labels = sorted(profile)
     incumbent = max(labels, key=lambda k: sum(p.get(k, 0.0) for p in peers))
-    best_label = max(labels, key=lambda k: profile[k])
-    best = profile[best_label]
+    # The ceiling is what is ACHIEVABLE here, which is not the same as the best score in the
+    # probe repertoire. On a biome whose hazard runs on a period the repertoire happens not to
+    # contain, every probe scores negative while a matched rhythm scores +34 — and taking the
+    # repertoire's best as the ceiling would reject exactly those biomes, which are the whole
+    # point of the held-out split. So the caller passes the solvability witness instead.
+    best = profile[max(labels, key=lambda k: profile[k])] if achievable is None else achievable
     if best <= 0.0:
         return 0.0
     return float((best - profile[incumbent]) / abs(best))
@@ -464,7 +472,9 @@ def gate_bank(args: argparse.Namespace) -> None:
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
             item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
-            item["strategy_regret"] = strategy_regret(profile, accepted_profiles)
+            item["strategy_regret"] = strategy_regret(
+                profile, accepted_profiles, solve_result.mean_return
+            )
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
@@ -502,7 +512,9 @@ def gate_bank(args: argparse.Namespace) -> None:
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
             item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
-            item["strategy_regret"] = strategy_regret(profile, accepted_profiles)
+            item["strategy_regret"] = strategy_regret(
+                profile, accepted_profiles, solve_result.mean_return
+            )
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min

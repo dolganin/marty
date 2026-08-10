@@ -493,10 +493,206 @@ class SetPointRimeShelf final : public Biome {
   static constexpr float kReleaseSpeed = 0.85f;
 };
 
+// Fills the inertia_hysteresis stratum on the train split with a third rhythm, so an agent
+// cannot succeed by learning just two periods and guessing between them.
+class CollapseWindowGulch final : public MoltenWindowBiome {
+ public:
+  std::string_view id() const noexcept override { return "collapse_window_gulch"; }
+  std::string_view display_name() const noexcept override { return "Collapse Window Gulch"; }
+  std::string_view skill_stratum() const noexcept override { return "inertia_hysteresis"; }
+  int cycle_steps() const noexcept override { return 600; }
+  int melt_steps() const noexcept override { return 130; }
+  int phase_offset() const noexcept override { return 200; }
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {182, 150, 96};
+    v.ground = {126, 104, 60};
+    v.particles = {214, 190, 130};
+    v.particle_rate = 8.0f;
+    v.screen_brightness = 0.92f;
+    return v;
+  }
+};
+
+// ---------------------------------------------------------------------------------------
+// HELD-OUT COUNTERPARTS.
+//
+// The held-out split is where the readiness gate is decided, and it consisted entirely of
+// continuous-modifier biomes that one cautious reflex crossed. These are the same three
+// ideas at periods and phases the agent has never seen, so a policy can only do well by
+// inferring the schedule during the trial rather than by recalling a specific one.
+// ---------------------------------------------------------------------------------------
+
+class CollapseWindowScarp final : public MoltenWindowBiome {
+ public:
+  std::string_view id() const noexcept override { return "collapse_window_scarp"; }
+  std::string_view display_name() const noexcept override { return "Collapse Window Scarp"; }
+  std::string_view skill_stratum() const noexcept override { return "dynamic_obstacle"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  int cycle_steps() const noexcept override { return 560; }
+  int melt_steps() const noexcept override { return 125; }
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {186, 118, 96};
+    v.ground = {138, 78, 64};
+    v.particles = {218, 152, 118};
+    v.particle_rate = 9.0f;
+    v.screen_brightness = 0.93f;
+    return v;
+  }
+};
+
+class CollapseWindowPlaya final : public MoltenWindowBiome {
+ public:
+  std::string_view id() const noexcept override { return "collapse_window_playa"; }
+  std::string_view display_name() const noexcept override { return "Collapse Window Playa"; }
+  std::string_view skill_stratum() const noexcept override { return "inertia_hysteresis"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  int cycle_steps() const noexcept override { return 820; }
+  int melt_steps() const noexcept override { return 175; }
+  int phase_offset() const noexcept override { return 410; }
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {166, 146, 122};
+    v.ground = {132, 118, 96};
+    v.particles = {212, 196, 164};
+    v.particle_rate = 6.0f;
+    v.screen_brightness = 0.90f;
+    return v;
+  }
+};
+
+// Held-out inverse trap, so "stop when unsure" fails on the split that decides the gate.
+class SetPointGlazePan final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "setpoint_glaze_pan"; }
+  std::string_view display_name() const noexcept override { return "Setpoint Glaze Pan"; }
+  std::string_view skill_stratum() const noexcept override { return "traction_loss"; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  int hazard_at(int) const noexcept override { return 2; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    p.friction_mul = 0.80f + 0.15f * biome_random01(s);
+    p.ambient_temperature = -78.0f + 12.0f * biome_random01(s, 1);
+    p.thermal_transfer = 1.7f + 0.4f * biome_random01(s, 2);
+    p.solar_charge_rate = 0.8f + 0.3f * biome_random01(s, 3);
+    p.energy_drain_mul = 1.10f + 0.15f * biome_random01(s, 4);
+    p.lidar_range_mul = 0.38f;
+    p.lidar_energy_mul = 1.9f;
+    return p;
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {158, 172, 190};
+    v.ground = {178, 190, 196};
+    v.particles = {232, 240, 248};
+    v.particle_rate = 5.0f;
+    v.ambient_particles = 32;
+    v.ambient_drift = 1.6f;
+    v.screen_brightness = 1.0f;
+    return v;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (!c.contact || !c.contact->active) return;
+    const float speed = std::abs(c.wheel_speed);
+    if (speed >= kReleaseSpeed) return;
+    const float bite = clamp((kReleaseSpeed - speed) / kReleaseSpeed, 0.0f, 1.0f);
+    c.contact->penetration += 0.18f * bite * c.dt;
+    if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-15.0f * bite * c.wheel_speed);
+    if (c.energy_cost) *c.energy_cost += 0.10f * bite * p.energy_drain_mul * c.dt;
+  }
+
+  void apply_body_effects(const MechanicParams&, MechanicBodyContext& c) const noexcept override {
+    const float speed = std::abs(c.velocity.x);
+    if (speed >= kReleaseSpeed) return;
+    const float bite = clamp((kReleaseSpeed - speed) / kReleaseSpeed, 0.0f, 1.0f);
+    if (c.body_force) c.body_force->x -= c.mass * 2.4f * bite * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
+  }
+
+ private:
+  static constexpr float kReleaseSpeed = 0.95f;
+};
+
+// A third distinct answer: neither fast nor stopped, but a narrow band. Present so the
+// held-out split cannot be crossed by choosing between "flat out" and "stop on a rhythm".
+class SpeedBandTalus final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "speed_band_talus"; }
+  std::string_view display_name() const noexcept override { return "Speed Band Talus"; }
+  std::string_view skill_stratum() const noexcept override { return "lateral_force"; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    p.friction_mul = 0.90f + 0.12f * biome_random01(s);
+    p.crust_deform = 0.012f + 0.006f * biome_random01(s, 1);
+    p.ambient_temperature = -20.0f + 15.0f * biome_random01(s, 2);
+    p.thermal_transfer = 1.0f + 0.3f * biome_random01(s, 3);
+    p.solar_charge_rate = 1.2f + 0.4f * biome_random01(s, 4);
+    p.lidar_range_mul = 0.40f;
+    p.lidar_energy_mul = 2.2f;
+    p.terrain_roughness_mul = 1.3f;
+    return p;
+  }
+
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {176, 132, 104};
+    v.ground = {122, 96, 84};
+    v.particles = {198, 168, 148};
+    v.particle_rate = 8.0f;
+    v.screen_brightness = 0.95f;
+    return v;
+  }
+
+  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
+    if (!c.contact || !c.contact->active) return;
+    const float speed = std::abs(c.wheel_speed);
+    if (speed > kCeiling) {
+      // Loose talus shears away above the band and the wheel digs itself under.
+      const float over = clamp((speed - kCeiling) * 1.5f, 0.0f, 5.0f);
+      c.contact->penetration += (0.22f + 0.40f * over) * c.dt;
+      if (c.wheel_force) {
+        *c.wheel_force += c.contact->tangent * (-7.5f * c.wheel_speed * (1.0f + over));
+        *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.6f + 0.4f * over));
+      }
+      if (c.energy_cost) *c.energy_cost += (0.08f + 0.12f * over) * p.energy_drain_mul * c.dt;
+    } else if (speed < kFloor) {
+      // Below the band the slope packs around the wheel and holds it.
+      const float bite = clamp((kFloor - speed) / kFloor, 0.0f, 1.0f);
+      c.contact->penetration += 0.14f * bite * c.dt;
+      if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-11.0f * bite * c.wheel_speed);
+      if (c.energy_cost) *c.energy_cost += 0.07f * bite * p.energy_drain_mul * c.dt;
+    }
+  }
+
+  void apply_body_effects(const MechanicParams&, MechanicBodyContext& c) const noexcept override {
+    const float speed = std::abs(c.velocity.x);
+    if (speed <= kCeiling) return;
+    const float over = clamp((speed - kCeiling) * 1.3f, 0.0f, 4.0f);
+    if (c.body_force) c.body_force->y -= c.mass * std::abs(c.gravity) * (0.35f + 0.25f * over);
+    if (c.body_torque) *c.body_torque -= c.mass * (0.6f + 0.5f * over);
+  }
+
+ private:
+  static constexpr float kFloor = 0.75f;
+  static constexpr float kCeiling = 2.30f;
+};
+
 inline void append(std::vector<const Biome*>& out) {
   static const CollapseWindowFlats collapse_flats; out.push_back(&collapse_flats);
   static const CollapseWindowTerrace collapse_terrace; out.push_back(&collapse_terrace);
+  static const CollapseWindowGulch collapse_gulch; out.push_back(&collapse_gulch);
   static const SetPointRimeShelf rime_shelf; out.push_back(&rime_shelf);
+  static const CollapseWindowScarp collapse_scarp; out.push_back(&collapse_scarp);
+  static const CollapseWindowPlaya collapse_playa; out.push_back(&collapse_playa);
+  static const SetPointGlazePan glaze_pan; out.push_back(&glaze_pan);
+  static const SpeedBandTalus speed_talus; out.push_back(&speed_talus);
 }
 
 }  // namespace handcrafted_biomes
