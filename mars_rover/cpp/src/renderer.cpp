@@ -256,7 +256,13 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  const float brightness = clamp(body_style.particles.screen_brightness, 0.0f, 1.5f);
+  // Floor the exposure. Biomes may hide their mechanic from the AGENT's observation, but the
+  // rendered frame is a human debugging channel, and at the brightness some biomes ask for
+  // (0.05-0.18) the behaviour GIFs were too dark to read. Darkness costs the agent nothing
+  // here anyway: it drives from the observation vector, not from these pixels.
+  constexpr float kMinVisibleBrightness = 0.70f;
+  const float brightness =
+      clamp(body_style.particles.screen_brightness, kMinVisibleBrightness, 1.5f);
   for (size_t i = 0; i < static_cast<size_t>(width) * height * 3; ++i) {
     rgb[i] = static_cast<uint8_t>(clamp(static_cast<float>(rgb[i]) * brightness, 0.0f, 255.0f));
   }

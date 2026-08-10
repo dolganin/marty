@@ -66,34 +66,42 @@ generation:
       must be physically consistent with light: when screen_brightness is low, solar_charge_rate should
       also be reduced strongly; near-total darkness should provide almost no solar charge per second.
 
-    THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST PUNISH A LOW GEAR.
-    This is measured, not a matter of taste. Eight competent driving styles, each settling
-    in a different gear, were run on every biome of the current bank. Result: settling in
-    GEAR 2 and grinding forward wins on 10 of 15 biomes and never once fails badly — its
-    worst score across the whole bank is still the best score on that biome. So a rover
-    that simply always picks gear 2 collects 89% of what a rover that knows exactly which
-    biome it is in collects. That is the entire reason this benchmark does not yet reward
-    memory, and it is the one thing your candidate must fix.
-    Biomes that punish a HIGH gear already exist and are not needed: on cinder_clutch_brake
-    gear 2 scores 29.0 while gear 6 scores 3.0, on gravity_sway_gearlock 29.4 against 2.9.
-    Adding another of those changes nothing, because gear 2 survives them.
-    YOUR CANDIDATE MUST MAKE SLOW, HIGH-TORQUE, LOW-GEAR DRIVING FAIL, so that no single
-    gear is safe across the bank. Ways to do that, all reachable through the control
-    surface — pick one and build the whole mechanic around it:
-      - cost energy per unit TIME rather than per unit distance (high energy_drain_mul with
-        low friction resistance), so dawdling in a low gear runs the battery flat before the
-        course ends while a high gear finishes;
-      - make the ground swallow anything slow (large sink_rate and crust_deform), so only a
-        rover carrying speed stays on top and a low-gear crawl mires itself;
-      - make heat accumulate with exposure (hot ambient_temperature and high
-        thermal_transfer), so a long slow traverse cooks the engine and a fast one escapes;
-      - add a steady headwind (wind_force) that a low gear cannot out-push, so low gears
-        stall on the spot while a high gear builds momentum through it.
-    The failure must be CATASTROPHIC, not gradual: the low-gear rover should end the episode
-    stuck, flat, flipped or overheated, scoring a small fraction of the winner. A candidate
-    where every gear finishes within 20% of each other is rejected however exotic it reads.
-    And the trap must be INVISIBLE: the agent cannot see which way the biome is armed, it can
-    only find out by trying a gear and remembering the result inside the trial.
+    THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST DEMAND A RHYTHM, NOT A SETTING.
+    This is measured, not a matter of taste, and six generations of biomes failed it. Ten
+    competent driving styles, each settling in a different gear, were run on every biome.
+    For a long time one of them (settle in gear 2 and grind) won most of the bank and never
+    failed badly, so a rover that always picked gear 2 collected 89% of what a rover that
+    knew the biome collected — and memory was worth almost nothing.
+    Every generated mechanic so far is a CONTINUOUS modifier: more wind, less friction,
+    heavier gravity, faster drain. Continuous modifiers are all beaten by the same answer,
+    "drive steadily and carefully", so they change how HARD a biome is without changing WHAT
+    you must do. That is why they never worked.
+    What broke the deadlock was hand-written biomes whose hazard is SCHEDULED. Three of them
+    are now in the bank and you should treat them as the pattern to follow:
+      - collapse_window_flats: the crust is solid for 370 steps, then molten for 110. Anything
+        moving faster than a crawl during the molten window breaks through and sinks. Every
+        continuous style scores about -37; stopping on the right rhythm scores +33.
+      - collapse_window_terrace: the same mechanic on the OPPOSITE phase and a slower cycle,
+        so a rover that learned the first rhythm stops exactly when it should be driving.
+      - setpoint_rime_shelf: the inverse trap, where rime sets around a stationary wheel and
+        grips it, so stopping is fatal and only committed motion survives. This exists so
+        that "when unsure, stop" is not a safe universal answer either.
+    Adaptation headroom went from 0.00 to 25.19 and the best fixed reflex fell from 89% of
+    the achievable score to 50%. YOUR CANDIDATE MUST CONTRIBUTE TO THIS. Build a mechanic
+    where the right behaviour is a schedule or a discipline the rover must discover, not a
+    parameter it must tolerate:
+      - a hazard that opens and closes on a hidden period, so the rover must time its runs;
+      - ground that only bears weight below a hidden speed, so it must find and hold a limit;
+      - a resource that only replenishes while stationary, so it must plan halts;
+      - the inverse of any of these, so a sibling biome's correct answer is wrong here.
+    The wrong behaviour must be CATASTROPHIC — episode-ending or costing most of the distance,
+    like the -37 above — and never merely 10% slower. And the schedule must be INVISIBLE: it
+    cannot be read from the observation, only inferred from what happened on an earlier
+    attempt and remembered for the rest of the trial. A candidate on which every style
+    finishes within 20% of the others is rejected however exotic its physics reads.
+    A note on how this is enforced: acceptance measures whether the bank's current best
+    reflex is DENIED a large share of your biome's best score. Being merely difficult does
+    not pass. Ranking the styles differently while the same style still wins does not pass.
 
     ENERGY IS NOW THE BINDING RESOURCE — design against it explicitly.
     The rover starts with 6 of 25 energy units and consumes roughly 6.4 crossing the course,

@@ -287,6 +287,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["lidar_range"] = state.lidar_range;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
              d["screen_brightness"] = visuals.screen_brightness;
+             const auto& hazard_biome = mars::biome_by_id(zone.biome_id);
+             d["hazard"] = hazard_biome.hazard_at(state.step_index);
+             // Braking is not instantaneous, so a witness that only reacts at the onset
+             // is already moving too fast when the surface goes. It gets a look-ahead.
+             d["hazard_ahead"] = hazard_biome.hazard_at(state.step_index + 55);
              d["sky_rgb"] = py::make_tuple(visuals.sky.r, visuals.sky.g, visuals.sky.b);
              d["can_shift_up"] = state.can_shift_up;
              d["can_shift_down"] = state.can_shift_down;

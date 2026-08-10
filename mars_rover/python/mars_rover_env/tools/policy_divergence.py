@@ -83,6 +83,12 @@ def _strategies() -> dict[str, callable]:
         "gear3_feathered": drive(3, lambda t: GAS if t % 3 else 0),
         "gear3_brake_creep": drive(3, lambda t: BRAKE if t % 8 < 2 else GAS),
         "gear5_charge_first": drive(5, lambda t: CHARGE if t < 500 else GAS),
+        # Rhythms, not compromises. A biome whose ground collapses on a schedule is won by
+        # driving hard between the windows and holding still through them, and no amount of
+        # careful continuous driving substitutes. Two phases, so that one rhythm is wrong
+        # wherever the other is right.
+        "stop_go_short": drive(3, lambda t: BRAKE if (t % 480) < 145 else GAS),
+        "stop_go_long": drive(3, lambda t: BRAKE if ((t + 350) % 700) < 180 else GAS),
         "gear5_tilt_scan": drive(
             5,
             lambda t: LIDAR

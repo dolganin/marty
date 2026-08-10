@@ -82,6 +82,16 @@ def privileged_gate_oracle_policy(_obs: np.ndarray, debug: dict, step: int) -> i
     """Internal solvability oracle; never exposed as a comparable baseline."""
     if not debug.get("engine_running"):
         return 1 << 9
+    # Biomes whose hazard is scheduled rather than continuous cannot be crossed by any
+    # policy that always drives, so an always-driving oracle would declare them unsolvable
+    # and the gate would throw away precisely the mechanics that force adaptation. The
+    # oracle is privileged by definition — it exists to witness that a solution exists, not
+    # to be a fair baseline — so it reads the hazard directly. Agents never see this.
+    hazard = int(debug.get("hazard", 0))
+    if hazard == 1 or int(debug.get("hazard_ahead", 0)) == 1:
+        # Shed speed before the window opens, then idle rather than hold the brake, so the
+        # wait costs no energy.
+        return (1 << 1) if float(debug.get("speed", 0.0)) > 0.25 else 0
     gear = debug.get("gear", "N")
     if gear == "N" or (isinstance(gear, (int, float)) and gear <= 0):
         return (1 << 3) | (1 << 6)
@@ -244,6 +254,40 @@ def _catalog_by_id() -> dict[str, dict]:
     return {str(item["id"]): dict(item) for item in native.biome_catalog()}
 
 
+def solvability_witness(
+    biome_index: int,
+    profile: dict[str, float],
+    oracle: RolloutSummary,
+    seeds: list[int],
+    max_steps: int,
+    config_path,
+) -> RolloutSummary:
+    """Best of the reactive oracle and the best fixed style, as the solvability witness.
+
+    Solvability is an existence claim, so the honest estimator is a maximum over witnesses,
+    not the score of one hand-written controller. It matters here: on the scheduled-collapse
+    biomes the reactive oracle scores 0.049-0.072 because it reacts to the window instead of
+    anticipating it, while a policy that simply stops on the right rhythm scores three times
+    higher. Judging solvability by the oracle alone would reject the biomes as impossible
+    when what is actually impossible is crossing them WITHOUT knowing the schedule - which is
+    the entire property the benchmark is built to reward.
+    """
+    from mars_rover_env.tools.policy_divergence import _strategies
+
+    best_style = max(profile, key=profile.get)
+    if profile[best_style] <= oracle.mean_return:
+        return oracle
+    scripted = _strategies()[best_style]
+    styled = evaluate_policy(
+        biome_index,
+        lambda _seed: (lambda _obs, _debug, step: int(scripted(step))),
+        seeds,
+        max_steps,
+        config_path,
+    )
+    return styled if styled.mean_return > oracle.mean_return else oracle
+
+
 def strategy_profile(biome_index: int, seeds: list[int], max_steps: int, config_path):
     """Score a fixed repertoire of driving styles on one biome.
 
@@ -369,6 +413,20 @@ def gate_bank(args: argparse.Namespace) -> None:
             raise SystemExit("Robust-PPO was trained with a different environment config")
         robust = model_policy(args.robust_model)
         model_factory = lambda _seed: robust
+    # Biomes written by hand live in the compiled bank but were never produced by the
+    # generator, so they have no manifest row and the gate used to skip them silently.
+    # Adopt them here: a biome earns its place by passing the gate, not by its authorship.
+    split_code = {"train": 1, "test": 2}.get(args.split)
+    known = {str(item["id"]) for item in manifest.setdefault("biomes", [])}
+    for biome_id, biome in catalog.items():
+        if biome_id in known or int(biome["split"]) != split_code:
+            continue
+        manifest["biomes"].append(
+            {"id": biome_id, "split": args.split, "origin": "handwritten",
+             "display_name": biome.get("display_name", biome_id)}
+        )
+        print(f"adopted handwritten biome into the manifest: {biome_id}")
+
     failed: list[str] = []
     accepted_profiles: list[dict[str, float]] = []
     for item in manifest.get("biomes", []):
@@ -396,9 +454,12 @@ def gate_bank(args: argparse.Namespace) -> None:
                 args.config,
                 _privileged_gate_oracle=True,
             )
+            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
+            solve_result = solvability_witness(
+                biome_index, profile, solve_result, seeds, args.max_steps, args.config
+            )
             item["r_solve"] = solve_result.mean_return
             item["solve_score"] = solve_result.mean_score
-            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
             item["strategy_profile"] = profile
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
@@ -431,9 +492,12 @@ def gate_bank(args: argparse.Namespace) -> None:
                 args.config,
                 _privileged_gate_oracle=True,
             )
+            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
+            solve_result = solvability_witness(
+                biome_index, profile, solve_result, seeds, args.max_steps, args.config
+            )
             item["r_solve"] = solve_result.mean_return
             item["solve_score"] = solve_result.mean_score
-            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
             item["strategy_profile"] = profile
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
