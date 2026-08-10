@@ -275,6 +275,29 @@ def strategy_spread(profile: dict[str, float]) -> float:
     return float((best - median) / abs(best))
 
 
+def strategy_regret(profile: dict[str, float], peers: list[dict[str, float]]) -> float:
+    """What the bank's current best single reflex gives up on this biome, relative to its best.
+
+    This is the quantity the readiness gate is actually about, measured per candidate instead
+    of hoped for bank-wide. Rank disagreement proved too weak a proxy: a biome can reshuffle
+    the losing styles enough to look distinct while the SAME style still wins it, and a bank
+    admitted that way was still swept by one reflex (gear 2 won 10 of 15 and captured 89% of
+    the oracle). A biome earns its place only if the reflex that is currently best across the
+    accepted biomes performs materially WORSE here than this biome's own best style.
+
+    Returns 1.0 when no peers exist yet, else (best - incumbent) / |best|.
+    """
+    if not peers:
+        return 1.0
+    labels = sorted(profile)
+    incumbent = max(labels, key=lambda k: sum(p.get(k, 0.0) for p in peers))
+    best_label = max(labels, key=lambda k: profile[k])
+    best = profile[best_label]
+    if best <= 0.0:
+        return 0.0
+    return float((best - profile[incumbent]) / abs(best))
+
+
 def strategy_disagreement(profile: dict[str, float], peers: list[dict[str, float]]) -> float:
     """How differently this biome ranks the driving styles compared to already-accepted ones.
 
@@ -380,11 +403,12 @@ def gate_bank(args: argparse.Namespace) -> None:
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
             item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
+            item["strategy_regret"] = strategy_regret(profile, accepted_profiles)
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
                 and item["strategy_spread"] > args.min_strategy_spread
-                and item["strategy_disagreement"] > args.min_strategy_disagreement
+                and item["strategy_regret"] > args.min_strategy_regret
             )
         else:
             assert model_factory is not None
@@ -414,22 +438,46 @@ def gate_bank(args: argparse.Namespace) -> None:
             item["strategy_winner"] = max(profile, key=profile.get)
             item["strategy_spread"] = strategy_spread(profile)
             item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
+            item["strategy_regret"] = strategy_regret(profile, accepted_profiles)
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
                 and robust_result.mean_score < args.robust_max
                 and item["strategy_spread"] > args.min_strategy_spread
-                and item["strategy_disagreement"] > args.min_strategy_disagreement
+                and item["strategy_regret"] > args.min_strategy_regret
                 and solve_result.mean_return
                 > random_result.mean_return + args.min_reference_gap
             )
+        # Name the criterion that failed. "Too easy for a random policy", "no scripted
+        # solution exists" and "agrees with an accepted biome about which style wins" call
+        # for opposite corrections to the generator prompt, so one shared label wastes the
+        # measurement.
+        reasons: list[str] = []
+        if not random_result.mean_score < args.tau_low:
+            reasons.append("trivial_for_random")
+        if not solve_result.mean_score > args.solve_min:
+            reasons.append("unsolvable_by_oracle")
+        if not item["strategy_spread"] > args.min_strategy_spread:
+            reasons.append("styles_score_alike")
+        if not item["strategy_regret"] > args.min_strategy_regret:
+            reasons.append("best_reflex_of_the_bank_already_wins_here")
+        if args.split == "test":
+            if not robust_result.mean_score < args.robust_max:
+                reasons.append("memoryless_robust_already_solves_it")
+            if not solve_result.mean_return > random_result.mean_return + args.min_reference_gap:
+                reasons.append("reference_gap_too_small")
         item["status"] = "accepted" if accepted else "rejected_difficulty"
+        item["rejection_reasons"] = reasons
         if accepted and "strategy_profile" in item:
             accepted_profiles.append(item["strategy_profile"])
-        print(item["id"], item["status"], json.dumps({
+        print(item["id"], item["status"], ",".join(reasons), json.dumps({
             "random": asdict(random_result),
             "solve_or_robust": asdict(solve_result),
             "robust": asdict(robust_result) if args.split == "test" else None,
+            "strategy_winner": item["strategy_winner"],
+            "strategy_spread": item["strategy_spread"],
+            "strategy_disagreement": item["strategy_disagreement"],
+            "strategy_regret": item["strategy_regret"],
         }, sort_keys=True))
         if not accepted:
             failed.append(str(item["id"]))
@@ -475,6 +523,9 @@ def build_parser() -> argparse.ArgumentParser:
     # The decisive one: a biome must rank the driving styles differently from the biomes
     # already in the bank, otherwise one reflex still wins everywhere.
     parser.add_argument("--min-strategy-disagreement", type=float, default=0.30)
+    # The share of its own best score that a biome must deny to the bank's current best
+    # reflex. This is what makes bank-wide adaptation headroom positive by construction.
+    parser.add_argument("--min-strategy-regret", type=float, default=0.25)
     return parser
 
 

@@ -66,25 +66,34 @@ generation:
       must be physically consistent with light: when screen_brightness is low, solar_charge_rate should
       also be reduced strongly; near-total darkness should provide almost no solar charge per second.
 
-    THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST CHANGE WHICH STRATEGY WINS.
-    This was measured and it is the reason four earlier banks were useless: eight fixed driving
-    styles were run on every biome, and ONE of them (hold a high gear and cruise) won in 10 of
-    10. Adaptation headroom was exactly 0.00 — knowing which biome you were in earned nothing,
-    so no agent with memory could ever beat a reflex. Varied physics is NOT enough: wind,
-    friction, gravity and drag are continuous modifiers on one locomotion problem, so "drive
-    forward, hold attitude, keep the engine alive" stayed optimal under all of them.
-    Your candidate is only useful if some ordinary strategy that WINS elsewhere LOSES here, and
-    a different one wins instead. Concretely, pick one and build the mechanic around it:
-      - high gear is a trap here (it lugs, overheats or digs in) and low-gear crawling wins;
-      - full throttle is a trap here (it spins, flips or overloads) and feathered throttle wins;
-      - continuous driving is a trap here (thermal or charge death) and stopping to charge wins;
-      - braking is a trap here (it sinks or stalls) and carrying momentum wins;
-      - the reverse of any of the above, so that the correct choice is OPPOSITE to a sibling biome.
-    The trap must actually PUNISH — the wrong style should end the episode or cost most of the
-    distance, not merely go 10% slower. And it must be invisible: the agent cannot see which
-    trap is armed, it can only discover it by trying and remembering within the trial.
-    A candidate on which every driving style performs about the same is rejected, however
-    exotic its physics reads.
+    THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST PUNISH A LOW GEAR.
+    This is measured, not a matter of taste. Eight competent driving styles, each settling
+    in a different gear, were run on every biome of the current bank. Result: settling in
+    GEAR 2 and grinding forward wins on 10 of 15 biomes and never once fails badly — its
+    worst score across the whole bank is still the best score on that biome. So a rover
+    that simply always picks gear 2 collects 89% of what a rover that knows exactly which
+    biome it is in collects. That is the entire reason this benchmark does not yet reward
+    memory, and it is the one thing your candidate must fix.
+    Biomes that punish a HIGH gear already exist and are not needed: on cinder_clutch_brake
+    gear 2 scores 29.0 while gear 6 scores 3.0, on gravity_sway_gearlock 29.4 against 2.9.
+    Adding another of those changes nothing, because gear 2 survives them.
+    YOUR CANDIDATE MUST MAKE SLOW, HIGH-TORQUE, LOW-GEAR DRIVING FAIL, so that no single
+    gear is safe across the bank. Ways to do that, all reachable through the control
+    surface — pick one and build the whole mechanic around it:
+      - cost energy per unit TIME rather than per unit distance (high energy_drain_mul with
+        low friction resistance), so dawdling in a low gear runs the battery flat before the
+        course ends while a high gear finishes;
+      - make the ground swallow anything slow (large sink_rate and crust_deform), so only a
+        rover carrying speed stays on top and a low-gear crawl mires itself;
+      - make heat accumulate with exposure (hot ambient_temperature and high
+        thermal_transfer), so a long slow traverse cooks the engine and a fast one escapes;
+      - add a steady headwind (wind_force) that a low gear cannot out-push, so low gears
+        stall on the spot while a high gear builds momentum through it.
+    The failure must be CATASTROPHIC, not gradual: the low-gear rover should end the episode
+    stuck, flat, flipped or overheated, scoring a small fraction of the winner. A candidate
+    where every gear finishes within 20% of each other is rejected however exotic it reads.
+    And the trap must be INVISIBLE: the agent cannot see which way the biome is armed, it can
+    only find out by trying a gear and remembering the result inside the trial.
 
     ENERGY IS NOW THE BINDING RESOURCE — design against it explicitly.
     The rover starts with 6 of 25 energy units and consumes roughly 6.4 crossing the course,

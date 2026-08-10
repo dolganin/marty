@@ -20,6 +20,10 @@ Report:
   winner_entropy   - spread of winning strategies across biomes (0 = one winner everywhere)
   regret           - what the best SINGLE fixed strategy loses against per-biome winners.
                      This is the ceiling on what adaptation can ever be worth on this bank.
+
+The repertoire itself is load-bearing: see _strategies(). A first version reported a
+headroom of 0.00 that turned out to be an artifact of its own incompetence, so a low
+reading here should always be checked against the per-biome table before it is believed.
 """
 
 from __future__ import annotations
@@ -36,43 +40,54 @@ from mars_rover_env import MarsRoverEnv
 from mars_rover_env.actions import ACTION_MACROS
 
 
-# Deliberately coarse and mutually exclusive driving styles. They are not meant to be good;
-# they are meant to be DIFFERENT, so that "which one wins" is informative about the biome.
+# The repertoire has to be COMPETENT as well as varied, and the first version was not.
+# It contained one style that climbed the gearbox and seven that never shifted, so those
+# seven sat in gear 1 at the redline and scored identically to two decimals on every biome
+# (2.5 / 2.5 / 2.5 / 2.5 / 2.5) while the shifter won 10 of 10. That reads as "no biome
+# changes which strategy wins", but it was really "only one candidate could drive at all".
+# A probe made of one competent policy and seven cripples cannot detect adaptation value.
+#
+# So every style below reaches a chosen gear on a fixed schedule and then drives; they
+# differ in the gear they settle in and in what they do while there. Held-out gears matter
+# enormously — measured on the gen5 train bank, the best gear varies from 2 to 6 across
+# biomes and the wrong choice costs up to 10x (cinder_clutch_brake: 29.0 in gear 2 against
+# 3.0 in gear 6; seismic_swell_comber the other way round).
 def _strategies() -> dict[str, callable]:
     GAS = 1
     BRAKE = 1 << 1
-    REVERSE_ASSIST = 1 | (1 << 2)
     CLUTCH_UP = (1 << 3) | (1 << 6)
-    CLUTCH_DOWN = (1 << 3) | (1 << 7)
     IGNITION = 1 << 9
     TILT_L = 1 | (1 << 4)
     TILT_R = 1 | (1 << 5)
     CHARGE = 1 << 8
     LIDAR = 1 << 11
 
-    def ignite_first(step: int, inner):
-        return IGNITION if step < 12 else inner(step)
+    def drive(target_gear: int, inner=lambda t: GAS):
+        """Ignite, climb to `target_gear` on a fixed schedule, then defer to `inner`."""
+        shift_steps = frozenset(12 + 40 * i for i in range(target_gear - 1))
+
+        def policy(step: int) -> int:
+            if step < 12:
+                return IGNITION
+            if step in shift_steps:
+                return CLUTCH_UP
+            return inner(step)
+
+        return policy
 
     return {
-        "full_throttle": lambda s: ignite_first(s, lambda t: GAS),
-        "feathered": lambda s: ignite_first(s, lambda t: GAS if t % 3 else 0),
-        "low_gear_crawl": lambda s: ignite_first(
-            s, lambda t: CLUTCH_DOWN if t % 40 == 0 else GAS
-        ),
-        "high_gear_cruise": lambda s: ignite_first(
-            s, lambda t: CLUTCH_UP if t % 40 == 0 else GAS
-        ),
-        "brake_and_creep": lambda s: ignite_first(
-            s, lambda t: BRAKE if t % 8 < 2 else GAS
-        ),
-        "tilt_stabilised": lambda s: ignite_first(
-            s, lambda t: TILT_L if (t // 30) % 2 else TILT_R
-        ),
-        "charge_then_run": lambda s: ignite_first(
-            s, lambda t: CHARGE if t < 400 else GAS
-        ),
-        "scan_and_go": lambda s: ignite_first(
-            s, lambda t: LIDAR if t % 120 == 0 else GAS
+        "gear2_grind": drive(2),
+        "gear3_pull": drive(3),
+        "gear5_cruise": drive(5),
+        "gear7_top": drive(7),
+        "gear3_feathered": drive(3, lambda t: GAS if t % 3 else 0),
+        "gear3_brake_creep": drive(3, lambda t: BRAKE if t % 8 < 2 else GAS),
+        "gear5_charge_first": drive(5, lambda t: CHARGE if t < 500 else GAS),
+        "gear5_tilt_scan": drive(
+            5,
+            lambda t: LIDAR
+            if t % 120 == 0
+            else (TILT_L if (t // 30) % 2 else TILT_R),
         ),
     }
 
