@@ -66,6 +66,26 @@ generation:
       must be physically consistent with light: when screen_brightness is low, solar_charge_rate should
       also be reduced strongly; near-total darkness should provide almost no solar charge per second.
 
+    THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST CHANGE WHICH STRATEGY WINS.
+    This was measured and it is the reason four earlier banks were useless: eight fixed driving
+    styles were run on every biome, and ONE of them (hold a high gear and cruise) won in 10 of
+    10. Adaptation headroom was exactly 0.00 — knowing which biome you were in earned nothing,
+    so no agent with memory could ever beat a reflex. Varied physics is NOT enough: wind,
+    friction, gravity and drag are continuous modifiers on one locomotion problem, so "drive
+    forward, hold attitude, keep the engine alive" stayed optimal under all of them.
+    Your candidate is only useful if some ordinary strategy that WINS elsewhere LOSES here, and
+    a different one wins instead. Concretely, pick one and build the mechanic around it:
+      - high gear is a trap here (it lugs, overheats or digs in) and low-gear crawling wins;
+      - full throttle is a trap here (it spins, flips or overloads) and feathered throttle wins;
+      - continuous driving is a trap here (thermal or charge death) and stopping to charge wins;
+      - braking is a trap here (it sinks or stalls) and carrying momentum wins;
+      - the reverse of any of the above, so that the correct choice is OPPOSITE to a sibling biome.
+    The trap must actually PUNISH — the wrong style should end the episode or cost most of the
+    distance, not merely go 10% slower. And it must be invisible: the agent cannot see which
+    trap is armed, it can only discover it by trying and remembering within the trial.
+    A candidate on which every driving style performs about the same is rejected, however
+    exotic its physics reads.
+
     ENERGY IS NOW THE BINDING RESOURCE — design against it explicitly.
     The rover starts with 6 of 25 energy units and consumes roughly 6.4 crossing the course,
     so it CANNOT finish on the starting charge: it must either recharge or spend less. The

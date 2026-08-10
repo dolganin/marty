@@ -244,6 +244,65 @@ def _catalog_by_id() -> dict[str, dict]:
     return {str(item["id"]): dict(item) for item in native.biome_catalog()}
 
 
+def strategy_profile(biome_index: int, seeds: list[int], max_steps: int, config_path):
+    """Score a fixed repertoire of driving styles on one biome.
+
+    A biome earns its place only by changing WHICH behaviour wins. Measured on the previous
+    bank, one style (high-gear cruise) won all ten held-out biomes and adaptation headroom was
+    0.00 — knowing the biome was worth nothing, so memory could not pay and no agent comparison
+    on that bank meant anything. This makes that property a gate instead of a hope.
+    """
+    from mars_rover_env.tools.policy_divergence import _strategies, score_strategy
+
+    return {
+        label: score_strategy(policy, biome_index, seeds, max_steps, config_path)
+        for label, policy in _strategies().items()
+    }
+
+
+def strategy_spread(profile: dict[str, float]) -> float:
+    """How much the best style beats the median one, relative to the best.
+
+    Necessary but NOT sufficient: a biome can separate styles sharply and still be won by the
+    same style as every other biome, in which case identifying it is still worthless. Use
+    strategy_disagreement for the property that actually matters.
+    """
+    values = sorted(profile.values(), reverse=True)
+    best = values[0]
+    median = values[len(values) // 2]
+    if best <= 0.0:
+        return 0.0
+    return float((best - median) / abs(best))
+
+
+def strategy_disagreement(profile: dict[str, float], peers: list[dict[str, float]]) -> float:
+    """How differently this biome ranks the driving styles compared to already-accepted ones.
+
+    Measured directly, because the first version of this gate got it wrong: on the previous bank
+    every biome had a healthy internal spread (0.40-1.03) yet the SAME style won all ten, so
+    adaptation headroom was 0.00. What earns a place in the bank is disagreeing with the others
+    about which behaviour is best, not merely being decisive about it.
+
+    Returns 1.0 when no peers exist yet (the first biome cannot disagree with anything), else
+    one minus the mean rank correlation with the peers, so higher means more distinct.
+    """
+    if not peers:
+        return 1.0
+    labels = sorted(profile)
+    order = [sorted(labels, key=lambda k: p[k], reverse=True) for p in [profile] + peers]
+    ranks = [{label: position for position, label in enumerate(o)} for o in order]
+    mine = ranks[0]
+    correlations = []
+    for other in ranks[1:]:
+        a = np.array([mine[label] for label in labels], dtype=float)
+        b = np.array([other[label] for label in labels], dtype=float)
+        if a.std() == 0 or b.std() == 0:
+            correlations.append(1.0)
+            continue
+        correlations.append(float(np.corrcoef(a, b)[0, 1]))
+    return float(1.0 - max(correlations))
+
+
 def gate_bank(args: argparse.Namespace) -> None:
     manifest = load_manifest(args.manifest)
     require_compiled_bank(manifest)
@@ -288,6 +347,7 @@ def gate_bank(args: argparse.Namespace) -> None:
         robust = model_policy(args.robust_model)
         model_factory = lambda _seed: robust
     failed: list[str] = []
+    accepted_profiles: list[dict[str, float]] = []
     for item in manifest.get("biomes", []):
         if item.get("split") != args.split:
             continue
@@ -315,9 +375,16 @@ def gate_bank(args: argparse.Namespace) -> None:
             )
             item["r_solve"] = solve_result.mean_return
             item["solve_score"] = solve_result.mean_score
+            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
+            item["strategy_profile"] = profile
+            item["strategy_winner"] = max(profile, key=profile.get)
+            item["strategy_spread"] = strategy_spread(profile)
+            item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
+                and item["strategy_spread"] > args.min_strategy_spread
+                and item["strategy_disagreement"] > args.min_strategy_disagreement
             )
         else:
             assert model_factory is not None
@@ -342,14 +409,23 @@ def gate_bank(args: argparse.Namespace) -> None:
             )
             item["r_solve"] = solve_result.mean_return
             item["solve_score"] = solve_result.mean_score
+            profile = strategy_profile(biome_index, seeds[:3], min(args.max_steps, 1200), args.config)
+            item["strategy_profile"] = profile
+            item["strategy_winner"] = max(profile, key=profile.get)
+            item["strategy_spread"] = strategy_spread(profile)
+            item["strategy_disagreement"] = strategy_disagreement(profile, accepted_profiles)
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
                 and robust_result.mean_score < args.robust_max
+                and item["strategy_spread"] > args.min_strategy_spread
+                and item["strategy_disagreement"] > args.min_strategy_disagreement
                 and solve_result.mean_return
                 > random_result.mean_return + args.min_reference_gap
             )
         item["status"] = "accepted" if accepted else "rejected_difficulty"
+        if accepted and "strategy_profile" in item:
+            accepted_profiles.append(item["strategy_profile"])
         print(item["id"], item["status"], json.dumps({
             "random": asdict(random_result),
             "solve_or_robust": asdict(solve_result),
@@ -394,6 +470,11 @@ def build_parser() -> argparse.ArgumentParser:
     # that the oracle proves solvability, this is the real selection pressure.
     parser.add_argument("--robust-max", type=float, default=0.35)
     parser.add_argument("--min-reference-gap", type=float, default=1.0)
+    # A biome where every driving style scores alike cannot reward identifying it.
+    parser.add_argument("--min-strategy-spread", type=float, default=0.35)
+    # The decisive one: a biome must rank the driving styles differently from the biomes
+    # already in the bank, otherwise one reflex still wins everywhere.
+    parser.add_argument("--min-strategy-disagreement", type=float, default=0.30)
     return parser
 
 
