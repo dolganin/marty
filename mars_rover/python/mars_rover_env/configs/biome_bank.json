@@ -2759,7 +2759,8 @@
       },
       "strategy_regret": 1.3080616497083575,
       "strategy_spread": 1.852691087537285,
-      "strategy_winner": "stop_go_short"
+      "strategy_winner": "stop_go_short",
+      "skill_stratum": "dynamic_obstacle"
     },
     {
       "display_name": "collapse_window_terrace",
@@ -2787,7 +2788,8 @@
       },
       "strategy_regret": 1.2671501654505617,
       "strategy_spread": 1.632686405880625,
-      "strategy_winner": "stop_go_long"
+      "strategy_winner": "stop_go_long",
+      "skill_stratum": "dynamic_obstacle"
     },
     {
       "display_name": "collapse_window_gulch",
@@ -2815,7 +2817,8 @@
       },
       "strategy_regret": 0.8147356257572718,
       "strategy_spread": 6.01264691599502,
-      "strategy_winner": "stop_go_long"
+      "strategy_winner": "stop_go_long",
+      "skill_stratum": "inertia_hysteresis"
     },
     {
       "display_name": "setpoint_rime_shelf",
@@ -2843,7 +2846,8 @@
       },
       "strategy_regret": 0.8675579210442927,
       "strategy_spread": 0.5969622938010294,
-      "strategy_winner": "gear7_top"
+      "strategy_winner": "gear7_top",
+      "skill_stratum": "traction_loss"
     }
   ],
   "difficulty_gates": {

@@ -430,8 +430,15 @@ def gate_bank(args: argparse.Namespace) -> None:
         if biome_id in known or int(biome["split"]) != split_code:
             continue
         manifest["biomes"].append(
-            {"id": biome_id, "split": args.split, "origin": "handwritten",
-             "display_name": biome.get("display_name", biome_id)}
+            {
+                "id": biome_id,
+                "split": args.split,
+                "origin": "handwritten",
+                "display_name": biome.get("display_name", biome_id),
+                # Carried over from the compiled catalog: the frozen-bank check reads strata
+                # from the manifest, so a row without one makes the bank look incomplete.
+                "skill_stratum": biome.get("skill_stratum", ""),
+            }
         )
         print(f"adopted handwritten biome into the manifest: {biome_id}")
 
