@@ -753,79 +753,85 @@ class SlipPhasePan final : public Biome {
   static constexpr int kPhase = 90;
 };
 
-// Held-out energy_mode. The two generated biomes that carried this stratum were dropped for
-// duplicating train biomes, and replacing them with another continuous drain would recreate
-// the problem the whole bank was rebuilt to escape. So the tariff runs on a schedule: for
-// part of the cycle every metre costs several times its usual energy, and on a 6-unit budget
-// a rover that drives straight through the surges is flat before the course ends. Waiting
-// them out is not caution, it is the only way to finish - a battery discipline rather than a
-// traction one, so it fails differently from the collapse windows.
-class SurgeTariffBasin final : public Biome {
+// Held-out energy_mode, third attempt, and the two failures are worth recording because they
+// were opposite. Charging the surge in proportion to SPEED let a slow crawl dodge it, so the
+// trap rewarded the incumbent reflex (robust 0.32 against a witness of 0.20). Charging it per
+// unit TIME in motion made fast driving cheaper per metre, so it rewarded the reflex even
+// harder (robust 0.53). A tariff cannot force a rover to wait, because waiting has a cost and
+// driving buys distance with it either way.
+//
+// What does force a halt is the opposite construction: make the only source of energy
+// available on a schedule. The rover cannot finish on its starting charge, dust clears the
+// panels for part of the cycle and not the rest, and charging requires standing still. So the
+// window has to be found and then waited for, and a rover that drives until it is flat never
+// finds it. Deploying at the wrong time is pure loss - the time is spent and no charge
+// arrives - which is what makes the schedule worth identifying rather than guessing.
+class SolarWindowPan final : public Biome {
  public:
-  std::string_view id() const noexcept override { return "surge_tariff_basin"; }
-  std::string_view display_name() const noexcept override { return "Surge Tariff Basin"; }
+  std::string_view id() const noexcept override { return "solar_window_pan"; }
+  std::string_view display_name() const noexcept override { return "Solar Window Pan"; }
   std::string_view skill_stratum() const noexcept override { return "energy_mode"; }
   MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  bool surging(int step) const noexcept {
+  bool clear_sky(int step) const noexcept {
     int phase = (step + kPhase) % kCycle;
     if (phase < 0) phase += kCycle;
-    return phase < kSurgeSteps;
+    return phase < kWindowSteps;
   }
-  int hazard_at(int step) const noexcept override { return surging(step) ? 1 : 0; }
+  // 3 is a CONDITIONAL halt: unlike code 1, stopping here is only worth it when the battery
+  // needs it. A witness that waits out every window regardless scores below a policy that
+  // simply drives, which would say the biome is pointless when the real point is choosing
+  // WHICH windows to spend.
+  int hazard_at(int step) const noexcept override { return clear_sky(step) ? 3 : 2; }
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    p.friction_mul = 1.05f + 0.12f * biome_random01(s);
-    p.gravity_mul = 0.88f + 0.08f * biome_random01(s, 1);
-    p.ambient_temperature = 12.0f + 14.0f * biome_random01(s, 2);
-    p.thermal_transfer = 1.5f + 0.4f * biome_random01(s, 3);
-    p.solar_charge_rate = 1.9f + 0.5f * biome_random01(s, 4);
-    p.energy_drain_mul = 1.15f + 0.15f * biome_random01(s, 5);
+    p.friction_mul = 1.02f + 0.12f * biome_random01(s);
+    p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 1);
+    p.ambient_temperature = 16.0f + 12.0f * biome_random01(s, 2);
+    p.thermal_transfer = 1.45f + 0.35f * biome_random01(s, 3);
+    // The panel itself is nearly useless; the biome supplies charge on its own schedule.
+    p.solar_charge_rate = 0.18f + 0.10f * biome_random01(s, 4);
+    p.energy_drain_mul = 1.35f + 0.20f * biome_random01(s, 5);
     p.lidar_range_mul = 0.32f;
     p.lidar_energy_mul = 2.4f;
-    p.terrain_amplitude_mul = 0.78f;
-    p.terrain_crater_mul = 1.55f;
+    p.terrain_amplitude_mul = 0.72f;
+    p.terrain_crater_mul = 1.65f;
     return p;
   }
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    v.sky = {198, 150, 104};
-    v.ground = {148, 112, 74};
-    v.particles = {226, 186, 132};
+    v.sky = {204, 158, 98};
+    v.ground = {152, 118, 70};
+    v.particles = {230, 192, 128};
     v.particle_rate = 7.0f;
-    v.ambient_particles = 20;
-    v.ambient_drift = 2.4f;
+    v.ambient_particles = 24;
+    v.ambient_drift = 2.2f;
     v.screen_brightness = 0.96f;
     return v;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (!c.energy_cost || !surging(c.step_index)) return;
-    // The tariff is charged per unit TIME in motion, not per unit distance. The first
-    // version scaled with speed, which let a slow crawl dodge it entirely - so the trap
-    // rewarded the exact reflex it was built to punish (robust scored 0.32 against a
-    // witness of 0.20, and gear-2 grinding came within 5% of the best style). Charging by
-    // the second makes creeping through a surge strictly worse than waiting it out: same
-    // cost, less ground.
-    if (std::abs(c.wheel_speed) <= kMotionThreshold) return;
-    *c.energy_cost += kTariffPerSecond * p.energy_drain_mul * c.dt;
-  }
-
-  void apply_body_effects(const MechanicParams&, MechanicBodyContext& c) const noexcept override {
-    if (!surging(c.step_index) || !c.energy_cost) return;
-    if (std::abs(c.velocity.x) <= kMotionThreshold) return;
-    *c.energy_cost += 0.22f * c.dt;
+    if (!c.energy_cost) return;
+    const float speed = std::abs(c.wheel_speed);
+    if (clear_sky(c.step_index) && speed <= kStillThreshold) {
+      // Negative cost: the cleared sky recharges a stationary rover.
+      *c.energy_cost -= kChargePerSecond * c.dt;
+      return;
+    }
+    if (speed > kStillThreshold)
+      *c.energy_cost += kDriveTax * p.energy_drain_mul * c.dt;
   }
 
  private:
   static constexpr int kCycle = 740;
-  static constexpr int kSurgeSteps = 190;
-  static constexpr int kPhase = 260;
-  static constexpr float kMotionThreshold = 0.18f;
-  static constexpr float kTariffPerSecond = 0.85f;
+  static constexpr int kWindowSteps = 210;
+  static constexpr int kPhase = 300;
+  static constexpr float kStillThreshold = 0.18f;
+  static constexpr float kChargePerSecond = 2.40f;
+  static constexpr float kDriveTax = 0.30f;
 };
 
 // Held-out gravity_change on a schedule. During the pulse the ground barely holds the rover
@@ -991,7 +997,7 @@ inline void append(std::vector<const Biome*>& out) {
   static const CollapseWindowPlaya collapse_playa; out.push_back(&collapse_playa);
   static const SpeedBandTalus speed_talus; out.push_back(&speed_talus);
   static const SlipPhasePan slip_pan; out.push_back(&slip_pan);
-  static const SurgeTariffBasin surge_basin; out.push_back(&surge_basin);
+  static const SolarWindowPan solar_window; out.push_back(&solar_window);
   static const PulseGravityReef pulse_reef; out.push_back(&pulse_reef);
   static const CadenceDuneBelt cadence_belt; out.push_back(&cadence_belt);
 }

@@ -89,6 +89,11 @@ def privileged_gate_oracle_policy(_obs: np.ndarray, debug: dict, step: int) -> i
     # oracle is privileged by definition — it exists to witness that a solution exists, not
     # to be a fair baseline — so it reads the hazard directly. Agents never see this.
     hazard = int(debug.get("hazard", 0))
+    if hazard == 3:
+        # A charging window: spend it only when the battery actually needs it, otherwise the
+        # witness throws away most of its driving time waiting for charge it already has.
+        if float(debug.get("energy", 0.0)) < 12.0:
+            return (1 << 1) if float(debug.get("speed", 0.0)) > 0.25 else 0
     if hazard == 1 or int(debug.get("hazard_ahead", 0)) == 1:
         # Shed speed before the window opens, then idle rather than hold the brake, so the
         # wait costs no energy.
@@ -275,18 +280,60 @@ def solvability_witness(
     """
     from mars_rover_env.tools.policy_divergence import _strategies
 
+    best = oracle
+    # The reactive oracle follows the engine's own upshift advice, and which gear actually
+    # works turns out to be biome-specific: holding fifth lifts it from 0.056 to 0.302 on
+    # collapse_window_scarp, while holding second lifts it from 0.117 to 0.378 on
+    # cadence_dune_belt. A witness locked to one gear understates solvability on most of the
+    # bank, so the existence claim is evaluated over gears too.
+    for gear in (2, 3, 5, 7):
+        geared = evaluate_policy(
+            biome_index,
+            lambda _seed, g=gear: _geared_privileged_oracle(g),
+            seeds,
+            max_steps,
+            config_path,
+            _privileged_gate_oracle=True,
+        )
+        if geared.mean_return > best.mean_return:
+            best = geared
+
     best_style = max(profile, key=profile.get)
-    if profile[best_style] <= oracle.mean_return:
-        return oracle
-    scripted = _strategies()[best_style]
-    styled = evaluate_policy(
-        biome_index,
-        lambda _seed: (lambda _obs, _debug, step: int(scripted(step))),
-        seeds,
-        max_steps,
-        config_path,
-    )
-    return styled if styled.mean_return > oracle.mean_return else oracle
+    if profile[best_style] > best.mean_return:
+        scripted = _strategies()[best_style]
+        styled = evaluate_policy(
+            biome_index,
+            lambda _seed: (lambda _obs, _debug, step: int(scripted(step))),
+            seeds,
+            max_steps,
+            config_path,
+        )
+        if styled.mean_return > best.mean_return:
+            best = styled
+    return best
+
+
+def _geared_privileged_oracle(target_gear: int) -> Policy:
+    """The privileged hazard logic, driving in a fixed gear instead of following advice."""
+    shifts = frozenset(12 + 40 * i for i in range(target_gear - 1))
+
+    def act(obs: np.ndarray, debug: dict, step: int) -> int:
+        if not debug.get("engine_running"):
+            return 1 << 9
+        hazard = int(debug.get("hazard", 0))
+        slow = float(debug.get("speed", 0.0)) > 0.25
+        if hazard == 3 and float(debug.get("energy", 0.0)) < 12.0:
+            return (1 << 1) if slow else 0
+        if hazard == 1 or int(debug.get("hazard_ahead", 0)) == 1:
+            return (1 << 1) if slow else 0
+        if step in shifts:
+            return (1 << 3) | (1 << 6)
+        action = 1
+        if abs(float(debug.get("angle", 0.0))) > 0.35:
+            action |= 1 << (5 if debug["angle"] > 0 else 4)
+        return action
+
+    return act
 
 
 def strategy_profile(biome_index: int, seeds: list[int], max_steps: int, config_path):
