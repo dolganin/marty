@@ -71,6 +71,12 @@ def test_harness_never_passes_debug_state_to_agent(tmp_path) -> None:
         ),
         output_dir=tmp_path,
     )
-    assert payload["summary"]["episode_count"] == 20
-    assert len(agents) == 10
+    # Derived from the compiled bank rather than hard-coded: this asserted 10 held-out
+    # biomes and broke the moment the split grew to 11, which says nothing about the
+    # contract it is meant to police.
+    import _mars_rover_cpp as native
+
+    held_out = sum(1 for item in native.biome_catalog() if int(item["split"]) == 2)
+    assert payload["summary"]["episode_count"] == held_out * 2
+    assert len(agents) == held_out
     assert all(agent.trial_memory == 2 for agent in agents)

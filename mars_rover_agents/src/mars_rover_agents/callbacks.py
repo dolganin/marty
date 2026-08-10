@@ -114,7 +114,10 @@ class MLflowTrainingCallback(BaseCallback):
         payload = evaluate(
             lambda _seed: PPOAgent(self.model, deterministic=True),
             EvaluationSpec(
-                split="test",
+                # Validation on TRAIN, for the same reason as in train_rl2: a periodic
+                # evaluation that reads held-out turns every checkpoint choice into a
+                # selection made on the judging set.
+                split="train",
                 seeds=self.eval_seeds,
                 episodes_per_trial=self.eval_episodes,
                 max_steps=self.eval_max_steps,
@@ -127,22 +130,22 @@ class MLflowTrainingCallback(BaseCallback):
         )
         summary = payload["summary"]
         metrics: dict[str, float | None] = {
-            "heldout.mean_raw_return": summary["mean_raw_return"],
-            "heldout.raw_adaptation_delta": summary["raw_adaptation_delta"],
-            "heldout.trial_auc": summary["trial_auc"],
-            "heldout.adaptation_delta": summary["adaptation_delta"],
-            "heldout.success_rate": summary["success_rate"],
-            "heldout.flip_rate": summary["flip_rate"],
-            "heldout.mean_battery_consumed": summary["mean_battery_consumed"],
-            "heldout.mean_distance": summary["mean_distance"],
+            "validation.mean_raw_return": summary["mean_raw_return"],
+            "validation.raw_adaptation_delta": summary["raw_adaptation_delta"],
+            "validation.trial_auc": summary["trial_auc"],
+            "validation.adaptation_delta": summary["adaptation_delta"],
+            "validation.success_rate": summary["success_rate"],
+            "validation.flip_rate": summary["flip_rate"],
+            "validation.mean_battery_consumed": summary["mean_battery_consumed"],
+            "validation.mean_distance": summary["mean_distance"],
         }
         for index, value in enumerate(summary["raw_return_by_episode"], start=1):
-            metrics[f"heldout.raw_return.episode_{index}"] = value
+            metrics[f"validation.raw_return.episode_{index}"] = value
         normalized = summary["normalized_return_by_episode"] or []
         for index, value in enumerate(normalized, start=1):
-            metrics[f"heldout.normalized_return.episode_{index}"] = value
+            metrics[f"validation.normalized_return.episode_{index}"] = value
         for index, value in enumerate(summary["action_entropy_by_episode"], start=1):
-            metrics[f"heldout.action_entropy.episode_{index}"] = value
+            metrics[f"validation.action_entropy.episode_{index}"] = value
         self.tracker.log_metrics(metrics, step)
         local_gif = eval_dir / "behavior.gif"
         try:

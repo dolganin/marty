@@ -62,6 +62,7 @@ def _log_evaluation(
     transitions: int,
     seeds: tuple[int, ...],
     max_steps: int,
+    validation_split: str = "train",
 ) -> dict[str, Any]:
     eval_dir = run_dir / "evaluations" / f"step_{transitions:09d}"
     payload = evaluate(
@@ -69,7 +70,12 @@ def _log_evaluation(
             model, device=device, deterministic=True, max_steps=max_steps
         ),
         EvaluationSpec(
-            split="test",
+            # Validation runs on TRAIN. It used to run on test, which meant the in-run model
+            # selector - and anyone scanning checkpoints by hand - was choosing against the
+            # held-out split. Selecting the best of ~27 noisy held-out scores biases the
+            # maximum upward even when nothing real is there, so held-out has to stay
+            # untouched until the final judgement.
+            split=validation_split,
             seeds=seeds,
             episodes_per_trial=4,
             max_steps=max_steps,
@@ -83,21 +89,21 @@ def _log_evaluation(
     )
     summary = payload["summary"]
     metrics: dict[str, float | None] = {
-        "heldout.mean_raw_return": summary["mean_raw_return"],
-        "heldout.raw_adaptation_delta": summary["raw_adaptation_delta"],
-        "heldout.trial_auc": summary["trial_auc"],
-        "heldout.adaptation_delta": summary["adaptation_delta"],
-        "heldout.success_rate": summary["success_rate"],
-        "heldout.flip_rate": summary["flip_rate"],
-        "heldout.mean_battery_consumed": summary["mean_battery_consumed"],
-        "heldout.mean_distance": summary["mean_distance"],
+        "validation.mean_raw_return": summary["mean_raw_return"],
+        "validation.raw_adaptation_delta": summary["raw_adaptation_delta"],
+        "validation.trial_auc": summary["trial_auc"],
+        "validation.adaptation_delta": summary["adaptation_delta"],
+        "validation.success_rate": summary["success_rate"],
+        "validation.flip_rate": summary["flip_rate"],
+        "validation.mean_battery_consumed": summary["mean_battery_consumed"],
+        "validation.mean_distance": summary["mean_distance"],
     }
     for index, value in enumerate(summary["raw_return_by_episode"], start=1):
-        metrics[f"heldout.raw_return.episode_{index}"] = value
+        metrics[f"validation.raw_return.episode_{index}"] = value
     for index, value in enumerate(summary["normalized_return_by_episode"] or [], start=1):
-        metrics[f"heldout.normalized_return.episode_{index}"] = value
+        metrics[f"validation.normalized_return.episode_{index}"] = value
     for index, value in enumerate(summary["action_entropy_by_episode"], start=1):
-        metrics[f"heldout.action_entropy.episode_{index}"] = value
+        metrics[f"validation.action_entropy.episode_{index}"] = value
     tracker.log_metrics(metrics, transitions)
     local_gif = eval_dir / "behavior.gif"
     remote_gif_path = f"evaluations/step_{transitions:09d}/behavior.gif"
@@ -524,8 +530,8 @@ def main() -> None:
                 should_replace = True
             tracker.log_metrics(
                 {
-                    "heldout.selection_score": score if passes_floor else None,
-                    "heldout.selection_passes_auc_floor": float(passes_floor),
+                    "validation.selection_score": score if passes_floor else None,
+                    "validation.selection_passes_auc_floor": float(passes_floor),
                 },
                 step,
             )
