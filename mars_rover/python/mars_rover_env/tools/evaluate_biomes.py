@@ -12,6 +12,7 @@ import numpy as np
 from mars_rover_env import MarsRoverEnv
 from mars_rover_env.actions import ACTION_MACROS
 from mars_rover_env.config import DEFAULT_ENV_CONFIG
+from mars_rover_env.tools.generate_biomes import fingerprint_of_compiled_biome
 from mars_rover_env.bank import (
     DEFAULT_MANIFEST,
     load_manifest,
@@ -307,9 +308,17 @@ def strategy_profile(biome_index: int, seeds: list[int], max_steps: int, config_
 def strategy_spread(profile: dict[str, float]) -> float:
     """How much the best style beats the median one, relative to the best.
 
-    Necessary but NOT sufficient: a biome can separate styles sharply and still be won by the
-    same style as every other biome, in which case identifying it is still worthless. Use
-    strategy_disagreement for the property that actually matters.
+    Reported for diagnosis, but NOT an acceptance condition, because it inverts its own
+    meaning in the regime that matters. It is defined against the best score in the probe
+    repertoire, so when no probe has a workable answer and every score is negative it
+    collapses to 0 — and it collapses hardest on the biomes where a memoryless policy fails
+    completely. It rejected collapse_window_scarp, on which memoryless robust scores 0.000
+    while a matched rhythm reaches 0.085, and speed_band_talus, where robust gets 25% of what
+    is achievable. Both are exactly what the held-out split is for.
+
+    strategy_regret subsumes it and is measured against what is ACHIEVABLE rather than
+    against what the probes manage, so it does not degenerate. Replayed over the gen5 bank,
+    dropping this condition changes nothing: regret alone still accepts 2 biomes of 15.
     """
     values = sorted(profile.values(), reverse=True)
     best = values[0]
@@ -317,6 +326,12 @@ def strategy_spread(profile: dict[str, float]) -> float:
     if best <= 0.0:
         return 0.0
     return float((best - median) / abs(best))
+
+
+
+def _handwritten_class_name(biome_id: str) -> str:
+    """collapse_window_flats -> CollapseWindowFlats, matching the header's naming."""
+    return "".join(part.capitalize() for part in biome_id.split("_"))
 
 
 def strategy_regret(
@@ -426,8 +441,19 @@ def gate_bank(args: argparse.Namespace) -> None:
     # Adopt them here: a biome earns its place by passing the gate, not by its authorship.
     split_code = {"train": 1, "test": 2}.get(args.split)
     known = {str(item["id"]) for item in manifest.setdefault("biomes", [])}
+    by_id = {str(item["id"]): item for item in manifest["biomes"]}
     for biome_id, biome in catalog.items():
-        if biome_id in known or int(biome["split"]) != split_code:
+        if int(biome["split"]) != split_code:
+            continue
+        if biome_id in known:
+            # A row adopted before fingerprints were recorded still fails the audit, so
+            # backfill rather than requiring the bank to be rebuilt from scratch.
+            row = by_id[biome_id]
+            if row.get("origin") == "handwritten" and not row.get("behavior_fingerprint"):
+                row["behavior_fingerprint"] = fingerprint_of_compiled_biome(
+                    "handcrafted_biomes::" + _handwritten_class_name(biome_id)
+                )
+                print(f"backfilled fingerprint for {biome_id}")
             continue
         manifest["biomes"].append(
             {
@@ -438,6 +464,11 @@ def gate_bank(args: argparse.Namespace) -> None:
                 # Carried over from the compiled catalog: the frozen-bank check reads strata
                 # from the manifest, so a row without one makes the bank look incomplete.
                 "skill_stratum": biome.get("skill_stratum", ""),
+                # Measured with the same trace the generator uses, so hand-written and
+                # generated biomes stay comparable and the audit's fingerprint check passes.
+                "behavior_fingerprint": fingerprint_of_compiled_biome(
+                    "handcrafted_biomes::" + _handwritten_class_name(biome_id)
+                ),
             }
         )
         print(f"adopted handwritten biome into the manifest: {biome_id}")
@@ -485,7 +516,6 @@ def gate_bank(args: argparse.Namespace) -> None:
             accepted = (
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
-                and item["strategy_spread"] > args.min_strategy_spread
                 and item["strategy_regret"] > args.min_strategy_regret
             )
         else:
@@ -526,7 +556,6 @@ def gate_bank(args: argparse.Namespace) -> None:
                 random_result.mean_score < args.tau_low
                 and solve_result.mean_score > args.solve_min
                 and robust_result.mean_score < args.robust_max
-                and item["strategy_spread"] > args.min_strategy_spread
                 and item["strategy_regret"] > args.min_strategy_regret
                 and solve_result.mean_return
                 > random_result.mean_return + args.min_reference_gap
@@ -540,8 +569,6 @@ def gate_bank(args: argparse.Namespace) -> None:
             reasons.append("trivial_for_random")
         if not solve_result.mean_score > args.solve_min:
             reasons.append("unsolvable_by_oracle")
-        if not item["strategy_spread"] > args.min_strategy_spread:
-            reasons.append("styles_score_alike")
         if not item["strategy_regret"] > args.min_strategy_regret:
             reasons.append("best_reflex_of_the_bank_already_wins_here")
         if args.split == "test":

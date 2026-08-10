@@ -286,17 +286,46 @@ def _syntax_check(candidate: dict[str, str], compiler: str, split: str) -> None:
 
 def _behavioral_fingerprint(candidate: dict[str, Any], compiler: str) -> list[float]:
     """Compile a candidate and measure deterministic state deltas on a fixed action trace."""
-    name, source = candidate["class_name"], candidate["source"]
+    return _fingerprint_trace(
+        candidate["class_name"],
+        declarations=(
+            "namespace mars::generated_biomes::fingerprint_check {\n"
+            + candidate["source"]
+            + "\n}"
+        ),
+        construction="generated_biomes::fingerprint_check::" + candidate["class_name"],
+        compiler=compiler,
+    )
+
+
+def fingerprint_of_compiled_biome(qualified_class: str, compiler: str = "g++") -> list[float]:
+    """Fingerprint a biome that is already part of the compiled bank.
+
+    Hand-written biomes have no `source` field in the manifest - they live in the header
+    rather than in the generated block - so the candidate path cannot reach them, and the
+    audit rejects a bank whose rows carry no fingerprint. This runs the SAME trace against
+    the compiled class, so hand-written and generated biomes stay directly comparable and
+    the de-duplication distance keeps meaning what it meant.
+    """
+    return _fingerprint_trace(
+        qualified_class.rsplit("::", 1)[-1],
+        declarations="",
+        construction=qualified_class,
+        compiler=compiler,
+    )
+
+
+def _fingerprint_trace(
+    name: str, *, declarations: str, construction: str, compiler: str
+) -> list[float]:
     unit = f'''#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include "mars/biome_bank.hpp"
-namespace mars::generated_biomes::fingerprint_check {{
-{source}
-}}
+{declarations}
 int main() {{
   using namespace mars;
-  generated_biomes::fingerprint_check::{name} biome;
+  {construction} biome;
   std::cout << std::setprecision(9);
   for (uint64_t seed : {{11ULL, 29ULL, 47ULL}}) {{
     MechanicParams p = biome.sample_params(seed);
@@ -324,12 +353,21 @@ int main() {{
       wheel.energy_cost = &cost; wheel.dt = 1.0f / 60.0f; wheel.wheel_radius = 0.24f;
       wheel.base_friction = 1.2f; wheel.drive_force = drive; wheel.minimum_drive_limit = 0.0f;
       wheel.wheel_speed = velocity.x + std::sin(step * 0.19f); wheel.immersion = (step % 32) / 31.0f;
-      wheel.step_index = step;
+      // Stride the step index the biome sees. The trace is 96 samples long, so a
+      // consecutive index only ever shows a mechanic its first 96 steps - and a biome whose
+      // hazard runs on a period of 480-820 steps looks identical to a sibling with a
+      // different period, because both are in the same phase for the whole window. That is
+      // not hypothetical: it made collapse_window_playa and collapse_window_gulch score a
+      // fingerprint distance of exactly 0.000000. Striding spans ~1200 steps with the same
+      // number of samples, so scheduled behaviour is visible and continuous mechanics are
+      // unaffected.
+      const int biome_step = step * 13;
+      wheel.step_index = biome_step;
       biome.apply(p, wheel);
       MechanicBodyContext body;
       body.body_force = &body_force; body.body_torque = &torque; body.energy_cost = &cost;
       body.velocity = velocity; body.angular_velocity = angular_velocity; body.mass = 12.0f;
-      body.gravity = -3.71f * p.gravity_mul; body.dt = 1.0f / 60.0f; body.step_index = step;
+      body.gravity = -3.71f * p.gravity_mul; body.dt = 1.0f / 60.0f; body.step_index = biome_step;
       biome.apply_body_effects(p, body);
       const Vec2 previous = velocity;
       velocity += (wheel_force + body_force) * (body.dt / 12.0f);

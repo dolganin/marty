@@ -13,7 +13,7 @@ generation:
   count: 12
   split: "train"  # train or test
   compiler: "g++"
-  behavioral_dedup_epsilon: 0.090
+  behavioral_dedup_epsilon: 0.0971
   system_prompt: |
     You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
     Return exactly one class derived publicly from Biome. `final` is optional. The class
