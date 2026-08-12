@@ -12,7 +12,7 @@ constexpr int kObservationDim =
     8 +                 // body position, velocity, angle, angular velocity, energy
     kMaxWheels * 3 +    // contact, slip, normal force per wheel slot
     kTerrainSamplesAhead * 2 +
-    kBiomeSamplesAhead * 3 +  // material id, liquid depth and ambient temperature ahead
+    kBiomeSamplesAhead * 3 +  // raw surface echo, discontinuity and vibration ahead
     20;                // transmission, thermal/solar/lidar state, action/reward and episode
 
 struct ObservationView {

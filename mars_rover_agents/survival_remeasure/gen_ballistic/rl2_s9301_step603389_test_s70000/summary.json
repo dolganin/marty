@@ -1,0 +1,75 @@
+{
+  "action_entropy_by_episode": [
+    2.1391754910727308,
+    2.1057863651629822,
+    2.181032077966307,
+    2.20800514752287
+  ],
+  "adaptation_delta": -1.106324627282448,
+  "bank_version": "sha256:5fca0935da060bbd76d75e98a061e29a40adffb53ba6d897ada5cc5545df35d5",
+  "episode_count": 220,
+  "episodes_per_trial": 4,
+  "fatal_error_count": 148,
+  "fatal_error_rate": 0.6727272727272727,
+  "fatal_error_rate_by_episode": [
+    0.7454545454545455,
+    0.7090909090909091,
+    0.5272727272727272,
+    0.7090909090909091
+  ],
+  "flip_rate": 0.10909090909090909,
+  "mean_battery_consumed": 3.0695153721015562,
+  "mean_distance": 21.64076053615321,
+  "mean_raw_return": -92.93727753484143,
+  "mechanics": [
+    "collapse_window_scarp",
+    "collapse_window_playa",
+    "speed_band_talus",
+    "slip_phase_pan",
+    "solar_window_pan",
+    "pulse_gravity_reef",
+    "cadence_dune_belt",
+    "tidal_brake_vault",
+    "gravity_well_brine",
+    "tide_sluice_reservoir",
+    "thermal_sluice_lag"
+  ],
+  "normalized_return_by_episode": [
+    -1.042119694875086,
+    -0.7888318297002754,
+    -0.9557853125830638,
+    -2.148444322157534
+  ],
+  "raw_adaptation_delta": -65.11132646780145,
+  "raw_return_by_episode": [
+    -82.92313667423586,
+    -73.51378746855234,
+    -67.27772285454017,
+    -148.0344631420373
+  ],
+  "schema_version": 1,
+  "seeds": [
+    70000,
+    70001,
+    70002,
+    70003,
+    70004
+  ],
+  "split": "test",
+  "success_rate": 0.0,
+  "survival_adaptation_delta": 0.036363636363636376,
+  "survival_auc": 0.32727272727272727,
+  "survival_rate_by_episode": [
+    0.2545454545454545,
+    0.2909090909090909,
+    0.4727272727272728,
+    0.2909090909090909
+  ],
+  "surviving_distance_by_episode": [
+    11.449264645576477,
+    24.96713293157518,
+    17.861411202412384,
+    26.791975878179073
+  ],
+  "trial_auc": -1.23379528982899
+}

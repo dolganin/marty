@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import math
+from collections import Counter
 from pathlib import Path
 
 from mars_rover_env import MarsRoverEnv
@@ -69,11 +70,20 @@ def audit(manifest_path: Path, require_reference: bool, require_test_gate: bool)
 
     for split in ("train", "test"):
         items = [item for item in declared.values() if item["split"] == split]
-        if split == "test" and len(items) < 10:
-            raise RuntimeError("Test bank has fewer than 10 mechanics")
         present = {str(item["skill_stratum"]) for item in items}
         if not SKILL_STRATA <= present:
             raise RuntimeError(f"{split} bank misses strata: {sorted(SKILL_STRATA - present)}")
+        quota = int(manifest.get("quota_per_stratum", 2))
+        counts = Counter(str(item["skill_stratum"]) for item in items)
+        wrong = {
+            stratum: counts[stratum]
+            for stratum in sorted(SKILL_STRATA)
+            if counts[stratum] != quota
+        }
+        if wrong:
+            raise RuntimeError(
+                f"{split} bank violates exact quota={quota} per stratum: {wrong}"
+            )
 
     train = [item for item in declared.values() if item["split"] == "train"]
     test = [item for item in declared.values() if item["split"] == "test"]

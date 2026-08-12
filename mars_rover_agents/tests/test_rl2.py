@@ -4,6 +4,7 @@ import numpy as np
 import torch
 
 from mars_rover_env.envs.mars_rover_vec_env import MarsRoverVecEnv
+from mars_rover_agents.actions import ACTION_MACROS
 from mars_rover_agents.rl2_agent import RL2TransformerAgent
 from mars_rover_agents.rl2_model import RL2TransformerActorCritic, rl2_features
 from mars_rover_agents.rl2_training import collect_trial_batch, episode_objective_weights
@@ -57,7 +58,7 @@ def test_explicit_rl2_feedback_features() -> None:
         np.asarray([True]),
         device=torch.device("cpu"),
     )
-    assert features.shape == (1, 138)
+    assert features.shape == (1, 124 + len(ACTION_MACROS) + 2)
     assert features[0, 124 + 3] == 1.0
     assert torch.isclose(features[0, -2], torch.tensor(0.25))
     assert features[0, -1] == 1.0

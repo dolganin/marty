@@ -48,6 +48,11 @@ TRAINING_PROTOCOL: dict[str, Any] = {
     "memory": "none",
     "frame_stack": 1,
     "domain_randomization": "episode_reset",
+    "model_selection": {
+        "split": "train",
+        "minimum_mean_distance": 25.0,
+        "score": "survival_auc + 0.001 * mean_distance",
+    },
 }
 
 
@@ -84,6 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-max-steps", type=int, default=1200)
     parser.add_argument("--output-root", type=Path, default=EXTRA_SPACE_RUNS_ROOT)
     parser.add_argument("--resume-dir", type=Path)
+    parser.add_argument(
+        "--initial-model",
+        type=Path,
+        help="Warm-start policy/value weights from a PPO archive, while starting a new run at step 0.",
+    )
     parser.add_argument("--tracking-uri", default=os.environ.get("MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI))
     parser.add_argument("--experiment", default=DEFAULT_EXPERIMENT)
     parser.add_argument("--preflight", action="store_true")
@@ -109,6 +119,10 @@ def main() -> None:
         raise SystemExit("evaluation dimensions must be positive")
     if args.preflight and args.resume_dir is not None:
         raise SystemExit("--preflight and --resume-dir are mutually exclusive")
+    if args.initial_model is not None and args.resume_dir is not None:
+        raise SystemExit("--initial-model and --resume-dir are mutually exclusive")
+    if args.initial_model is not None and not args.initial_model.is_file():
+        raise SystemExit(f"initial model does not exist: {args.initial_model}")
 
     torch.set_float32_matmul_precision("high")
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -151,8 +165,19 @@ def main() -> None:
         "requested_timesteps": args.timesteps,
         "action_macros": list(ACTION_MACROS),
         "training_protocol": TRAINING_PROTOCOL,
+        "warm_start": (
+            {
+                "method": "ppo_weight_initialization",
+                "path": str(args.initial_model.resolve()),
+                "sha256": _sha256(args.initial_model),
+            }
+            if args.initial_model is not None
+            else None
+        ),
         "eval": {
-            "split": "test",
+            # Periodic selection uses only frozen train mechanics; anchors and
+            # held-out test remain untouched until final evaluation.
+            "split": "train",
             "seed_begin": 40_000,
             "seeds": args.eval_seeds,
             "episodes_per_trial": args.eval_episodes,
@@ -180,6 +205,9 @@ def main() -> None:
         raise SystemExit(f"no checkpoint found in {run_dir}")
     if checkpoint is not None:
         model = PPO.load(checkpoint, env=env, device=device)
+    elif args.initial_model is not None:
+        model = PPO.load(args.initial_model, env=env, device=device)
+        model.num_timesteps = 0
     else:
         model = PPO(
             "MlpPolicy",
@@ -293,6 +321,8 @@ def main() -> None:
         tracker.log_dict(provenance, "provenance/source.json")
         tracker.log_artifact(args.manifest, "provenance")
         tracker.log_artifact(args.config, "provenance")
+        if args.initial_model is not None:
+            tracker.log_artifact(args.initial_model, "provenance/warm_start")
 
         mlflow_callback = MLflowTrainingCallback(
             tracker=tracker,
@@ -319,6 +349,10 @@ def main() -> None:
                 callback=CallbackList([mlflow_callback, checkpoint_callback]),
                 reset_num_timesteps=checkpoint is None,
             )
+        if mlflow_callback.best_model_path.is_file():
+            model = PPO.load(mlflow_callback.best_model_path, env=env, device=device)
+            run_record["selected_at_timesteps"] = mlflow_callback.best_step
+            run_record["selection_score"] = mlflow_callback.best_survival_score
         current_manifest = load_manifest(args.manifest)
         if current_manifest.get("bank_version") != bank_version:
             raise RuntimeError("bank changed during training; refusing to freeze model")

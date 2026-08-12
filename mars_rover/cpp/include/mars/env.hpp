@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <random>
 #include <string_view>
@@ -11,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v4-disjoint-train-test-anchor-splits";
+    "mars-env-v7-ballistic-survival-progress-loss-macro-shift";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -24,6 +25,22 @@ struct EnvConfig {
   int biome_split = 1;
   int fixed_biome_id = -1;  // >= 0 selects one registry entry for deterministic debugging.
   bool debug = false;
+  // A trial is not one fixed biome: it is a chain of zones concatenated end to
+  // end so the rover keeps encountering unfamiliar mechanics as it advances,
+  // and "how far it got" (state().body.position.x / high_water_x) becomes the
+  // signal, not completion of one fixed course. Anchors are always included as
+  // a stable backbone; the rest is drawn from the active split so the specific
+  // chain differs trial to trial while the anchor set stays comparable across
+  // runs. Ignored when fixed_biome_id >= 0 (single-zone debugging mode).
+  // Off by default: single-biome-per-episode tooling (evaluate_biomes.py,
+  // policy_divergence.py, anchor_eval.py) samples biome_split directly without
+  // fixed_biome_id and asserts an exact, anchor-free set per split; chaining
+  // would silently mix the anchor backbone into those measurements. Training
+  // and manual play configs opt in explicitly.
+  bool chain_biomes = false;
+  int chain_zone_count = 14;
+  float chain_segment_min_length = 30.0f;
+  float chain_segment_max_length = 70.0f;
 };
 
 struct StepOutput {
@@ -67,7 +84,8 @@ class Env {
   uint64_t trial_mechanic_seed_ = 0;
   bool has_trial_mechanic_seed_ = false;
   int stuck_counter_ = 0;
-  float pending_basin_depth_ = -1.0f;
+  float best_progress_x_ = 0.0f;
+  std::array<float, kMaxMechanicZones> pending_basin_depth_{};
 };
 
 }  // namespace mars

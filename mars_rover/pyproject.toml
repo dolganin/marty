@@ -33,6 +33,7 @@ mars_rover_env = ["configs/*.yaml", "configs/*.json"]
 
 [project.scripts]
 mars-rover-play = "mars_rover_env.tools.play:main"
+mars-rover-bootstrap-run = "mars_rover_env.tools.bootstrap_run:main"
 mars-rover-doctor = "mars_rover_env.tools.doctor:main"
 mars-rover-benchmark = "mars_rover_env.tools.benchmark:main"
 mars-rover-generate-biomes = "mars_rover_env.tools.generate_biomes:main"

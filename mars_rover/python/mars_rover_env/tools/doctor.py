@@ -21,6 +21,13 @@ def main() -> None:
         raise SystemExit(f"BROKEN: {exc}\nRun the platform setup script again.") from exc
 
     from mars_rover_env import MarsRoverEnv
+    from mars_rover_env.bank import load_manifest, require_compiled_bank
+
+    # A Python editable install can be current while Windows still has an old
+    # locked .pyd beside it.  Compare the compiled-in biome hash to the manifest
+    # so setup.ps1 catches that mismatch before a manual validation session.
+    manifest = load_manifest()
+    bank_version = require_compiled_bank(manifest)
 
     env = MarsRoverEnv(render_mode="rgb_array", render_width=64, render_height=36)
     obs, _ = env.reset(seed=123)
@@ -30,7 +37,8 @@ def main() -> None:
     assert frame.shape == (36, 64, 3)
     print(
         "Smoke test: OK "
-        f"(reward={reward:.4f}, terminated={terminated}, truncated={truncated})"
+        f"(reward={reward:.4f}, terminated={terminated}, truncated={truncated}, "
+        f"bank={bank_version})"
     )
 
 

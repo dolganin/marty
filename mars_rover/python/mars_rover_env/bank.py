@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +80,17 @@ def require_frozen_train_bank(manifest: dict[str, Any]) -> str:
     missing = expected_strata - present_strata
     if missing:
         raise RuntimeError("Frozen train bank misses strata: " + ", ".join(sorted(missing)))
+    quota = int(manifest.get("quota_per_stratum", 2))
+    stratum_counts = Counter(str(item.get("skill_stratum")) for item in train)
+    wrong_counts = {
+        stratum: stratum_counts[stratum]
+        for stratum in sorted(expected_strata)
+        if stratum_counts[stratum] != quota
+    }
+    if wrong_counts:
+        raise RuntimeError(
+            f"Frozen train bank violates exact quota={quota} per stratum: {wrong_counts}"
+        )
     version = str(manifest.get("train_version", ""))
     if not version:
         raise RuntimeError("Manifest has no train_version")

@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 
-from mars_rover_env.bank import DEFAULT_MANIFEST, load_manifest
+from mars_rover_env.bank import DEFAULT_MANIFEST, load_manifest, write_json
 from mars_rover_env.tools.audit_bank import audit
 from mars_rover_env.tools.evaluate_biomes import gate_bank
 
@@ -33,12 +33,29 @@ def _metric_payload(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
         f"{prefix}.flip_rate": float(summary["flip_rate"]),
         f"{prefix}.mean_battery_consumed": float(summary["mean_battery_consumed"]),
         f"{prefix}.mean_distance": float(summary["mean_distance"]),
+        f"{prefix}.survival_auc": float(summary["survival_auc"]),
+        f"{prefix}.survival_adaptation_delta": float(summary["survival_adaptation_delta"]),
+        f"{prefix}.fatal_error_rate": float(summary["fatal_error_rate"]),
+        f"{prefix}.behavior.lidar.mean_scan_count": float(summary["mean_lidar_scan_count"]),
+        f"{prefix}.behavior.lidar.active_fraction": float(summary["mean_lidar_active_fraction"]),
+        f"{prefix}.behavior.lidar.energy_spent": float(summary["mean_lidar_energy_spent"]),
+        f"{prefix}.behavior.lidar.airborne_attempt_count": float(
+            summary["mean_lidar_airborne_attempt_count"]
+        ),
+        f"{prefix}.behavior.solar.toggle_count": float(summary["mean_solar_toggle_count"]),
+        f"{prefix}.behavior.solar.active_fraction": float(summary["mean_charging_active_fraction"]),
+        f"{prefix}.behavior.solar.energy_gained": float(summary["mean_solar_energy_gained"]),
+        f"{prefix}.behavior.ballistic.flight_count": float(summary["mean_ballistic_flight_count"]),
+        f"{prefix}.behavior.ballistic.airborne_fraction": float(summary["mean_airborne_fraction"]),
+        f"{prefix}.behavior.ballistic.safe_landing_count": float(summary["mean_safe_landing_count"]),
     }
     for key in ("trial_auc", "adaptation_delta"):
         if summary.get(key) is not None:
             result[f"{prefix}.{key}"] = float(summary[key])
     for index, value in enumerate(summary["raw_return_by_episode"], start=1):
         result[f"{prefix}.raw_return.episode_{index}"] = float(value)
+    for index, value in enumerate(summary["survival_rate_by_episode"], start=1):
+        result[f"{prefix}.survival.episode_{index}"] = float(value)
     for index, value in enumerate(summary.get("normalized_return_by_episode") or [], start=1):
         result[f"{prefix}.normalized_return.episode_{index}"] = float(value)
     for biome_id in summary["mechanics"]:
@@ -82,7 +99,14 @@ def main() -> None:
     if artifact.get("accelerator") != "cuda":
         raise SystemExit("refusing to finalize a non-CUDA training artifact")
     manifest = load_manifest(args.manifest)
-    if manifest.get("reference_version") != artifact.get("reference_version"):
+    if manifest.get("reference_version") is None:
+        # A regenerated held-out split intentionally clears its reference.  The
+        # just-completed CUDA, train-only run is the explicit new candidate, so
+        # bind it before running the held-out gate; a non-empty conflicting
+        # reference remains a hard error.
+        manifest["reference_version"] = artifact.get("reference_version")
+        write_json(args.manifest, manifest)
+    elif manifest.get("reference_version") != artifact.get("reference_version"):
         raise SystemExit("manifest and trained reference version disagree")
 
     gate_args = SimpleNamespace(
@@ -97,6 +121,10 @@ def main() -> None:
         solve_min=0.05,
         robust_max=0.85,
         min_reference_gap=1.0,
+        # Keep the programmatic gate identical to evaluate_biomes' CLI
+        # contract.  The bank-level regret constraint is the condition that
+        # prevents a single reflex from solving every accepted mechanic.
+        min_strategy_regret=0.25,
     )
     gate_bank(gate_args)
     audit(args.manifest, require_reference=True, require_test_gate=True)

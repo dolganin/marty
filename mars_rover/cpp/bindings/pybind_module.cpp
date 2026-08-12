@@ -113,7 +113,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("brake_strength", &mars::PhysicsConfig::brake_strength)
       .def_readwrite("body_tilt_torque", &mars::PhysicsConfig::body_tilt_torque)
       .def_readwrite("linear_damping", &mars::PhysicsConfig::linear_damping)
-      .def_readwrite("angular_damping", &mars::PhysicsConfig::angular_damping);
+      .def_readwrite("angular_damping", &mars::PhysicsConfig::angular_damping)
+      .def_readwrite("safe_landing_speed", &mars::PhysicsConfig::safe_landing_speed)
+      .def_readwrite("safe_landing_angle", &mars::PhysicsConfig::safe_landing_angle)
+      .def_readwrite("ballistic_min_air_steps", &mars::PhysicsConfig::ballistic_min_air_steps)
+      .def_readwrite("fatal_landing_flip_angle", &mars::PhysicsConfig::fatal_landing_flip_angle);
 
   py::class_<mars::RewardConfig>(m, "RewardConfig")
       .def(py::init<>())
@@ -130,7 +134,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("min_energy", &mars::TerminationConfig::min_energy)
       .def_readwrite("flip_angle", &mars::TerminationConfig::flip_angle)
       .def_readwrite("stuck_steps", &mars::TerminationConfig::stuck_steps)
-      .def_readwrite("max_steps", &mars::TerminationConfig::max_steps);
+      .def_readwrite("max_steps", &mars::TerminationConfig::max_steps)
+      .def_readwrite("fatal_fall_y", &mars::TerminationConfig::fatal_fall_y);
 
   py::class_<mars::CollisionShapeConfig>(m, "CollisionShapeConfig")
       .def(py::init<>())
@@ -178,6 +183,10 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("episodes_per_trial", &mars::EnvConfig::episodes_per_trial)
       .def_readwrite("biome_split", &mars::EnvConfig::biome_split)
       .def_readwrite("fixed_biome_id", &mars::EnvConfig::fixed_biome_id)
+      .def_readwrite("chain_biomes", &mars::EnvConfig::chain_biomes)
+      .def_readwrite("chain_zone_count", &mars::EnvConfig::chain_zone_count)
+      .def_readwrite("chain_segment_min_length", &mars::EnvConfig::chain_segment_min_length)
+      .def_readwrite("chain_segment_max_length", &mars::EnvConfig::chain_segment_max_length)
       .def_readwrite("debug", &mars::EnvConfig::debug);
 
   py::class_<mars::BatchEnv>(m, "MarsRoverBatchEnv")
@@ -244,6 +253,13 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["energy"] = state.energy;
              d["energy_capacity"] = env.config().physics.energy_capacity;
              d["damage"] = state.damage;
+             d["airborne"] = state.airborne;
+             d["airborne_steps"] = state.airborne_steps;
+             d["landing_event"] = state.landing_event;
+             d["landing_fatal"] = state.landing_fatal;
+             d["fatal_error"] = state.fatal_error;
+             d["impact_speed"] = state.last_impact_speed;
+             d["landing_angle"] = state.last_landing_angle;
              d["episode_in_trial"] = state.episode_in_trial;
              d["gear"] = state.gear_index < 0 ? py::cast("N") : py::cast(state.gear_index + 1);
              d["gear_count"] = kDebugGearCount;
@@ -363,6 +379,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       values["solar"] = params.solar_charge_rate;
       values["lidar_energy"] = params.lidar_energy_mul;
       values["lidar_range"] = params.lidar_range_mul;
+      values["ledge_gap_width"] = params.ledge_gap_width;
+      values["ledge_spacing"] = params.ledge_spacing;
+      values["ledge_ramp_length"] = params.ledge_ramp_length;
+      values["ledge_ramp_height"] = params.ledge_ramp_height;
+      values["ledge_start_x"] = params.ledge_start_x;
       item["parameters"] = values;
       const auto visuals = biome.visuals();
       py::dict visual_values;

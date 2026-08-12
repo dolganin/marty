@@ -38,6 +38,10 @@ struct PhysicsConfig {
   float body_tilt_torque = 8.0f;
   float linear_damping = 0.01f;
   float angular_damping = 0.02f;
+  float safe_landing_speed = 4.0f;
+  float safe_landing_angle = 0.55f;
+  int ballistic_min_air_steps = 6;
+  float fatal_landing_flip_angle = 2.35f;
 };
 
 struct PhysicsStepStats {

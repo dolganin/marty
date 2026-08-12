@@ -40,6 +40,14 @@ struct MechanicParams {
   float terrain_roughness_mul = 1.0f;
   float terrain_crater_mul = 1.0f;
   float terrain_step_mul = 1.0f;
+  // Optional geometric commitment hazard. A non-zero gap width asks Env to
+  // cut periodic voids after terrain generation. These values are physical
+  // inputs, not observation labels; the agent sees only scanner returns.
+  float ledge_gap_width = 0.0f;
+  float ledge_spacing = 0.0f;
+  float ledge_ramp_length = 0.0f;
+  float ledge_ramp_height = 0.0f;
+  float ledge_start_x = 18.0f;
 };
 
 constexpr int kMaxMechanicZones = 96;

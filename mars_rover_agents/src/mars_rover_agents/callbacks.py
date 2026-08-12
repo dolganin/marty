@@ -71,6 +71,9 @@ class MLflowTrainingCallback(BaseCallback):
         self._last_eval_step = -1
         self._grad_tracker: GradientNormTracker | None = None
         self._uploaded_checkpoints: set[str] = set()
+        self.best_survival_score = float("-inf")
+        self.best_step = -1
+        self.best_model_path = self.run_dir / "best_model.zip"
 
     def _on_training_start(self) -> None:
         self._grad_tracker = GradientNormTracker(self.model.policy.optimizer)
@@ -138,6 +141,29 @@ class MLflowTrainingCallback(BaseCallback):
             "validation.flip_rate": summary["flip_rate"],
             "validation.mean_battery_consumed": summary["mean_battery_consumed"],
             "validation.mean_distance": summary["mean_distance"],
+            "validation.survival_auc": summary["survival_auc"],
+            "validation.survival_adaptation_delta": summary["survival_adaptation_delta"],
+            "validation.fatal_error_rate": summary["fatal_error_rate"],
+            "validation.behavior.lidar.mean_scan_count": summary["mean_lidar_scan_count"],
+            "validation.behavior.lidar.active_fraction": summary["mean_lidar_active_fraction"],
+            "validation.behavior.lidar.energy_spent": summary["mean_lidar_energy_spent"],
+            "validation.behavior.lidar.airborne_attempt_count": summary[
+                "mean_lidar_airborne_attempt_count"
+            ],
+            "validation.behavior.solar.toggle_count": summary["mean_solar_toggle_count"],
+            "validation.behavior.solar.active_fraction": summary[
+                "mean_charging_active_fraction"
+            ],
+            "validation.behavior.solar.energy_gained": summary["mean_solar_energy_gained"],
+            "validation.behavior.ballistic.flight_count": summary[
+                "mean_ballistic_flight_count"
+            ],
+            "validation.behavior.ballistic.airborne_fraction": summary[
+                "mean_airborne_fraction"
+            ],
+            "validation.behavior.ballistic.safe_landing_count": summary[
+                "mean_safe_landing_count"
+            ],
         }
         for index, value in enumerate(summary["raw_return_by_episode"], start=1):
             metrics[f"validation.raw_return.episode_{index}"] = value
@@ -146,14 +172,47 @@ class MLflowTrainingCallback(BaseCallback):
             metrics[f"validation.normalized_return.episode_{index}"] = value
         for index, value in enumerate(summary["action_entropy_by_episode"], start=1):
             metrics[f"validation.action_entropy.episode_{index}"] = value
+        for index, value in enumerate(summary["survival_rate_by_episode"], start=1):
+            metrics[f"validation.survival.episode_{index}"] = value
         self.tracker.log_metrics(metrics, step)
+        # Robust is memoryless, so adaptation delta is not a selection target. A
+        # survival-only selector has a degenerate optimum, though: move just enough
+        # to avoid the stuck timeout and never attempt the course. Require useful
+        # progress before survival can enter model selection; held-out stays untouched.
+        mean_distance = float(summary["mean_distance"])
+        passes_distance_floor = mean_distance >= 25.0
+        selection_score = (
+            float(summary["survival_auc"]) + 1.0e-3 * mean_distance
+            if passes_distance_floor
+            else float("-inf")
+        )
+        self.tracker.log_metrics(
+            {
+                "validation.selection_score": (
+                    selection_score if passes_distance_floor else None
+                ),
+                "validation.selection_passes_distance_floor": float(
+                    passes_distance_floor
+                ),
+            },
+            step,
+        )
+        if selection_score > self.best_survival_score:
+            self.best_survival_score = selection_score
+            self.best_step = int(step)
+            self.model.save(self.best_model_path)
+            self.tracker.log_artifact(self.best_model_path, artifact_path="checkpoints/best")
         local_gif = eval_dir / "behavior.gif"
+        remote_gif = f"evaluations/step_{step:09d}/behavior.gif"
         try:
             self.tracker.log_artifact(eval_dir, artifact_path=f"evaluations/step_{step:09d}")
         finally:
-            # MLflow is the durable home for visual behavior records. The local
-            # GIF exists only long enough for the artifact client to upload it.
-            if local_gif.is_file():
+            # MLflow is the durable home for visual behavior records.  Do not
+            # discard the temporary render merely because the client returned:
+            # older MLflow setups could acknowledge an upload that only landed
+            # in a client-local artifact root.  Delete only after the tracking
+            # server itself lists the GIF.
+            if local_gif.is_file() and self.tracker.artifact_exists(remote_gif):
                 local_gif.unlink()
         checkpoints = sorted(
             (self.run_dir / "checkpoints").glob("robust_ppo_*_steps.zip"),

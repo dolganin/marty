@@ -97,6 +97,23 @@ def _log_evaluation(
         "validation.flip_rate": summary["flip_rate"],
         "validation.mean_battery_consumed": summary["mean_battery_consumed"],
         "validation.mean_distance": summary["mean_distance"],
+        "validation.survival_auc": summary["survival_auc"],
+        "validation.survival_adaptation_delta": summary["survival_adaptation_delta"],
+        "validation.fatal_error_rate": summary["fatal_error_rate"],
+        "validation.behavior.lidar.mean_scan_count": summary["mean_lidar_scan_count"],
+        "validation.behavior.lidar.active_fraction": summary["mean_lidar_active_fraction"],
+        "validation.behavior.lidar.energy_spent": summary["mean_lidar_energy_spent"],
+        "validation.behavior.lidar.airborne_attempt_count": summary[
+            "mean_lidar_airborne_attempt_count"
+        ],
+        "validation.behavior.solar.toggle_count": summary["mean_solar_toggle_count"],
+        "validation.behavior.solar.active_fraction": summary["mean_charging_active_fraction"],
+        "validation.behavior.solar.energy_gained": summary["mean_solar_energy_gained"],
+        "validation.behavior.ballistic.flight_count": summary["mean_ballistic_flight_count"],
+        "validation.behavior.ballistic.airborne_fraction": summary["mean_airborne_fraction"],
+        "validation.behavior.ballistic.safe_landing_count": summary[
+            "mean_safe_landing_count"
+        ],
     }
     for index, value in enumerate(summary["raw_return_by_episode"], start=1):
         metrics[f"validation.raw_return.episode_{index}"] = value
@@ -104,6 +121,8 @@ def _log_evaluation(
         metrics[f"validation.normalized_return.episode_{index}"] = value
     for index, value in enumerate(summary["action_entropy_by_episode"], start=1):
         metrics[f"validation.action_entropy.episode_{index}"] = value
+    for index, value in enumerate(summary["survival_rate_by_episode"], start=1):
+        metrics[f"validation.survival.episode_{index}"] = value
     tracker.log_metrics(metrics, transitions)
     local_gif = eval_dir / "behavior.gif"
     remote_gif_path = f"evaluations/step_{transitions:09d}/behavior.gif"
@@ -155,6 +174,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-kl", type=float, default=0.02)
     parser.add_argument("--final-episode-weight", type=float, default=1.0)
     parser.add_argument("--selection-min-auc", type=float, default=0.0)
+    parser.add_argument(
+        "--selection-min-survival",
+        type=float,
+        default=0.55,
+        help=(
+            "Minimum validation survival AUC for adaptation-first model selection. "
+            "The default keeps a meaningful survival floor without rejecting a "
+            "strongly rising survival curve merely because its first episode is exploratory."
+        ),
+    )
     parser.add_argument(
         "--kl-anchor-coefficient",
         type=float,
@@ -230,11 +259,15 @@ def main() -> None:
         raise SystemExit("final-episode-weight must be at least one")
     if not 0.0 <= args.selection_min_auc <= 1.0:
         raise SystemExit("selection-min-auc must be in [0, 1]")
+    if not 0.0 <= args.selection_min_survival <= 1.0:
+        raise SystemExit("selection-min-survival must be in [0, 1]")
     audit(args.manifest, require_reference=True, require_test_gate=True)
     manifest = load_manifest(args.manifest)
     bank_version = require_compiled_bank(manifest)
-    if not manifest.get("anchor_references"):
-        raise SystemExit("anchor references must be frozen before RL2 training")
+    # Periodic model selection is train-only and the primary scale is survival,
+    # so frozen anchor references are not required to optimize safely. The final
+    # held-out finalizer still requires them before touching anchor/test splits.
+    anchor_references_available = bool(manifest.get("anchor_references"))
     config_hash = _sha256(args.config)
     if config_hash != manifest["difficulty_gates"]["train"].get("config_sha256"):
         raise SystemExit("RL2 config differs from the frozen bank protocol")
@@ -350,10 +383,12 @@ def main() -> None:
         "belief_kl_coefficient": args.belief_kl_coefficient,
         "value_warmup_updates": args.value_warmup_updates,
         "model_selection": {
-            "minimum_trial_auc": args.selection_min_auc,
-            "score": "adaptation_delta + 0.1 * trial_auc",
-            "fallback": "highest_trial_auc_if_no_candidate_passes_floor",
+            "primary_metric": "survival",
+            "minimum_survival_auc": args.selection_min_survival,
+            "score": "survival_adaptation_delta + 0.1 * survival_auc",
+            "fallback": "highest_survival_auc_if_no_candidate_passes_floor",
         },
+        "anchor_references_available_at_training": anchor_references_available,
         "warm_start": {
             "method": (
                 "public_observation_ppo_distillation"
@@ -521,9 +556,9 @@ def main() -> None:
         def consider_evaluation(payload: dict[str, Any], step: int) -> None:
             nonlocal best_score, best_auc, best_step, best_summary
             summary = payload["summary"]
-            auc = float(summary["trial_auc"])
-            delta = float(summary["adaptation_delta"])
-            passes_floor = auc >= args.selection_min_auc
+            auc = float(summary["survival_auc"])
+            delta = float(summary["survival_adaptation_delta"])
+            passes_floor = auc >= args.selection_min_survival
             score = delta + 0.1 * auc if passes_floor else float("-inf")
             should_replace = score > best_score
             if best_score == float("-inf") and score == float("-inf") and auc > best_auc:
@@ -531,7 +566,7 @@ def main() -> None:
             tracker.log_metrics(
                 {
                     "validation.selection_score": score if passes_floor else None,
-                    "validation.selection_passes_auc_floor": float(passes_floor),
+                    "validation.selection_passes_survival_floor": float(passes_floor),
                 },
                 step,
             )
@@ -625,6 +660,14 @@ def main() -> None:
             for index, value in enumerate(episode_entropies, start=1):
                 metrics[f"rollout.action_entropy.episode_{index}"] = float(value)
             tracker.log_metrics(metrics, transitions)
+            print(
+                "RL2 update "
+                f"{update} transitions={transitions} "
+                f"trial_auc_raw={metrics['rollout.trial_auc_raw']:.3f} "
+                f"adaptation_delta_raw={metrics['rollout.adaptation_delta_raw']:.3f} "
+                f"approx_kl={metrics['approx_kl']:.5f}",
+                flush=True,
+            )
 
             checkpoint_due = update % args.checkpoint_every_updates == 0
             evaluation_due = update % args.eval_every_updates == 0

@@ -11,6 +11,7 @@ struct TerrainSample {
   float height = 0.0f;
   float slope = 0.0f;
   Vec2 normal{0.0f, 1.0f};
+  bool solid = true;
 };
 
 struct TerrainConfig {
@@ -33,6 +34,7 @@ class Terrain {
   void query_height_slope(float x, float& height, float& slope) const;
   void deform(float x, float radius, float amount);
   float carve_basin(float begin_x, float end_x, float depth);
+  void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
 
   int sample_count() const { return static_cast<int>(heights_.size()); }
   float dx() const { return dx_; }
@@ -42,6 +44,7 @@ class Terrain {
   float height_at_index(int i) const;
 
   std::vector<float> heights_;
+  std::vector<uint8_t> solid_;
   float dx_ = 0.25f;
   float inv_dx_ = 4.0f;
   float base_height_ = 0.0f;

@@ -56,7 +56,20 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                      int discrete_action, const MechanicLayout& mechanics) const {
   PhysicsStepStats stats{};
   const float dt = config_.dt;
+  state.landing_event = false;
+  state.landing_fatal = false;
+  const bool was_airborne = state.airborne;
+  const int previous_airborne_steps = state.airborne_steps;
+  const float pre_contact_vertical_speed = state.body.velocity.y;
   ControlInput control = decode_discrete_action(discrete_action, config_.body_tilt_torque);
+  // Lidar and wheel scanners are contact instruments in this benchmark. Once
+  // committed to flight they go silent; an active pulse cannot be carried over
+  // the lip and a new pulse cannot be fired until ground contact returns.
+  if (was_airborne) {
+    state.lidar_active_steps = 0;
+    state.lidar_range = 0.0f;
+    control.lidar = false;
+  }
   if (state.lidar_active_steps > 0) --state.lidar_active_steps;
   if (state.lidar_cooldown_steps > 0) --state.lidar_cooldown_steps;
   if (state.lidar_active_steps == 0) state.lidar_range = 0.0f;
@@ -135,6 +148,28 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   const float shift_speed = std::abs(state.body.velocity.x);
   const bool clutch_pedal_down = control.clutch < 0.5f;
+  // Public macro `gas + shift-up` is a sequential upshift request while the rover
+  // continues to accelerate.  The mechanical speed/RPM guard below still decides
+  // whether a gear can engage; this only avoids demanding six frame-perfect manual
+  // clutch pulses before a ballistic ledge can ever be explored.
+  const bool powered_upshift_request =
+      control.shift_up && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
+  // A held clutch+shift command is a physical sequential shift request: it waits for
+  // each synchroniser cooldown, then requests the next legal gear.  This preserves
+  // the low-level clutch/gear dynamics, while making a deliberate "prepare for the
+  // ledge" action learnable from sparse reward.  Previously six distinct press/release
+  // pulses at exact 45-step intervals were required to reach seventh gear; a random
+  // exploration policy therefore almost never observed a successful ballistic takeoff.
+  // Releasing the button still cancels the request after the normal 60-step buffer.
+  if ((control.shift_up && clutch_pedal_down && !control.shift_down) ||
+      powered_upshift_request) {
+    state.shift_up_buffer_steps = std::max(state.shift_up_buffer_steps, 60);
+    state.shift_down_buffer_steps = 0;
+  }
+  if (control.shift_down && clutch_pedal_down && !control.shift_up) {
+    state.shift_down_buffer_steps = std::max(state.shift_down_buffer_steps, 60);
+    state.shift_up_buffer_steps = 0;
+  }
   const float clutch_target = control.clutch;
   const float clutch_rate = clutch_target > state.clutch_engagement ? 3.5f : 10.0f;
   state.clutch_engagement +=
@@ -175,7 +210,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       state.gear_index >= 0 && state.engine_rpm >= recommended_upshift_rpm &&
       next_gear_rpm >= desired_post_shift_rpm * 0.92f;
   const bool can_shift_up =
-      clutch_pedal_down && state.shift_cooldown_steps == 0 &&
+      (clutch_pedal_down || powered_upshift_request) && state.shift_cooldown_steps == 0 &&
       state.gear_index < kGearCount - 1 &&
       upshift_speed_ok;
   const float lower_gear_rpm =
@@ -429,13 +464,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
   float next_drivetrain_slip = 0.0f;
   bool next_drivetrain_grounded = false;
+  bool any_wheel_grounded = false;
   for (int i = 0; i < state.wheel_count; ++i) {
     auto& wheel = state.wheels[static_cast<size_t>(i)];
     const auto& wr = rig.wheels[static_cast<size_t>(i)];
     const auto& wheel_zone = mechanics.at(wheel.position.x);
+    const auto wheel_ground_sample = terrain.query(wheel.position.x);
     const float liquid_depth =
-        wheel_zone.type == MechanicType::Liquid
-            ? std::max(0.0f, wheel_zone.liquid_level - terrain.query(wheel.position.x).height)
+        wheel_zone.type == MechanicType::Liquid && wheel_ground_sample.solid
+            ? std::max(0.0f, wheel_zone.liquid_level - wheel_ground_sample.height)
             : 0.0f;
     const float liquid_immersion = wheel_zone.type == MechanicType::Liquid
                                        ? clamp((wheel_zone.liquid_level -
@@ -550,7 +587,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     // positional solver separates the tyre exactly to zero, so propulsion is
     // present only every other frame (fall -> correct -> no contact -> fall).
     constexpr float kContactSlop = 0.018f;
-    if (penetration > -kContactSlop) {
+    if (terrain_sample.solid && penetration > -kContactSlop) {
       contact.active = true;
       contact.point = {contact_x, terrain_sample.height};
       contact.normal = terrain_sample.normal;
@@ -652,7 +689,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
     auto post_ground = terrain.query(wheel.position.x);
     const float post_penetration = post_ground.height + wheel.radius - wheel.position.y;
-    if (post_penetration > 0.0f) {
+    if (post_ground.solid && post_penetration > 0.0f) {
       wheel.position += post_ground.normal * post_penetration;
       const float normal_speed = dot(wheel.velocity, post_ground.normal);
       if (normal_speed < 0.0f) {
@@ -675,7 +712,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const auto rolling_ground = terrain.query(wheel.position.x);
       const Vec2 rolling_tangent = normalized({rolling_ground.normal.y, -rolling_ground.normal.x});
       const float rolling_speed = dot(state.body.velocity, rolling_tangent);
-      const float target_angular_velocity = rolling_speed / std::max(0.05f, wheel.radius);
+      // A wheel rolling without slipping in the +x direction spins clockwise in this
+      // x-right/y-up/angle-CCW frame, i.e. opposite sign to its linear speed.
+      const float target_angular_velocity = -rolling_speed / std::max(0.05f, wheel.radius);
       if (control.brake > 0.0f) {
         wheel.angular_velocity = 0.0f;
       } else if (driven_wheel && state.engine_running && !in_neutral &&
@@ -684,7 +723,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
             control.throttle * (state.engine_rpm / kRedlineRpm) * gear_max_speed *
             driveline_load_factor;
         const float powered_angular_velocity =
-            powered_speed / std::max(0.05f, wheel.radius);
+            -powered_speed / std::max(0.05f, wheel.radius);
         const float visual_slip = clamp(wheel.slip, 0.0f, 1.0f);
         wheel.angular_velocity = target_angular_velocity +
                                  (powered_angular_velocity - target_angular_velocity) * visual_slip;
@@ -699,7 +738,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
             control.throttle * (state.engine_rpm / kRedlineRpm) * gear_max_speed *
             driveline_load_factor;
         const float powered_angular_velocity =
-            powered_speed / std::max(0.05f, wheel.radius);
+            -powered_speed / std::max(0.05f, wheel.radius);
         wheel.angular_velocity +=
             (powered_angular_velocity - wheel.angular_velocity) * 0.18f;
       } else {
@@ -712,6 +751,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       next_drivetrain_slip = std::max(next_drivetrain_slip, wheel.slip);
       next_drivetrain_grounded = next_drivetrain_grounded || wheel.in_contact;
     }
+    any_wheel_grounded = any_wheel_grounded || wheel.in_contact;
     stats.energy_cost += driven_wheel && state.engine_running && !in_neutral
                              ? std::abs(config_.motor_torque * control.throttle) *
                                    torque_split * state.clutch_engagement *
@@ -721,18 +761,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.drivetrain_slip = next_drivetrain_slip;
   state.drivetrain_grounded = next_drivetrain_grounded;
 
+  bool body_ground_contact = false;
   if (rig.body.collision.type == CollisionType::Box) {
     const float hw = rig.body.collision.size.x * 0.5f;
     const float hh = rig.body.collision.size.y * 0.5f;
     const Vec2 samples[3] = {{-hw, -hh}, {0.0f, -hh}, {hw, -hh}};
     for (const Vec2 local : samples) {
       const Vec2 point = state.body.position + rotate_body(local);
-      float ground_height, ground_slope;
-      terrain.query_height_slope(point.x, ground_height, ground_slope);
-      const float penetration = ground_height - point.y;
+      const auto ground = terrain.query(point.x);
+      if (!ground.solid) continue;
+      const float penetration = ground.height - point.y;
       if (penetration > 0.0f) {
-        const float inv_len = 1.0f / std::sqrt(1.0f + ground_slope * ground_slope);
-        const Vec2 ground_normal{-ground_slope * inv_len, inv_len};
+        body_ground_contact = true;
+        const Vec2 ground_normal = ground.normal;
         const Vec2 r = point - state.body.position;
         const Vec2 point_velocity = state.body.velocity + perp(r) * state.body.angular_velocity;
         const float normal_vel = dot(point_velocity, ground_normal);
@@ -755,6 +796,35 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.body.angular_velocity += body_torque * state.body.inv_inertia * dt;
   state.body.angular_velocity *= (1.0f - config_.angular_damping);
   state.body.angle += state.body.angular_velocity * dt;
+
+  const bool grounded_now = any_wheel_grounded || body_ground_contact;
+  if (!grounded_now) {
+    // Do not classify the short spawn-settling transient as a committed
+    // ballistic phase. Flight starts only after contact has existed and is lost.
+    state.airborne = state.has_grounded;
+    state.airborne_steps = state.airborne
+                               ? (was_airborne ? previous_airborne_steps + 1 : 1)
+                               : 0;
+  } else {
+    state.has_grounded = true;
+    state.airborne = false;
+    state.airborne_steps = 0;
+    if (was_airborne && previous_airborne_steps >= config_.ballistic_min_air_steps) {
+      state.landing_event = true;
+      state.last_impact_speed = std::max(0.0f, -pre_contact_vertical_speed);
+      state.last_landing_angle = std::abs(state.body.angle);
+      const bool bad_speed = state.last_impact_speed > config_.safe_landing_speed;
+      const bool bad_angle = state.last_landing_angle > config_.safe_landing_angle;
+      if (bad_speed || bad_angle || body_ground_contact) {
+        state.landing_fatal = true;
+        state.fatal_error = true;
+        const float sign = state.body.angle < 0.0f ? -1.0f : 1.0f;
+        state.body.angle = sign * std::max(std::abs(state.body.angle),
+                                           config_.fatal_landing_flip_angle);
+        state.body.angular_velocity += sign * (1.5f + state.last_impact_speed * 0.25f);
+      }
+    }
+  }
   if (charging_lockout) {
     stats.energy_cost = 0.0f;
   }

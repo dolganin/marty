@@ -11,6 +11,7 @@ openai:
 
 generation:
   count: 12
+  quota_per_stratum: 2
   split: "train"  # train or test
   compiler: "g++"
   behavioral_dedup_epsilon: 0.0971
@@ -22,9 +23,12 @@ generation:
 
     ROVER AND TASK MODEL:
     - The rover is a rigid 2D body with two physical wheels, suspension springs/dampers, wheel/ground
-      contacts, inertia, body rotation, damage, gravity, buoyancy and terrain deformation. One env
-      slot contains exactly one biome for the whole episode. The goal is progress toward +X while
-      preserving energy and avoiding flips/stalls.
+      contacts, inertia, body rotation, damage, gravity, buoyancy and terrain deformation. A trial is
+      a chain of several biome zones concatenated end to end (30-70 m each); your class governs only
+      the span while the rover is inside its own zone, and must therefore reach a well-defined,
+      bounded state from a cold start within a few tens of metres rather than assuming a whole,
+      dedicated episode to build up an effect. The goal is progress toward +X while preserving energy
+      and avoiding flips/stalls.
     - Actions are bit flags and may be combined: gas, brake, reverse, clutch pedal, body tilt left/right,
       shift up/down, cycle RWD/FWD/AWD, ignition, deploy/stow solar panel, and pulse lidar.
     - The mechanical engine has RPM/inertia/drag, an idle and redline, temperature-dependent power,
@@ -35,17 +39,20 @@ generation:
       deploys/charges/stows. Ambient temperature,
       thermal transfer and solar rate come from the biome. Liquid biomes create basins and apply
       immersion, drag, buoyancy and enhanced thermal transfer.
-    - Lidar is an explicit costly action. A successful pulse spends base energy times lidar_energy_mul,
-      has a cooldown, remains active briefly, and reveals otherwise-hidden forward height, slope,
-      liquid/appearance and temperature samples out to base range times lidar_range_mul. A biome may
-      make scans cheap, expensive, short, long, or effectively jammed, but values must remain finite.
+    - Lidar is an explicit costly CONTACT scanner. A successful grounded pulse spends base energy
+      times lidar_energy_mul, has a cooldown, remains active briefly, and reveals only raw physical
+      correlates: forward height/slope plus surface echo, discontinuity and vibration. It never emits
+      a mechanic id, hazard phase, safe speed or correct action. All scanner channels go silent after
+      takeoff; the decision at a ledge is therefore irreversible and must be made before the lip.
     - Without active lidar the RL observation contains rover state, wheel contacts/slip, drivetrain,
       engine/thermal/solar state and lidar status, but forward terrain and biome samples are zeroed.
 
     BIOME CONTROL SURFACES:
     - sample_params controls friction_mul, sink_rate, viscosity, wind_force, gravity_mul,
       energy_drain_mul, crust_deform, ambient_temperature, thermal_transfer, solar_charge_rate,
-      lidar_energy_mul and lidar_range_mul. Gravity and wind apply to every visual type.
+      lidar_energy_mul and lidar_range_mul. Gravity and wind apply to every visual type. Optional
+      ledge_gap_width, ledge_spacing, ledge_ramp_length, ledge_ramp_height and ledge_start_x create
+      real gaps and launch ramps in the terrain, followed by free flight and physical touchdown.
     - sample_params ALSO controls the terrain noise law itself, not just physics coefficients
       layered on top of a fixed course: terrain_amplitude_mul scales height-field amplitude,
       terrain_roughness_mul scales the sharpness of random bumps, terrain_crater_mul scales
@@ -67,6 +74,10 @@ generation:
       also be reduced strongly; near-total darkness should provide almost no solar charge per second.
 
     THE ONE PROPERTY THAT MATTERS — YOUR BIOME MUST DEMAND A RHYTHM, NOT A SETTING.
+    The bank must contain both opposite danger principles: worlds where fast driving is dangerous,
+    and worlds where slow/cautious driving is fatal because the rover fails to clear a ledge. The
+    same raw "surface break ahead" precursor must be ambiguous between braking for a pit and
+    accelerating for a jump; never resolve that ambiguity with an observation label.
     This is measured, not a matter of taste, and six generations of biomes failed it. Ten
     competent driving styles, each settling in a different gear, were run on every biome.
     For a long time one of them (settle in gear 2 and grind) won most of the bank and never

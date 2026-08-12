@@ -73,6 +73,14 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             cfg.episodes_per_trial = int(env.get("episodes_per_trial", cfg.episodes_per_trial))
             cfg.biome_split = int(env.get("biome_split", cfg.biome_split))
             cfg.fixed_biome_id = int(env.get("fixed_biome_id", cfg.fixed_biome_id))
+            cfg.chain_biomes = bool(env.get("chain_biomes", cfg.chain_biomes))
+            cfg.chain_zone_count = int(env.get("chain_zone_count", cfg.chain_zone_count))
+            cfg.chain_segment_min_length = float(
+                env.get("chain_segment_min_length", cfg.chain_segment_min_length)
+            )
+            cfg.chain_segment_max_length = float(
+                env.get("chain_segment_max_length", cfg.chain_segment_max_length)
+            )
             cfg.debug = bool(env.get("debug", cfg.debug))
         if "terrain" in data:
             _apply_section(
@@ -113,13 +121,17 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                     "body_tilt_torque",
                     "linear_damping",
                     "angular_damping",
+                    "safe_landing_speed",
+                    "safe_landing_angle",
+                    "ballistic_min_air_steps",
+                    "fatal_landing_flip_angle",
                 ),
             )
         if "termination" in data:
             _apply_section(
                 cfg.termination,
                 data["termination"],
-                ("finish_x", "min_energy", "flip_angle", "stuck_steps", "max_steps"),
+                ("finish_x", "min_energy", "flip_angle", "stuck_steps", "max_steps", "fatal_fall_y"),
             )
         if "reward" in data:
             _apply_section(

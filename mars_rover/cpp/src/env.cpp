@@ -44,6 +44,7 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   state_.trial_start = trial_start;
   state_.episode_in_trial = next_episode_in_trial;
   stuck_counter_ = 0;
+  best_progress_x_ = state_.body.position.x;
   build_observation(obs_out);
 }
 
@@ -76,19 +77,27 @@ StepOutput Env::step(int action, float* obs_out) {
   state_.damage += stats.hard_contact > 1500.0f ? (stats.hard_contact - 1500.0f) * 0.000001f : 0.0f;
 
   const bool finished = state_.body.position.x >= config_.termination.finish_x;
+  const bool fallen = state_.body.position.y <= config_.termination.fatal_fall_y;
+  if (fallen) state_.fatal_error = true;
   const bool flipped = is_flipped();
-  if (!state_.solar_panel_requested && state_.solar_panel_deployment <= 0.001f &&
-      state_.step_index > 120 && std::abs(state_.body.velocity.x) < 0.02f) {
-    stuck_counter_ += 1;
-  } else {
+  const bool fatal = flipped || state_.fatal_error;
+  // Track irreversible forward progress, not instantaneous speed. The old
+  // detector exempted a requested solar panel, so a policy could deploy it and
+  // remain almost stationary forever while being scored as perfectly safe.
+  // A half-metre advance resets the mission-loss clock; reversing or oscillating
+  // around the same point cannot game it.
+  if (state_.body.position.x >= best_progress_x_ + 0.5f) {
+    best_progress_x_ = state_.body.position.x;
     stuck_counter_ = 0;
+  } else {
+    stuck_counter_ += 1;
   }
   const bool stuck = is_stuck();
   StepOutput out{};
-  out.terminated = finished || flipped || state_.energy <= config_.termination.min_energy || stuck;
+  out.terminated = finished || fatal || state_.energy <= config_.termination.min_energy || stuck;
   out.truncated = config_.termination.max_steps > 0 &&
                   state_.step_index + 1 >= config_.termination.max_steps;
-  out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, flipped, stuck);
+  out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, fatal, stuck);
   state_.last_reward = out.reward;
   state_.previous_action = action;
   state_.step_index += 1;
@@ -124,29 +133,39 @@ void Env::build_observation(float* obs_out) const {
     obs_out[k++] = i < state_.wheel_count ? w.normal_force / 200.0f : 0.0f;
   }
   constexpr float sample_dx = 0.5f;
-  const bool lidar_active = state_.lidar_active_steps > 0;
+  const bool contact_scanners_available = !state_.airborne;
+  const bool lidar_active = state_.lidar_active_steps > 0 && contact_scanners_available;
   const int height_base = k;
   const int slope_base = k + kTerrainSamplesAhead;
   for (int i = 0; i < kTerrainSamplesAhead; ++i) {
-    float height, slope;
-    terrain_.query_height_slope(state_.body.position.x + sample_dx * static_cast<float>(i + 1),
-                                height, slope);
+    const auto sample = terrain_.query(
+        state_.body.position.x + sample_dx * static_cast<float>(i + 1));
     const float distance = sample_dx * static_cast<float>(i + 1);
     const bool visible = lidar_active && distance <= state_.lidar_range;
-    obs_out[height_base + i] = visible ? height - state_.body.position.y : 0.0f;
-    obs_out[slope_base + i] = visible ? slope : 0.0f;
+    obs_out[height_base + i] = visible && sample.solid
+                                   ? sample.height - state_.body.position.y
+                                   : 0.0f;
+    obs_out[slope_base + i] = visible && sample.solid ? sample.slope : 0.0f;
   }
   k += kTerrainSamplesAhead * 2;
   for (int i = 0; i < kBiomeSamplesAhead; ++i) {
     const float sample_x = state_.body.position.x + 1.5f * static_cast<float>(i + 1);
-    const auto& zone = mechanic_layout_.at(sample_x);
     const bool visible = lidar_active && 1.5f * static_cast<float>(i + 1) <= state_.lidar_range;
-    obs_out[k++] = visible ? static_cast<float>(static_cast<int>(zone.type)) / 7.0f : 0.0f;
-    obs_out[k++] = visible && zone.type == MechanicType::Liquid
-                       ? std::max(0.0f, zone.liquid_level - terrain_.query(sample_x).height) * 0.5f
+    const auto sample = terrain_.query(sample_x);
+    const auto behind = terrain_.query(sample_x - 0.25f);
+    const auto ahead = terrain_.query(sample_x + 0.25f);
+    // Raw scanner correlates only: echo strength, surface break and local
+    // vibration/curvature. Never expose MechanicType or biome parameters.
+    obs_out[k++] = visible && sample.solid
+                       ? 1.0f / (1.0f + std::abs(sample.slope))
                        : 0.0f;
     obs_out[k++] = visible
-                       ? mechanic_layout_.thermal_at(sample_x, zone).ambient_temperature / 100.0f
+                       ? (sample.solid ? clamp((sample.height - state_.body.position.y) / 10.0f,
+                                               -1.0f, 1.0f)
+                                       : -1.0f)
+                       : 0.0f;
+    obs_out[k++] = visible && sample.solid && behind.solid && ahead.solid
+                       ? clamp(std::abs(ahead.slope - behind.slope), 0.0f, 1.0f)
                        : 0.0f;
   }
   obs_out[k++] = static_cast<float>(state_.gear_index + 1) / 8.0f;
@@ -206,37 +225,125 @@ void Env::select_mechanic_layout(uint64_t seed) {
     // treats this fallback as a validation failure rather than a scored episode.
     eligible_biomes.push_back(builtin_biome_id(MechanicType::Normal));
   }
-  std::uniform_int_distribution<size_t> biome_dist(0, eligible_biomes.size() - 1);
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
-  const int biome_id = eligible_biomes[biome_dist(rng_)];
-  const Biome& biome = *bank[static_cast<size_t>(biome_id)];
 
-  // One vector-environment slot represents one task/biome for the complete
-  // episode. This keeps rollout scores attributable to a single bank item and
-  // prevents implicit anchor/beach mechanics from leaking across split gates.
-  mechanic_layout_.count = 1;
-  auto& zone = mechanic_layout_.zones[0];
-  zone.begin_x = -1000000.0f;
-  zone.end_x = 1000000.0f;
-  zone.type = biome.visual_type();
-  zone.biome_id = biome_id;
-  zone.params = biome.sample_params(rng_());
-  zone.liquid_level = -1.0e9f;
-  pending_basin_depth_ = biome.visual_type() == MechanicType::Liquid
-                             ? 0.65f + u(rng_) * 0.85f
-                             : -1.0f;
+  if (config_.fixed_biome_id >= 0 || !config_.chain_biomes) {
+    // Single-zone mode: deterministic debugging / evaluation tools that score one
+    // named biome (evaluate_biomes.py, policy_divergence.py, anchor_eval.py) rely
+    // on a lone zone spanning the whole world.
+    std::uniform_int_distribution<size_t> biome_dist(0, eligible_biomes.size() - 1);
+    const int biome_id = eligible_biomes[biome_dist(rng_)];
+    const Biome& biome = *bank[static_cast<size_t>(biome_id)];
+    mechanic_layout_.count = 1;
+    auto& zone = mechanic_layout_.zones[0];
+    zone.begin_x = -1000000.0f;
+    zone.end_x = 1000000.0f;
+    zone.type = biome.visual_type();
+    zone.biome_id = biome_id;
+    zone.params = biome.sample_params(rng_());
+    zone.liquid_level = -1.0e9f;
+    pending_basin_depth_[0] =
+        biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
+    return;
+  }
+
+  // Chained mode: a trial is a random walk through a concatenation of zones, so
+  // the specific course differs trial to trial even though the mechanic
+  // vocabulary (anchors + the frozen generated bank) does not. Anchors are
+  // always present as a stable backbone; the remaining slots are filled from
+  // whatever the active split allows, shuffled and, if the pool is smaller than
+  // the requested chain length, revisited without ever repeating twice in a row.
+  std::vector<int> anchors;
+  std::vector<int> rest;
+  for (int id : eligible_biomes) {
+    if (bank[static_cast<size_t>(id)]->is_anchor()) {
+      anchors.push_back(id);
+    } else {
+      rest.push_back(id);
+    }
+  }
+  std::shuffle(anchors.begin(), anchors.end(), rng_);
+  std::shuffle(rest.begin(), rest.end(), rng_);
+  const std::vector<int>& pool = !rest.empty() ? rest : (!anchors.empty() ? anchors : eligible_biomes);
+
+  const int zone_count = std::clamp(config_.chain_zone_count, 1, kMaxMechanicZones);
+  std::vector<int> order;
+  order.reserve(static_cast<size_t>(zone_count));
+  size_t anchor_cursor = 0;
+  size_t pool_cursor = 0;
+  int previous_id = -1;
+  for (int slot = 0; slot < zone_count; ++slot) {
+    // Interleave one anchor for every two generated/handwritten picks so the
+    // stable backbone is spread across the whole chain, not front-loaded.
+    const bool take_anchor = !anchors.empty() && (slot % 3 == 0);
+    int candidate;
+    if (take_anchor) {
+      candidate = anchors[anchor_cursor % anchors.size()];
+      ++anchor_cursor;
+    } else {
+      candidate = pool[pool_cursor % pool.size()];
+      ++pool_cursor;
+      if (candidate == previous_id && pool.size() > 1) {
+        pool_cursor += 1;
+        candidate = pool[pool_cursor % pool.size()];
+      }
+    }
+    order.push_back(candidate);
+    previous_id = candidate;
+  }
+
+  mechanic_layout_.count = static_cast<int>(order.size());
+  float cursor = -8.0f;  // a short lead-in before the first zone boundary
+  std::uniform_real_distribution<float> length_dist(config_.chain_segment_min_length,
+                                                      config_.chain_segment_max_length);
+  for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
+    const int biome_id = order[static_cast<size_t>(slot)];
+    const Biome& biome = *bank[static_cast<size_t>(biome_id)];
+    auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
+    zone.begin_x = cursor;
+    const bool last = slot + 1 == mechanic_layout_.count;
+    // The last zone runs out far enough that no policy can outrun the chain
+    // within one episode; earlier zones get a randomized, bounded length so the
+    // rover actually reaches several distinct mechanics per trial.
+    cursor += last ? 1000000.0f : length_dist(rng_);
+    zone.end_x = cursor;
+    zone.type = biome.visual_type();
+    zone.biome_id = biome_id;
+    zone.params = biome.sample_params(rng_());
+    zone.liquid_level = -1.0e9f;
+    pending_basin_depth_[static_cast<size_t>(slot)] =
+        biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
+  }
 }
 
 void Env::finalize_mechanic_layout() {
   // Runs after the (possibly biome-reshaped) terrain has been generated, so
-  // basin carving reads real heights instead of stale/unshaped ones.
-  auto& zone = mechanic_layout_.zones[0];
-  if (pending_basin_depth_ >= 0.0f) {
-    const float world_end = std::max(terrain_.length(), config_.terrain.length);
-    zone.liquid_level = terrain_.carve_basin(0.0f, world_end, pending_basin_depth_);
+  // basin carving reads real heights instead of stale/unshaped ones. Every
+  // zone in the chain gets its own pass: a liquid zone in the middle of the
+  // course still needs its basin carved, and a ledge zone still needs its
+  // gaps/ramps cut in its own span, not only at the head of the world.
+  for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
+    auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
+    const float depth = pending_basin_depth_[static_cast<size_t>(slot)];
+    if (depth >= 0.0f) {
+      const float world_end =
+          std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x);
+      zone.liquid_level = terrain_.carve_basin(std::max(0.0f, zone.begin_x), world_end, depth);
+    }
+    if (zone.params.ledge_gap_width > 0.0f && zone.params.ledge_spacing > 0.0f) {
+      const float zone_start = std::max(zone.begin_x, zone.params.ledge_start_x);
+      const float last_ledge = std::min({config_.termination.finish_x - 4.0f,
+                                         terrain_.length() - 4.0f, zone.end_x - 4.0f});
+      for (float begin = zone_start; begin < last_ledge; begin += zone.params.ledge_spacing) {
+        terrain_.carve_ledge(begin, begin + zone.params.ledge_gap_width,
+                             zone.params.ledge_ramp_length,
+                             zone.params.ledge_ramp_height);
+      }
+    }
   }
-  mechanic_type_ = zone.type;
-  mechanic_params_ = zone.params;
+  const auto& first = mechanic_layout_.zones[0];
+  mechanic_type_ = first.type;
+  mechanic_params_ = first.params;
 }
 
 bool Env::is_flipped() const {
@@ -244,11 +351,8 @@ bool Env::is_flipped() const {
 }
 
 bool Env::is_stuck() const {
-  const float speed = std::abs(state_.body.velocity.x);
-  if (state_.step_index > 120 && speed < 0.02f) {
-    return stuck_counter_ > config_.termination.stuck_steps;
-  }
-  return false;
+  return state_.step_index > 120 &&
+         stuck_counter_ > config_.termination.stuck_steps;
 }
 
 }  // namespace mars

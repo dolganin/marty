@@ -82,6 +82,17 @@ struct RoverState {
   int step_index = 0;
   int episode_in_trial = 0;
   bool trial_start = true;
+  // Ballistic phase is evaluator-visible state, never a biome label.  It is
+  // derived exclusively from wheel/body contact and therefore remains valid
+  // for generated terrain as well as hand-authored ledges.
+  bool airborne = false;
+  bool has_grounded = false;
+  int airborne_steps = 0;
+  bool landing_event = false;
+  bool landing_fatal = false;
+  bool fatal_error = false;
+  float last_impact_speed = 0.0f;
+  float last_landing_angle = 0.0f;
 };
 
 struct EpisodeResult {

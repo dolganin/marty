@@ -78,5 +78,23 @@ def test_harness_never_passes_debug_state_to_agent(tmp_path) -> None:
 
     held_out = sum(1 for item in native.biome_catalog() if int(item["split"]) == 2)
     assert payload["summary"]["episode_count"] == held_out * 2
+    # Research telemetry is recorded from evaluator-only debug state, while the
+    # agent-facing contract above remains deliberately minimal.
+    for key in (
+        "mean_lidar_scan_count",
+        "mean_lidar_active_fraction",
+        "mean_lidar_energy_spent",
+        "mean_lidar_airborne_attempt_count",
+        "mean_solar_toggle_count",
+        "mean_charging_active_fraction",
+        "mean_solar_energy_gained",
+        "mean_ballistic_flight_count",
+        "mean_airborne_fraction",
+        "mean_safe_landing_count",
+    ):
+        assert key in payload["summary"]
+    assert {"lidar_scan_count", "solar_energy_gained", "ballistic_flight_count"} <= set(
+        payload["episodes"][0]
+    )
     assert len(agents) == held_out
     assert all(agent.trial_memory == 2 for agent in agents)

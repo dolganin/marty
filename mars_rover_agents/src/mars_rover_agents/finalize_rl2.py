@@ -28,6 +28,21 @@ def _metric_payload(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
         f"{prefix}.flip_rate": float(summary["flip_rate"]),
         f"{prefix}.mean_battery_consumed": float(summary["mean_battery_consumed"]),
         f"{prefix}.mean_distance": float(summary["mean_distance"]),
+        f"{prefix}.survival_auc": float(summary["survival_auc"]),
+        f"{prefix}.survival_adaptation_delta": float(summary["survival_adaptation_delta"]),
+        f"{prefix}.fatal_error_rate": float(summary["fatal_error_rate"]),
+        f"{prefix}.behavior.lidar.mean_scan_count": float(summary["mean_lidar_scan_count"]),
+        f"{prefix}.behavior.lidar.active_fraction": float(summary["mean_lidar_active_fraction"]),
+        f"{prefix}.behavior.lidar.energy_spent": float(summary["mean_lidar_energy_spent"]),
+        f"{prefix}.behavior.lidar.airborne_attempt_count": float(
+            summary["mean_lidar_airborne_attempt_count"]
+        ),
+        f"{prefix}.behavior.solar.toggle_count": float(summary["mean_solar_toggle_count"]),
+        f"{prefix}.behavior.solar.active_fraction": float(summary["mean_charging_active_fraction"]),
+        f"{prefix}.behavior.solar.energy_gained": float(summary["mean_solar_energy_gained"]),
+        f"{prefix}.behavior.ballistic.flight_count": float(summary["mean_ballistic_flight_count"]),
+        f"{prefix}.behavior.ballistic.airborne_fraction": float(summary["mean_airborne_fraction"]),
+        f"{prefix}.behavior.ballistic.safe_landing_count": float(summary["mean_safe_landing_count"]),
     }
     for index, value in enumerate(summary["raw_return_by_episode"], start=1):
         metrics[f"{prefix}.raw_return.episode_{index}"] = float(value)
@@ -35,6 +50,8 @@ def _metric_payload(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
         metrics[f"{prefix}.normalized_return.episode_{index}"] = float(value)
     for index, value in enumerate(summary["action_entropy_by_episode"], start=1):
         metrics[f"{prefix}.action_entropy.episode_{index}"] = float(value)
+    for index, value in enumerate(summary["survival_rate_by_episode"], start=1):
+        metrics[f"{prefix}.survival.episode_{index}"] = float(value)
     return metrics
 
 

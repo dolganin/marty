@@ -111,6 +111,19 @@ Windows:
 .\.venv\Scripts\mars-rover-doctor.exe
 ```
 
+After a C++ physics change, rebuild first, then use this short Windows validation
+sequence. `mars-rover-doctor` verifies that the compiled `.pyd` embeds the same
+biome-bank hash as `biome_bank.json`; this catches an old native DLL/PYD before
+manual play. The stability test specifically guards against a parked rover being
+rotated over by a scheduled terrain phase.
+
+```powershell
+.\scripts\setup.ps1 -BuildType Release
+.\.venv\Scripts\mars-rover-doctor.exe
+.\.venv\Scripts\python.exe -m pytest tests\test_collapse_stability.py tests\test_ballistics.py -q
+.\.venv\Scripts\mars-rover-play.exe --debug
+```
+
 Linux:
 
 ```bash

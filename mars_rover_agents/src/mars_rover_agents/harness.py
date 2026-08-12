@@ -58,8 +58,20 @@ class EpisodeRecord:
     steps: int
     success: bool
     flipped: bool
+    fatal_error: bool
+    landing_fatal: bool
     battery_consumed: float
     distance: float
+    lidar_scan_count: int
+    lidar_active_steps: int
+    lidar_energy_spent: float
+    lidar_airborne_attempt_count: int
+    solar_toggle_count: int
+    charging_active_steps: int
+    solar_energy_gained: float
+    ballistic_flight_count: int
+    airborne_steps: int
+    safe_landing_count: int
     action_entropy: float | None
 
 
@@ -175,12 +187,50 @@ def evaluate(
                 entropy_samples: list[float] = []
                 terminated = truncated = False
                 last_debug = start_debug
+                landing_fatal = False
+                lidar_scan_count = 0
+                lidar_active_steps = 0
+                lidar_energy_spent = 0.0
+                lidar_airborne_attempt_count = 0
+                solar_toggle_count = 0
+                charging_active_steps = 0
+                solar_energy_gained = 0.0
+                ballistic_flight_count = 0
+                airborne_steps = 0
+                safe_landing_count = 0
+                previous_action = 0
+                previous_airborne = bool(start_debug.get("airborne", False))
+                previous_energy = start_energy
                 for step in range(spec.max_steps):
                     action = int(agent.act(obs))
                     if action < 0 or action >= env.action_space.n:
                         env.close()
                         raise ValueError(f"agent returned invalid action {action}")
                     obs, reward, terminated, truncated, _ = env.step(action)
+                    step_debug = env.debug_info()
+                    lidar_pressed = bool(action & (1 << 11)) and not bool(previous_action & (1 << 11))
+                    solar_toggle_pressed = bool(action & (1 << 10)) and not bool(previous_action & (1 << 10))
+                    was_airborne = previous_airborne
+                    is_airborne = bool(step_debug.get("airborne", False))
+                    is_charging = bool(step_debug.get("charging_active", False))
+                    step_energy = float(step_debug.get("energy", previous_energy))
+                    lidar_cost = float(step_debug.get("lidar_energy_cost", 0.0))
+                    lidar_scan_count += int(lidar_cost > 0.0)
+                    lidar_energy_spent += max(0.0, lidar_cost)
+                    lidar_active_steps += int(bool(step_debug.get("lidar_active", False)))
+                    lidar_airborne_attempt_count += int(lidar_pressed and was_airborne)
+                    solar_toggle_count += int(solar_toggle_pressed)
+                    charging_active_steps += int(is_charging)
+                    # While charging the drivetrain is locked, so a positive energy delta
+                    # is attributable to the solar system rather than propulsion.
+                    solar_energy_gained += max(0.0, step_energy - previous_energy) if is_charging else 0.0
+                    ballistic_flight_count += int(is_airborne and not was_airborne)
+                    airborne_steps += int(is_airborne)
+                    safe_landing_count += int(
+                        bool(step_debug.get("landing_event", False))
+                        and not bool(step_debug.get("landing_fatal", False))
+                    )
+                    landing_fatal = landing_fatal or bool(step_debug.get("landing_fatal", False))
                     done = terminated or truncated
                     agent.observe(
                         float(reward),
@@ -196,7 +246,7 @@ def evaluate(
                     if "action_entropy" in diagnostics:
                         entropy_samples.append(float(diagnostics["action_entropy"]))
                     if output is not None and trial_counter < spec.render_trials:
-                        last_debug = env.debug_info()
+                        last_debug = step_debug
                         trace_rows.append(
                             {
                                 "bank_version": bank_version,
@@ -214,6 +264,13 @@ def evaluate(
                                 "angle": float(last_debug.get("angle", 0.0)),
                                 "energy": float(last_debug.get("energy", 0.0)),
                                 "damage": float(last_debug.get("damage", 0.0)),
+                                "airborne": is_airborne,
+                                "landing_event": bool(last_debug.get("landing_event", False)),
+                                "landing_fatal": bool(last_debug.get("landing_fatal", False)),
+                                "lidar_active": bool(last_debug.get("lidar_active", False)),
+                                "lidar_energy_cost": lidar_cost,
+                                "charging_active": is_charging,
+                                "solar_panel_deployment": float(last_debug.get("solar_panel_deployment", 0.0)),
                                 "done": done,
                             }
                         )
@@ -229,6 +286,9 @@ def evaluate(
                                 frames.append(frame[::2, ::2].copy())
                     if done:
                         break
+                    previous_action = action
+                    previous_airborne = is_airborne
+                    previous_energy = step_energy
                 last_debug = env.debug_info()
                 low_high = bounds.get(biome_id)
                 normalized = None
@@ -237,6 +297,13 @@ def evaluate(
                     normalized = (raw_return - low) / (high - low)
                 finish_x = float(env._config.termination.finish_x)
                 end_x = float(last_debug.get("x", 0.0))
+                success = end_x >= finish_x
+                # A physical crash/fall is explicit in debug state. Running out
+                # of energy or getting irrecoverably stuck is also fatal to the
+                # mission; a time-limit truncation alone is not.
+                fatal_error = bool(last_debug.get("fatal_error", False)) or bool(
+                    terminated and not success
+                )
                 episode_records.append(
                     EpisodeRecord(
                         bank_version=bank_version,
@@ -249,10 +316,22 @@ def evaluate(
                         raw_return=raw_return,
                         normalized_return=normalized,
                         steps=step + 1,
-                        success=end_x >= finish_x,
+                        success=success,
                         flipped=abs(float(last_debug.get("angle", 0.0))) > np.pi / 2,
+                        fatal_error=fatal_error,
+                        landing_fatal=landing_fatal,
                         battery_consumed=max(0.0, start_energy - float(last_debug.get("energy", 0.0))),
                         distance=end_x - start_x,
+                        lidar_scan_count=lidar_scan_count,
+                        lidar_active_steps=lidar_active_steps,
+                        lidar_energy_spent=lidar_energy_spent,
+                        lidar_airborne_attempt_count=lidar_airborne_attempt_count,
+                        solar_toggle_count=solar_toggle_count,
+                        charging_active_steps=charging_active_steps,
+                        solar_energy_gained=solar_energy_gained,
+                        ballistic_flight_count=ballistic_flight_count,
+                        airborne_steps=airborne_steps,
+                        safe_landing_count=safe_landing_count,
                         action_entropy=(float(np.mean(entropy_samples)) if entropy_samples else None),
                     )
                 )
@@ -280,8 +359,22 @@ def evaluate(
             if row["episode_index"] == index and row["action_entropy"] is not None
         ]]
     ]
+    fatal_curve = [
+        float(np.mean([row["fatal_error"] for row in rows if row["episode_index"] == index]))
+        for index in episode_indices
+    ]
+    survival_curve = [1.0 - value for value in fatal_curve]
+    surviving_distance_curve = [
+        float(np.mean(values)) if values else 0.0
+        for index in episode_indices
+        for values in [[
+            row["distance"]
+            for row in rows
+            if row["episode_index"] == index and not row["fatal_error"]
+        ]]
+    ]
     summary = {
-        "schema_version": 1,
+        "schema_version": 2,
         "bank_version": bank_version,
         "split": spec.split,
         "seeds": list(spec.seeds),
@@ -296,10 +389,37 @@ def evaluate(
         ),
         "raw_adaptation_delta": raw_curve[-1] - raw_curve[0],
         "action_entropy_by_episode": entropy_curve,
+        "fatal_error_rate_by_episode": fatal_curve,
+        "survival_rate_by_episode": survival_curve,
+        "survival_auc": float(np.mean(survival_curve)),
+        "survival_adaptation_delta": survival_curve[-1] - survival_curve[0],
+        "surviving_distance_by_episode": surviving_distance_curve,
+        "fatal_error_rate": float(np.mean([row["fatal_error"] for row in rows])),
+        "fatal_error_count": int(sum(bool(row["fatal_error"]) for row in rows)),
         "success_rate": float(np.mean([row["success"] for row in rows])),
         "flip_rate": float(np.mean([row["flipped"] for row in rows])),
         "mean_battery_consumed": float(np.mean([row["battery_consumed"] for row in rows])),
         "mean_distance": float(np.mean([row["distance"] for row in rows])),
+        "mean_lidar_scan_count": float(np.mean([row["lidar_scan_count"] for row in rows])),
+        "mean_lidar_active_fraction": float(
+            np.mean([row["lidar_active_steps"] / max(1, row["steps"]) for row in rows])
+        ),
+        "mean_lidar_energy_spent": float(np.mean([row["lidar_energy_spent"] for row in rows])),
+        "mean_lidar_airborne_attempt_count": float(
+            np.mean([row["lidar_airborne_attempt_count"] for row in rows])
+        ),
+        "mean_solar_toggle_count": float(np.mean([row["solar_toggle_count"] for row in rows])),
+        "mean_charging_active_fraction": float(
+            np.mean([row["charging_active_steps"] / max(1, row["steps"]) for row in rows])
+        ),
+        "mean_solar_energy_gained": float(np.mean([row["solar_energy_gained"] for row in rows])),
+        "mean_ballistic_flight_count": float(
+            np.mean([row["ballistic_flight_count"] for row in rows])
+        ),
+        "mean_airborne_fraction": float(
+            np.mean([row["airborne_steps"] / max(1, row["steps"]) for row in rows])
+        ),
+        "mean_safe_landing_count": float(np.mean([row["safe_landing_count"] for row in rows])),
         "mean_raw_return": float(np.mean([row["raw_return"] for row in rows])),
     }
     payload = {"summary": summary, "episodes": rows}

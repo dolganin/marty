@@ -15,6 +15,7 @@ void Terrain::configure(const TerrainConfig& config) {
   crater_count_ = config.crater_count;
   step_count_ = config.step_count;
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
+  solid_.assign(static_cast<size_t>(config.sample_count), 1u);
 }
 
 void Terrain::generate(uint64_t seed) {
@@ -85,10 +86,17 @@ TerrainSample Terrain::query(float x) const {
   if (heights_.empty()) {
     return {};
   }
+  const int last = static_cast<int>(heights_.size()) - 1;
+  const float fx = clamp(x * inv_dx_, 0.0f, static_cast<float>(last));
+  const int i0 = static_cast<int>(std::floor(fx));
+  const int i1 = std::min(i0 + 1, last);
+  if (solid_[static_cast<size_t>(i0)] == 0u || solid_[static_cast<size_t>(i1)] == 0u) {
+    return {-1000.0f, 0.0f, {0.0f, 1.0f}, false};
+  }
   float h, slope;
   query_height_slope(x, h, slope);
   const float inv_len = 1.0f / std::sqrt(1.0f + slope * slope);
-  return {h, slope, {-slope * inv_len, inv_len}};
+  return {h, slope, {-slope * inv_len, inv_len}, true};
 }
 
 void Terrain::query_height_slope(float x, float& h, float& slope) const {
@@ -120,7 +128,9 @@ void Terrain::deform(float x, float radius, float amount) {
     const float sx = static_cast<float>(i) * dx_;
     const float d = std::abs(sx - x) / radius;
     const float w = clamp(1.0f - d, 0.0f, 1.0f);
-    heights_[static_cast<size_t>(i)] -= amount * w;
+    if (solid_[static_cast<size_t>(i)] != 0u) {
+      heights_[static_cast<size_t>(i)] -= amount * w;
+    }
   }
 }
 
@@ -143,6 +153,26 @@ float Terrain::carve_basin(float begin_x, float end_x, float depth) {
     heights_[static_cast<size_t>(i)] = bank - depth * bowl * bowl;
   }
   return water_level;
+}
+
+void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
+                          float ramp_height) {
+  if (heights_.empty() || end_x <= begin_x) return;
+  const float ramp_begin = std::max(0.0f, begin_x - std::max(0.0f, ramp_length));
+  const int ramp_first = std::max(0, static_cast<int>(std::floor(ramp_begin * inv_dx_)));
+  const int ramp_last = std::min(static_cast<int>(heights_.size() - 1),
+                                 static_cast<int>(std::floor(begin_x * inv_dx_)));
+  for (int i = ramp_first; i <= ramp_last; ++i) {
+    const float x = static_cast<float>(i) * dx_;
+    const float t = clamp((x - ramp_begin) / std::max(dx_, begin_x - ramp_begin), 0.0f, 1.0f);
+    // Smooth launch ramp with a non-zero lip slope. The ramp changes only raw
+    // geometry; it does not encode whether the gap should be jumped or avoided.
+    heights_[static_cast<size_t>(i)] += ramp_height * t * t;
+  }
+  const int first = std::max(0, static_cast<int>(std::ceil(begin_x * inv_dx_)));
+  const int last = std::min(static_cast<int>(heights_.size() - 1),
+                            static_cast<int>(std::floor(end_x * inv_dx_)));
+  for (int i = first; i <= last; ++i) solid_[static_cast<size_t>(i)] = 0u;
 }
 
 float Terrain::height_at_index(int i) const {

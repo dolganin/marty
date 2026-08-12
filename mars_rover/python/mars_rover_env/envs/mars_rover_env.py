@@ -29,6 +29,8 @@ class MarsRoverEnv(gym.Env):
         render_height: int = 360,
         biome_split: int | None = None,
         fixed_biome_id: int | None = None,
+        chain_biomes: bool | None = None,
+        chain_zone_count: int | None = None,
     ):
         super().__init__()
         self.render_mode = render_mode
@@ -40,6 +42,10 @@ class MarsRoverEnv(gym.Env):
             self._config.biome_split = int(biome_split)
         if fixed_biome_id is not None:
             self._config.fixed_biome_id = int(fixed_biome_id)
+        if chain_biomes is not None:
+            self._config.chain_biomes = bool(chain_biomes)
+        if chain_zone_count is not None:
+            self._config.chain_zone_count = int(chain_zone_count)
         self._episodes_per_trial = int(self._config.episodes_per_trial)
         self._episodes_seen_in_trial = 0
         self._next_trial_start = True

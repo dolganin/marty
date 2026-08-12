@@ -38,6 +38,7 @@ SKILL_STRATA = (
     "energy_mode",
     "dynamic_obstacle",
 )
+DEFAULT_STRATUM_QUOTA = 2
 
 
 class CandidateRejected(RuntimeError):
@@ -241,7 +242,9 @@ def _syntax_check(candidate: dict[str, str], compiler: str, split: str) -> None:
         r"\bconst_cast\b": "mutation through const-cast",
         r"\b(?:rand|srand)\s*\(": "process-global pseudo-randomness",
         r"\b(?:new|delete)\b": "dynamic allocation",
-        r"\bstatic\s": "static storage",
+        # Immutable class constants are pure and safe. Mutable/function-local/global
+        # static storage is still forbidden because it can leak state across env slots.
+        r"\bstatic\s+(?!constexpr\b)": "static storage",
         r"\b(?:mutable|thread_local|volatile)\b": "mutable hidden state",
         r"\b(?:uintptr_t|addressof|random_device)\b": "address or process-derived randomness",
         r"\b(?:chrono|time|clock|gettimeofday)\b": "wall-clock input",
@@ -335,7 +338,37 @@ int main() {{
               << p.crust_deform << ' ' << p.ambient_temperature / 100.0f << ' '
               << p.thermal_transfer << ' ' << p.solar_charge_rate << ' '
               << p.lidar_energy_mul << ' ' << p.lidar_range_mul << ' '
-              << biome.friction_scale(p) << ' ';
+              << p.terrain_amplitude_mul << ' ' << p.terrain_roughness_mul << ' '
+              << p.terrain_crater_mul << ' ' << p.terrain_step_mul << ' '
+              << p.ledge_gap_width << ' ' << p.ledge_spacing << ' '
+              << p.ledge_ramp_length << ' ' << p.ledge_ramp_height << ' '
+              << p.ledge_start_x << ' ' << biome.friction_scale(p) << ' ';
+    // The schedule is a physical part of a mechanic, not an observation label:
+    // it determines when contacts lose support/traction.  Include a sparse whole-course
+    // signature so scheduled mechanics cannot falsely appear identical just because the
+    // synthetic 96-step force trace happened to miss their differing phases.
+    // Sample densely enough to distinguish differing duty cycles as well as phase.
+    for (int hazard_step = 0; hazard_step <= 1260; hazard_step += 21) {{
+      std::cout << biome.hazard_at(hazard_step) << ' ';
+    }}
+    // Probe body effects at representative committed speeds as well.  A free-running
+    // synthetic trace can remain near rest and therefore miss the very speed-dependent
+    // force/thermal regimes that distinguish two otherwise similar liquid mechanics.
+    for (int probe_step : {{0, 137, 389, 701, 1031}}) {{
+      for (float probe_speed : {{0.15f, 0.85f, 2.20f, 4.00f}}) {{
+        Vec2 probe_force{{0.0f, 0.0f}};
+        float probe_torque = 0.0f, probe_cost = 0.0f;
+        MechanicBodyContext probe;
+        probe.body_force = &probe_force; probe.body_torque = &probe_torque;
+        probe.energy_cost = &probe_cost; probe.velocity = Vec2{{probe_speed, 0.18f}};
+        probe.angular_velocity = 0.24f; probe.mass = 12.0f;
+        probe.gravity = -3.71f * p.gravity_mul; probe.dt = 1.0f / 60.0f;
+        probe.step_index = probe_step;
+        biome.apply_body_effects(p, probe);
+        std::cout << probe_force.x << ' ' << probe_force.y << ' '
+                  << probe_torque << ' ' << probe_cost << ' ';
+      }}
+    }}
     Vec2 velocity{{0.15f, 0.0f}};
     float angular_velocity = 0.0f, energy = 25.0f;
     for (int step = 0; step < 96; ++step) {{
@@ -566,6 +599,15 @@ def _write_manifest(
                 ),
             }
         )
+    # Hand-authored biomes live before the generated marker and are already
+    # covered by anchor_source_sha256. Keep their manifest rows when refreshing
+    # generated fingerprints; dropping them silently made the compiled catalog
+    # and the immutable manifest disagree.
+    handwritten_entries = [
+        dict(item)
+        for item in old_manifest.get("biomes", [])
+        if item.get("origin") == "handwritten"
+    ]
     anchors = ["normal", "sand", "ice", "mud", "wind", "low_gravity", "crust", "liquid"]
     anchor_source = HEADER.read_text(encoding="utf-8").split(START, 1)[0]
     anchor_source_sha256 = hashlib.sha256(anchor_source.encode()).hexdigest()
@@ -577,6 +619,7 @@ def _write_manifest(
         {
             "anchors": anchors,
             "anchor_source_sha256": anchor_source_sha256,
+            "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
             "generated": version_entries,
         },
         sort_keys=True,
@@ -588,6 +631,7 @@ def _write_manifest(
             {
                 "anchors": anchors,
                 "anchor_source_sha256": anchor_source_sha256,
+                "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
                 "generated": [item for item in version_entries if item["split"] == split],
             },
             sort_keys=True,
@@ -607,6 +651,7 @@ def _write_manifest(
         ),
         "anchors": anchors,
         "anchor_source_sha256": anchor_source_sha256,
+        "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
         "behavioral_dedup_epsilon": (
             float(dedup_epsilon)
             if dedup_epsilon is not None
@@ -618,7 +663,7 @@ def _write_manifest(
             if old_manifest.get(f"{split}_version") == split_versions[f"{split}_version"]
             and old_manifest.get("difficulty_gates", {}).get(split) is not None
         },
-        "biomes": entries,
+        "biomes": entries + handwritten_entries,
     }
     MANIFEST.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -672,7 +717,7 @@ TRAIN_BRIEFS = {
     "inertia_hysteresis": "momentum-dependent resistance with deterministic hysteresis or delayed consequences",
     "gravity_change": "a coherent nonstandard gravity regime coupled to suspension and gearing",
     "energy_mode": "thermal survival and energy routing under sustained engine load",
-    "dynamic_obstacle": "a deterministic time-varying hazard whose phase can be inferred and exploited",
+    "dynamic_obstacle": "either a deterministic time-varying hazard or a ballistic ledge where survival requires committing at speed",
 }
 
 # Test briefs deliberately hold out combinations rather than merely resampling the train wording.
@@ -682,7 +727,7 @@ TEST_BRIEFS = {
     "inertia_hysteresis": "reversible memory-like momentum effects coupled to buoyancy or drivetrain state",
     "gravity_change": "spatially or temporally modulated effective gravity coupled to energy scarcity",
     "energy_mode": "energy harvesting windows coupled to hazardous motion or visibility constraints",
-    "dynamic_obstacle": "moving or pulsating environmental forces coupled to lidar-range decisions",
+    "dynamic_obstacle": "a held-out moving hazard or ballistic ledge whose required commitment speed must be inferred",
 }
 
 
@@ -756,7 +801,14 @@ def _prompt(
         "not a cosmetic reskin or a small coefficient change. Couple several mechanics coherently. "
         "It may be harsh and complicated, but it must leave the rover some adaptation strategy. "
         "Study every existing implementation below and avoid repeating its physical signature, visual "
-        "identity, dominant hazard, or solution. Experiment aggressively within the contract."
+        "identity, dominant hazard, or solution. Experiment aggressively within the contract. "
+        "The bank must contain BOTH worlds where driving fast is dangerous and worlds where "
+        "driving slowly or cautiously is fatal (commitment ledges). For a ledge, set the ledge_* "
+        "MechanicParams so Env creates a physical gap and launch ramp; never simulate a gap with "
+        "an arbitrary force. Scanner observations are raw physical echoes only: never encode or "
+        "reveal the mechanic class, hazard phase, safe speed, or correct action. A surface-break "
+        "precursor must remain ambiguous: it may require braking before a pit in one world and "
+        "accelerating over a ramp in another."
         + correction + "\n\n"
         "Complete contract and existing implementation bank:\n```cpp\n" + header + "\n```"
     )
@@ -776,6 +828,13 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=ROOT / "python" / "mars_rover_env" / "configs" / "biome_generator.yaml")
     parser.add_argument("--count", type=int)
     parser.add_argument("--split", choices=("train", "test"))
+    parser.add_argument(
+        "--target-strata",
+        help=(
+            "Comma-separated skill strata for the new slots, in generation order. "
+            "Use this when filling an exact stratified quota."
+        ),
+    )
     parser.add_argument("--list", action="store_true", help="list biome ids already present in the C++ bank")
     parser.add_argument("--refresh-manifest", action="store_true", help="rebuild bank metadata without API calls")
     parser.add_argument("--prune-rejected", action="store_true", help="remove difficulty-rejected generated biomes")
@@ -797,6 +856,68 @@ def main() -> None:
             candidates,
             float(config["generation"].get("behavioral_dedup_epsilon", 0.035)),
         )
+        # Refresh/adopt hand-written rows with the same fixed-trajectory
+        # fingerprint used for generated classes. Environment changes invalidate
+        # every old score, so all rows return to the quantitative gate.
+        from mars_rover_env.tools.evaluate_biomes import (
+            _catalog_by_id,
+            _handwritten_class_name,
+            fingerprint_of_compiled_biome,
+        )
+
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        catalog = _catalog_by_id()
+        active_handwritten_ids = {
+            biome_id
+            for biome_id, biome in catalog.items()
+            if int(biome["split"]) in (1, 2)
+        }
+        manifest["biomes"] = [
+            row
+            for row in manifest["biomes"]
+            if row.get("origin") != "handwritten"
+            or str(row.get("id")) in active_handwritten_ids
+        ]
+        by_id = {str(item["id"]): item for item in manifest["biomes"]}
+        for biome_id, biome in catalog.items():
+            if int(biome["split"]) not in (1, 2):
+                continue
+            row = by_id.get(biome_id)
+            if row is None:
+                row = {
+                    "id": biome_id,
+                    "split": "train" if int(biome["split"]) == 1 else "test",
+                    "origin": "handwritten",
+                    "display_name": biome.get("name", biome_id),
+                    "skill_stratum": biome.get("skill_stratum", ""),
+                }
+                manifest["biomes"].append(row)
+                by_id[biome_id] = row
+            if row.get("origin") == "handwritten":
+                row.update(
+                    split="train" if int(biome["split"]) == 1 else "test",
+                    display_name=biome.get("name", biome_id),
+                    skill_stratum=biome.get("skill_stratum", ""),
+                )
+                row["behavior_fingerprint"] = fingerprint_of_compiled_biome(
+                    "handcrafted_biomes::" + _handwritten_class_name(biome_id)
+                )
+            row.update(
+                status="pending_difficulty_gate",
+                r_random=None,
+                r_solve=None,
+                r_robust=None,
+            )
+            for key in (
+                "random_score", "solve_score", "robust_score", "rejection_reasons",
+                "strategy_disagreement", "strategy_profile", "strategy_regret",
+                "strategy_spread", "strategy_winner",
+            ):
+                row.pop(key, None)
+        # _write_manifest retains a reference only when the train version is identical.
+        # Refreshing evaluator fingerprints does not itself change compiled mechanics.
+        manifest["difficulty_gates"] = {}
+        MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         print(f"Refreshed {MANIFEST}")
         return
     if args.prune_rejected:
@@ -815,6 +936,12 @@ def main() -> None:
     config = _load(args.config)
     count = args.count if args.count is not None else int(config["generation"].get("count", 12))
     split = args.split or str(config["generation"].get("split", "train"))
+    forced_strata = tuple(
+        item.strip() for item in (args.target_strata or "").split(",") if item.strip()
+    )
+    unknown_forced = sorted(set(forced_strata) - set(SKILL_STRATA))
+    if unknown_forced:
+        raise SystemExit("Unknown target strata: " + ", ".join(unknown_forced))
     compiler = _compiler(config)
     if args.dry_run:
         api_mode = str(config["openai"].get("api_mode", "responses"))
@@ -836,7 +963,12 @@ def main() -> None:
         )
     present_strata = {item["skill_stratum"] for item in retained_for_floor}
     missing_strata = [item for item in SKILL_STRATA if item not in present_strata]
-    if needed < len(missing_strata):
+    if forced_strata and len(forced_strata) != needed:
+        raise SystemExit(
+            f"target-strata provides {len(forced_strata)} slots, but count={count} "
+            f"requires exactly {needed} new candidates"
+        )
+    if not forced_strata and needed < len(missing_strata):
         raise SystemExit(
             f"Only {needed} open slots cannot satisfy the skill floor; need at least "
             f"{len(missing_strata)} "
@@ -845,17 +977,25 @@ def main() -> None:
     if needed == 0:
         print(f"{split} bank already has target count={count}; nothing to generate")
         return
-    train_fingerprints: list[tuple[str, list[float]]] = []
-    if split == "test":
-        print("Building fixed-trajectory fingerprints for the frozen train bank...")
-        for item in existing_candidates:
-            if item["split"] != "train":
-                continue
-            train_fingerprints.append(
-                (_candidate_id(item), _behavioral_fingerprint(item, compiler))
-            )
-        if not train_fingerprints:
-            raise SystemExit("Cannot generate a test bank before the train bank is frozen")
+    opposite_split = "train" if split == "test" else "test"
+    print(f"Building fixed-trajectory fingerprints for the frozen {opposite_split} bank...")
+    opposite_fingerprints: list[tuple[str, list[float]]] = []
+    if MANIFEST.is_file():
+        current_manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        opposite_fingerprints.extend(
+            (str(item["id"]), [float(value) for value in item["behavior_fingerprint"]])
+            for item in current_manifest.get("biomes", [])
+            if item.get("split") == opposite_split and item.get("behavior_fingerprint")
+        )
+    known_opposite_ids = {biome_id for biome_id, _ in opposite_fingerprints}
+    for item in existing_candidates:
+        if item["split"] != opposite_split or _candidate_id(item) in known_opposite_ids:
+            continue
+        opposite_fingerprints.append(
+            (_candidate_id(item), _behavioral_fingerprint(item, compiler))
+        )
+    if split == "test" and not opposite_fingerprints:
+        raise SystemExit("Cannot generate a test bank before the train bank is frozen")
     dedup_epsilon = float(config["generation"].get("behavioral_dedup_epsilon", 0.035))
     candidates: list[dict[str, Any]] = _load_checkpoint(split, count, args.replace)
     if len(candidates) > needed:
@@ -868,12 +1008,21 @@ def main() -> None:
             _syntax_check(item, compiler, split)
             item["behavior_fingerprint"] = _behavioral_fingerprint(item, compiler)
         _save_checkpoint(split, count, args.replace, candidates)
-    test_peer_fingerprints: list[tuple[str, list[float]]] = []
-    if split == "test":
-        for item in retained_for_floor:
-            test_peer_fingerprints.append(
-                (_candidate_id(item), _behavioral_fingerprint(item, compiler))
-            )
+    peer_fingerprints: list[tuple[str, list[float]]] = []
+    for item in retained_for_floor:
+        peer_fingerprints.append(
+            (_candidate_id(item), _behavioral_fingerprint(item, compiler))
+        )
+    known_peer_ids = {biome_id for biome_id, _ in peer_fingerprints}
+    if MANIFEST.is_file():
+        current_manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        peer_fingerprints.extend(
+            (str(item["id"]), [float(value) for value in item["behavior_fingerprint"]])
+            for item in current_manifest.get("biomes", [])
+            if item.get("split") == split
+            and str(item.get("id")) not in known_peer_ids
+            and item.get("behavior_fingerprint")
+        )
     # Even --replace sees the previous bank as a diversity blacklist: replacing
     # a bank should produce genuinely new tasks, not renamed copies.
     names: set[str] = set(existing_names)
@@ -887,15 +1036,18 @@ def main() -> None:
     free_stratum_rng = random.SystemRandom()
     while len(candidates) < needed:
         if target_stratum is None:
-            generated_strata = {item["skill_stratum"] for item in candidates}
-            still_missing = [
-                item for item in missing_strata if item not in generated_strata
-            ]
-            target_stratum = (
-                still_missing[0]
-                if still_missing
-                else free_stratum_rng.choice(SKILL_STRATA)
-            )
+            if forced_strata:
+                target_stratum = forced_strata[len(candidates)]
+            else:
+                generated_strata = {item["skill_stratum"] for item in candidates}
+                still_missing = [
+                    item for item in missing_strata if item not in generated_strata
+                ]
+                target_stratum = (
+                    still_missing[0]
+                    if still_missing
+                    else free_stratum_rng.choice(SKILL_STRATA)
+                )
         request_number += 1
         accepted_context = "\n\n".join(item["source"] for item in candidates)
         context = header + ("\n\nAlready accepted in this run:\n" + accepted_context if accepted_context else "")
@@ -926,38 +1078,38 @@ def main() -> None:
                 )
             _syntax_check(candidate, compiler, split)
             candidate["behavior_fingerprint"] = _behavioral_fingerprint(candidate, compiler)
-            if split == "test":
+            if opposite_fingerprints:
                 nearest_id, nearest_distance = min(
                     (
                         (biome_id, _fingerprint_distance(candidate["behavior_fingerprint"], fingerprint))
-                        for biome_id, fingerprint in train_fingerprints
+                        for biome_id, fingerprint in opposite_fingerprints
                     ),
                     key=lambda item: item[1],
                 )
                 if nearest_distance < dedup_epsilon:
                     raise CandidateRejected(
-                        f"Behavior duplicates train biome {nearest_id!r}: "
+                        f"Behavior duplicates {opposite_split} biome {nearest_id!r}: "
                         f"distance={nearest_distance:.6f} < epsilon={dedup_epsilon:.6f}"
                     )
-                peers = test_peer_fingerprints + [
-                    (_candidate_id(item), item["behavior_fingerprint"])
-                    for item in candidates
-                ]
-                if peers:
-                    nearest_test = min(
-                        (
-                            (biome_id, _fingerprint_distance(
-                                candidate["behavior_fingerprint"], fingerprint
-                            ))
-                            for biome_id, fingerprint in peers
-                        ),
-                        key=lambda item: item[1],
+            peers = peer_fingerprints + [
+                (_candidate_id(item), item["behavior_fingerprint"])
+                for item in candidates
+            ]
+            if peers:
+                nearest_peer = min(
+                    (
+                        (biome_id, _fingerprint_distance(
+                            candidate["behavior_fingerprint"], fingerprint
+                        ))
+                        for biome_id, fingerprint in peers
+                    ),
+                    key=lambda item: item[1],
+                )
+                if nearest_peer[1] < dedup_epsilon:
+                    raise CandidateRejected(
+                        f"Behavior duplicates accepted {split} biome {nearest_peer[0]!r}: "
+                        f"distance={nearest_peer[1]:.6f} < epsilon={dedup_epsilon:.6f}"
                     )
-                    if nearest_test[1] < dedup_epsilon:
-                        raise CandidateRejected(
-                            f"Behavior duplicates accepted test biome {nearest_test[0]!r}: "
-                            f"distance={nearest_test[1]:.6f} < epsilon={dedup_epsilon:.6f}"
-                        )
         except CandidateRejected as exc:
             rejection = str(exc)
             feedback = rejection
