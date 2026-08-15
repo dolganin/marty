@@ -20,7 +20,11 @@ def test_compiled_bank_matches_versioned_manifest() -> None:
 
 
 def test_hidden_mechanics_seed_is_frozen_within_trial() -> None:
-    env = MarsRoverEnv(config_path=ROOT / "python/mars_rover_env/configs/play.yaml")
+    # chain_biomes=False: this checks trial_mechanic_seed_ reset semantics against
+    # the FULL biome pool (play.yaml's default chain now always opens on one of 8
+    # anchors, which collide across independent seeds far too often for this
+    # different-seed-implies-different-mechanic assertion to be reliable).
+    env = MarsRoverEnv(config_path=ROOT / "python/mars_rover_env/configs/play.yaml", chain_biomes=False)
     env.reset(seed=0, options={"trial_start": True})
     first = env.debug_info()["mechanic"]
     env.reset(seed=5, options={"trial_start": False})

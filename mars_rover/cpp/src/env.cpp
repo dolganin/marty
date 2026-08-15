@@ -253,14 +253,21 @@ void Env::select_mechanic_layout(uint64_t seed) {
   // always present as a stable backbone; the remaining slots are filled from
   // whatever the active split allows, shuffled and, if the pool is smaller than
   // the requested chain length, revisited without ever repeating twice in a row.
+  // Anchors default split() to Builtin (see biome_bank.hpp), so the split filter
+  // above never includes them for biome_split 1/2 - by design, single-zone train/
+  // test scoring (evaluate_biomes.py, the exact-set test in test_biome_bank.py)
+  // must never see an anchor when it asked for "train" or "test". The chain's
+  // backbone is a DIFFERENT requirement (every trial gets a stable, comparable
+  // opening regardless of which split it draws generated zones from), so it
+  // pulls anchors straight from the bank rather than from eligible_biomes.
   std::vector<int> anchors;
   std::vector<int> rest;
+  rest.reserve(eligible_biomes.size());
   for (int id : eligible_biomes) {
-    if (bank[static_cast<size_t>(id)]->is_anchor()) {
-      anchors.push_back(id);
-    } else {
-      rest.push_back(id);
-    }
+    if (!bank[static_cast<size_t>(id)]->is_anchor()) rest.push_back(id);
+  }
+  for (int i = 0; i < static_cast<int>(bank.size()); ++i) {
+    if (bank[static_cast<size_t>(i)]->is_anchor()) anchors.push_back(i);
   }
   std::shuffle(anchors.begin(), anchors.end(), rng_);
   std::shuffle(rest.begin(), rest.end(), rng_);
