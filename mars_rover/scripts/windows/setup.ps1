@@ -14,10 +14,8 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 Set-Location $RepoRoot
 
-if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-    Write-Warning "cl.exe not found on PATH. Open an 'x64 Native Tools Command " `
-        "Prompt for VS 2022' (or run vcvars64.bat) before running this script, " `
-        "otherwise the native extension build will fail."
+if (-not (Get-Command gcc.exe -ErrorAction SilentlyContinue)) {
+    Write-Warning "gcc.exe not found on PATH. Install MinGW-w64 and add its bin directory to PATH before running this script, otherwise the native extension build will fail."
 }
 
 if (-not (Test-Path ".venv")) {
