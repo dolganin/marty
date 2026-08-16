@@ -7,7 +7,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "codex" / "src"))
 
-from meta_ppo import Agent, RunningMeanStd, summary
+from meta_ppo import ACTION_MACROS, HEATER, Agent, RunningMeanStd, flatten_metrics, summary
 
 
 def test_trial_start_clears_recurrent_memory():
@@ -66,3 +66,15 @@ def test_trial_summary_measures_adaptation_after_respawn():
     result = summary(trials, attempts)
     assert result["adaptation_distance_delta_mean"] == 15.0
     assert result["best_distance_m_mean"] == 25.0
+
+
+def test_v12_action_space_exposes_heater_controls():
+    assert any(action & HEATER for action in ACTION_MACROS)
+    assert (1 | HEATER) in ACTION_MACROS
+
+
+def test_nested_metrics_are_flattened_for_mlflow():
+    assert flatten_metrics({"recent": {"distance": np.float32(12.5)}, "step": 2}) == {
+        "recent.distance": 12.5,
+        "step": 2.0,
+    }

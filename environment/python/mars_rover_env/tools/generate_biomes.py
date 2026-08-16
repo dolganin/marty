@@ -384,7 +384,7 @@ int main() {{
       }}
     }}
     Vec2 velocity{{0.15f, 0.0f}};
-    float angular_velocity = 0.0f, energy = 25.0f;
+    float angular_velocity = 0.0f, energy = 60.0f;
     for (int step = 0; step < 96; ++step) {{
       const float drive = step < 24 ? 70.0f : (step < 48 ? -35.0f : (step < 72 ? 0.0f : 95.0f));
       WheelContact contact;

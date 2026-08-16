@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import random
@@ -17,11 +18,18 @@ from torch.distributions import Categorical
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "environment" / "python"))
-from mars_rover_env.actions import ACTION_MACROS  # noqa: E402
+from mars_rover_env.actions import ACTION_MACROS as BASE_ACTION_MACROS  # noqa: E402
 from mars_rover_env.config import load_env_config  # noqa: E402
 from mars_rover_env.envs.mars_rover_vec_env import MarsRoverVecEnv  # noqa: E402
 
 EVENT_MASK = sum(1 << bit for bit in range(6, 12))
+HEATER = 1 << 12
+ACTION_MACROS = tuple(BASE_ACTION_MACROS) + (
+    HEATER,
+    1 | HEATER,
+    1 | (1 << 4) | HEATER,
+    1 | (1 << 5) | HEATER,
+)
 
 
 @dataclass
@@ -37,6 +45,7 @@ class Config:
     clip: float = 0.2
     entropy: float = 0.015
     value_coef: float = 0.5
+    frontier_bonus_scale: float = 2.0
     epochs: int = 4
     envs_per_batch: int = 8
     seed: int = 1
@@ -85,7 +94,8 @@ class Agent(nn.Module):
         with torch.no_grad():
             self.actor.bias.fill_(-1.0)
             preferences = {1: 2.5, 4: 1.5, 5: 1.25, 10: 0.25,
-                           11: 0.25, 12: -0.25}
+                           11: 0.25, 12: -0.25, 15: -0.25, 16: 0.5,
+                           17: -0.25, 18: -0.25}
             for action, bias in preferences.items():
                 if action < action_dim:
                     self.actor.bias[action] = bias
@@ -110,11 +120,13 @@ class Agent(nn.Module):
 
 
 class Runner:
-    def __init__(self, n: int, split: int, seed: int, skip: int, gamma: float):
+    def __init__(self, n: int, split: int, seed: int, skip: int, gamma: float,
+                 frontier_bonus_scale: float = 0.0):
         self.env = MarsRoverVecEnv(n, biome_split=split)
         self.finish_x = float(load_env_config().termination.finish_x)
         self.trial_budget = int(self.env.core.trial_step_budget(0))
         self.n, self.skip, self.gamma = n, skip, gamma
+        self.frontier_bonus_scale = frontier_bonus_scale
         self.rng = np.random.default_rng(seed + 17)
         self.obs = self.env.reset(seed).copy()
         self.start = np.ones(n, np.float32); self.prev_done = np.ones(n, np.float32)
@@ -125,6 +137,7 @@ class Runner:
         self.trial_steps = np.zeros(n, np.int64)
         self.trial_returns = np.zeros(n, np.float64)
         self.trial_best_distance = np.zeros(n, np.float64)
+        self.trial_frontier = np.zeros(n, np.float64)
         self.trial_total_distance = np.zeros(n, np.float64)
         self.completed: list[dict[str, float]] = []
         self.completed_trials: list[dict[str, float]] = []
@@ -135,15 +148,22 @@ class Runner:
             return np.zeros(self.n, np.float32)
         return np.clip(self.trial_steps / self.trial_budget, 0.0, 1.0).astype(np.float32)
 
-    def step(self, actions: np.ndarray):
+    def step(self, actions: np.ndarray, frame_callback=None):
         macros = np.take(np.asarray(ACTION_MACROS, np.int32), actions)
         reward_sum = np.zeros(self.n, np.float32)
         done = np.zeros(self.n, bool); next_start = np.zeros(self.n, bool); repeats = 0
         for repeat in range(self.skip):
             applied = macros if repeat == 0 else macros & ~EVENT_MASK
             obs, reward, terminated, truncated, _ = self.env.step(applied)
-            reward_sum += self.gamma**repeat * reward
-            self.returns += reward; self.trial_returns += reward
+            if frame_callback is not None:
+                frame_callback(self)
+            current_distance = np.maximum(0.0, obs[:, 0] * self.finish_x - 1.0)
+            frontier_gain = np.maximum(0.0, current_distance - self.trial_frontier)
+            self.trial_frontier = np.maximum(self.trial_frontier, current_distance)
+            self.trial_best_distance = np.maximum(self.trial_best_distance, current_distance)
+            shaped_reward = reward + self.frontier_bonus_scale * frontier_gain
+            reward_sum += self.gamma**repeat * shaped_reward
+            self.returns += shaped_reward; self.trial_returns += shaped_reward
             self.lengths += 1; self.trial_steps += 1; repeats += 1
             done = terminated | truncated
             if done.any():
@@ -175,7 +195,7 @@ class Runner:
                     if is_start:
                         self.trial[i] += 1; self.attempt[i] = 0; self.trial_steps[i] = 0
                         self.trial_returns[i] = 0; self.trial_best_distance[i] = 0
-                        self.trial_total_distance[i] = 0
+                        self.trial_total_distance[i] = 0; self.trial_frontier[i] = 0
                     else:
                         self.attempt[i] += 1
                 break
@@ -218,6 +238,56 @@ def summary(trials: list[dict[str, float]], attempts: list[dict[str, float]]) ->
     return result
 
 
+def flatten_metrics(data: dict[str, Any], prefix: str = "") -> dict[str, float]:
+    flat: dict[str, float] = {}
+    for key, value in data.items():
+        name = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            flat.update(flatten_metrics(value, name))
+        elif isinstance(value, (int, float, np.integer, np.floating)):
+            number = float(value)
+            if math.isfinite(number):
+                flat[name] = number
+    return flat
+
+
+class MlflowTracker:
+    def __init__(self, module: Any): self.mlflow = module
+
+    def metrics(self, data: dict[str, Any], step: int, prefix: str = "") -> None:
+        values = flatten_metrics(data, prefix)
+        if values: self.mlflow.log_metrics(values, step=int(step), synchronous=False)
+
+    def artifact(self, path: Path, artifact_path: str | None = None) -> None:
+        if path.is_file(): self.mlflow.log_artifact(str(path), artifact_path=artifact_path)
+
+
+@contextlib.contextmanager
+def mlflow_run(tracking_uri: str | None, experiment: str, run_name: str,
+               tags: dict[str, str]):
+    if tracking_uri is None or tracking_uri.lower() in {"", "none", "disabled"}:
+        yield None; return
+    import mlflow
+    import _mars_rover_cpp as native
+    uri = tracking_uri; artifact_location: str | None = None
+    if "://" not in uri:
+        database = Path(uri).resolve()
+        if database.suffix.lower() not in {".db", ".sqlite", ".sqlite3"}:
+            database = database / "mlflow.db"
+        database.parent.mkdir(parents=True, exist_ok=True)
+        artifacts = database.parent / "mlflow-artifacts"; artifacts.mkdir(parents=True, exist_ok=True)
+        artifact_location = artifacts.resolve().as_uri(); uri = f"sqlite:///{database}"
+    mlflow.set_tracking_uri(uri)
+    if mlflow.get_experiment_by_name(experiment) is None and artifact_location is not None:
+        mlflow.create_experiment(experiment, artifact_location=artifact_location)
+    mlflow.set_experiment(experiment)
+    full_tags = {"environment_version": str(native.environment_version()),
+                 "biome_bank_version": str(native.biome_bank_version()), **tags}
+    with mlflow.start_run(run_name=run_name, tags=full_tags):
+        mlflow.log_artifact(str(Path(__file__).resolve()), artifact_path="source")
+        yield MlflowTracker(mlflow)
+
+
 def device_for(name: str) -> torch.device:
     return torch.device("cuda" if name == "auto" and torch.cuda.is_available() else "cpu" if name == "auto" else name)
 
@@ -234,14 +304,19 @@ def save(path: Path, model, optimizer, rms, config, frames):
     temp.replace(path)
 
 
-def train(config: Config, output: Path):
+def train(config: Config, output: Path, tracker: MlflowTracker | None = None,
+          mlflow_checkpoint_every: int = 10):
     random.seed(config.seed); np.random.seed(config.seed); torch.manual_seed(config.seed)
     device = device_for(config.device)
-    runner = Runner(config.num_envs, config.biome_split, config.seed, config.frame_skip, config.gamma)
+    runner = Runner(config.num_envs, config.biome_split, config.seed, config.frame_skip,
+                    config.gamma, config.frontier_bonus_scale)
     model = Agent(runner.env.obs_dim, len(ACTION_MACROS), config.hidden_size).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, eps=1e-5)
     rms = RunningMeanStd(runner.env.obs_dim); hidden = model.initial(config.num_envs, device)
     output.mkdir(parents=True, exist_ok=True)
+    if tracker is not None:
+        tracker.mlflow.log_params({**asdict(config), "action_macros": len(ACTION_MACROS),
+                                   "train_tracks_parallel": config.num_envs})
     frames = updates = 0; attempts: list[dict[str, float]] = []
     trials: list[dict[str, float]] = []; started = time.perf_counter()
     while frames < config.total_frames:
@@ -302,9 +377,20 @@ def train(config: Config, output: Path):
             "recent": summary(trials[-100:], attempts[-1000:])}
         print(json.dumps(report), flush=True)
         with (output / "metrics.jsonl").open("a", encoding="utf-8") as f: f.write(json.dumps(report)+"\n")
-        save(output / "checkpoint.pt", model, optimizer, rms, config, frames)
+        checkpoint = output / "checkpoint.pt"
+        save(checkpoint, model, optimizer, rms, config, frames)
+        if tracker is not None:
+            tracker.metrics(report, frames, "train")
+            if mlflow_checkpoint_every > 0 and updates % mlflow_checkpoint_every == 0:
+                tracker.artifact(checkpoint, f"checkpoints/update_{updates:06d}")
     final = summary(trials, attempts)
-    (output / "summary.json").write_text(json.dumps(final, indent=2), encoding="utf-8")
+    summary_path = output / "summary.json"
+    summary_path.write_text(json.dumps(final, indent=2), encoding="utf-8")
+    if tracker is not None:
+        tracker.metrics(final, frames, "train.final")
+        tracker.artifact(output / "checkpoint.pt", "model")
+        tracker.artifact(output / "metrics.jsonl", "metrics")
+        tracker.artifact(summary_path, "metrics")
 
 
 @torch.no_grad()
@@ -313,7 +399,8 @@ def evaluate(path: Path, split: int, trials: int, seed: int, stochastic: bool,
     torch.manual_seed(seed); np.random.seed(seed)
     device = device_for(device_name); ckpt = torch.load(path, map_location=device, weights_only=False)
     config = Config(**ckpt["config"]); n = min(64, trials)
-    runner = Runner(n, split, seed, config.frame_skip, config.gamma)
+    runner = Runner(n, split, seed, config.frame_skip, config.gamma,
+                    config.frontier_bonus_scale)
     model = Agent(ckpt["obs_dim"], ckpt["action_dim"], config.hidden_size).to(device)
     model.load_state_dict(ckpt["model"]); model.eval(); rms = RunningMeanStd(ckpt["obs_dim"]); rms.load_state_dict(ckpt["rms"])
     hidden = model.initial(n, device); attempt_rows = []; trial_rows = []
@@ -332,6 +419,40 @@ def evaluate(path: Path, split: int, trials: int, seed: int, stochastic: bool,
     return summary(trial_rows, attempt_rows)
 
 
+def benchmark(checkpoint: Path, split: int, trials_per_repeat: int, repeats: int,
+              base_seed: int, seed_stride: int, stochastic: bool, device: str,
+              reset_memory_on_attempt: bool, output: Path,
+              tracker: MlflowTracker | None = None) -> dict[str, Any]:
+    runs: list[dict[str, Any]] = []
+    for repeat in range(repeats):
+        seed = base_seed + repeat * seed_stride
+        metrics = evaluate(checkpoint, split, trials_per_repeat, seed, stochastic,
+                           device, reset_memory_on_attempt)
+        runs.append({"repeat": repeat, "seed": seed, **metrics})
+        print(json.dumps({"evaluation_repeat": repeat, "seed": seed, **metrics}), flush=True)
+        if tracker is not None: tracker.metrics(metrics, repeat, "eval.repeat")
+    numeric_keys = sorted(set.intersection(*[
+        {key for key, value in run.items() if isinstance(value, (int, float))} for run in runs
+    ]))
+    aggregate: dict[str, dict[str, float]] = {}
+    for key in numeric_keys:
+        if key in {"repeat", "seed"}: continue
+        values = np.asarray([run[key] for run in runs], dtype=np.float64)
+        aggregate[key] = {"mean": float(values.mean()),
+                          "std": float(values.std(ddof=1)) if len(values) > 1 else 0.0,
+                          "min": float(values.min()), "max": float(values.max())}
+    report = {"checkpoint": str(checkpoint.resolve()), "biome_split": split,
+              "trials_per_repeat": trials_per_repeat, "repeats": repeats,
+              "stochastic": stochastic, "reset_memory_on_attempt": reset_memory_on_attempt,
+              "runs": runs, "aggregate": aggregate}
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    if tracker is not None:
+        tracker.metrics(aggregate, repeats, "eval.aggregate")
+        tracker.artifact(checkpoint, "model"); tracker.artifact(output, "evaluation")
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(); sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("train"); p.add_argument("--output", type=Path, default=Path("codex/artifacts/meta_ppo"))
@@ -339,21 +460,54 @@ def main():
         ("rollout-steps", int, Config.rollout_steps), ("frame-skip", int, Config.frame_skip),
         ("hidden-size", int, Config.hidden_size), ("learning-rate", float, Config.learning_rate),
         ("gamma", float, Config.gamma), ("gae-lambda", float, Config.gae_lambda),
+        ("frontier-bonus-scale", float, Config.frontier_bonus_scale),
+        ("epochs", int, Config.epochs), ("envs-per-batch", int, Config.envs_per_batch),
         ("seed", int, Config.seed), ("biome-split", int, Config.biome_split)):
         p.add_argument("--"+name, type=typ, default=default)
     p.add_argument("--device", default="auto")
+    p.add_argument("--mlflow-tracking-uri", default="codex/artifacts/mlflow.db")
+    p.add_argument("--mlflow-experiment", default="mars-rover-meta-rl")
+    p.add_argument("--run-name"); p.add_argument("--mlflow-checkpoint-every", type=int, default=10)
     e = sub.add_parser("evaluate"); e.add_argument("--checkpoint", type=Path, required=True)
     e.add_argument("--biome-split", type=int, choices=(1,2), default=2); e.add_argument("--trials", type=int, default=50)
     e.add_argument("--seed", type=int, default=10000); e.add_argument("--stochastic", action="store_true"); e.add_argument("--device", default="auto")
     e.add_argument("--reset-memory-on-attempt", action="store_true")
+    b = sub.add_parser("benchmark"); b.add_argument("--checkpoint", type=Path, required=True)
+    b.add_argument("--biome-split", type=int, choices=(1, 2), default=2)
+    b.add_argument("--trials-per-repeat", type=int, default=20); b.add_argument("--repeats", type=int, default=5)
+    b.add_argument("--base-seed", type=int, default=10000); b.add_argument("--seed-stride", type=int, default=1000)
+    b.add_argument("--stochastic", action="store_true"); b.add_argument("--reset-memory-on-attempt", action="store_true")
+    b.add_argument("--device", default="auto"); b.add_argument("--output", type=Path, default=Path("codex/artifacts/benchmark.json"))
+    b.add_argument("--mlflow-tracking-uri", default="codex/artifacts/mlflow.db")
+    b.add_argument("--mlflow-experiment", default="mars-rover-meta-rl"); b.add_argument("--run-name")
     args = parser.parse_args()
     if args.command == "train":
-        train(Config(total_frames=args.total_frames, num_envs=args.num_envs, rollout_steps=args.rollout_steps,
+        config = Config(total_frames=args.total_frames, num_envs=args.num_envs, rollout_steps=args.rollout_steps,
             frame_skip=args.frame_skip, hidden_size=args.hidden_size, learning_rate=args.learning_rate,
-            gamma=args.gamma, gae_lambda=args.gae_lambda, seed=args.seed, biome_split=args.biome_split, device=args.device), args.output)
-    else:
+            gamma=args.gamma, gae_lambda=args.gae_lambda, frontier_bonus_scale=args.frontier_bonus_scale,
+            epochs=args.epochs, envs_per_batch=args.envs_per_batch,
+            seed=args.seed, biome_split=args.biome_split, device=args.device)
+        run_name = args.run_name or f"train-v12-seed-{args.seed}"
+        with mlflow_run(args.mlflow_tracking_uri, args.mlflow_experiment, run_name,
+                        {"run_type": "train", "biome_split": str(args.biome_split)}) as tracker:
+            train(config, args.output, tracker, args.mlflow_checkpoint_every)
+    elif args.command == "evaluate":
         print(json.dumps(evaluate(args.checkpoint, args.biome_split, args.trials, args.seed,
                                   args.stochastic, args.device, args.reset_memory_on_attempt), indent=2))
+    else:
+        run_name = args.run_name or f"benchmark-split-{args.biome_split}"
+        with mlflow_run(args.mlflow_tracking_uri, args.mlflow_experiment, run_name,
+                        {"run_type": "benchmark", "biome_split": str(args.biome_split)}) as tracker:
+            if tracker is not None:
+                tracker.mlflow.log_params({"checkpoint": str(args.checkpoint.resolve()),
+                    "trials_per_repeat": args.trials_per_repeat, "repeats": args.repeats,
+                    "base_seed": args.base_seed, "seed_stride": args.seed_stride,
+                    "stochastic": args.stochastic,
+                    "reset_memory_on_attempt": args.reset_memory_on_attempt})
+            result = benchmark(args.checkpoint, args.biome_split, args.trials_per_repeat,
+                args.repeats, args.base_seed, args.seed_stride, args.stochastic, args.device,
+                args.reset_memory_on_attempt, args.output, tracker)
+            print(json.dumps({"aggregate": result["aggregate"]}, indent=2))
 
 
 if __name__ == "__main__": main()

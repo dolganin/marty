@@ -60,3 +60,33 @@ is mostly the statistical benefit of taking the best of several attempts. Cleari
 the GRU after every death scores 32.00 m on train and 31.04 m on test, versus 31.82 m
 and 29.91 m with memory. Thus this 5M-frame run learned a better general controller,
 but **did not yet learn useful cross-attempt adaptation**. No 800 m finish occurred.
+
+## 2026-08-16 — v12 thermal/heater terrain, 120-second trials
+
+The action vocabulary was extended from 15 to 19 macros so the policy can use the
+new heater alone or together with throttle/tilt. Training used 64 independently
+generated train tracks, 1,536,960 physics ticks, a GRU retained across deaths, and a
+frontier reward for newly reached distance. All runs, weights, metrics, source
+snapshots, and benchmark JSON files are in the `mars-rover-v12` MLflow experiment.
+
+Repeated stochastic evaluation uses fresh tracks and reports the maximum distance
+reached anywhere within each fixed 120-second trial:
+
+| evaluation | repeats × tracks | mean best | median best | p90 | max observed | later − first |
+|---|---:|---:|---:|---:|---:|---:|
+| train split | 3 × 20 | 14.26 m | 9.11 m | 28.91 m | 56.57 m | +3.86 m |
+| held-out test | 5 × 20 | 15.31 m | 11.81 m | 31.09 m | 60.46 m | +3.60 m |
+| test, memory cleared at death | 5 × 20 | 15.38 m | 12.38 m | 31.01 m | 60.46 m | +3.72 m |
+| **held-out test, deterministic deploy** | **5 × 20** | **81.84 m** | **78.79 m** | **141.79 m** | **204.85 m** | **−17.77 m** |
+
+The memory ablation is indistinguishable from the recurrent result, so the positive
+later-minus-first number is explained by repeated stochastic attempts rather than
+learned online adaptation. This run is a valid general controller baseline for the
+harder v12 environment, but it is not yet a successful meta-adaptive policy and did
+not finish the 800 m course.
+
+The high-entropy sampling policy is unsuitable for deployment: its action changes
+cause avoidable crashes. Argmax inference reaches 81.84 m on average and 204.85 m at
+best. As a diagnostic, constant throttle on 20 additional test tracks reached
+72.94 m on average and 228.80 m at best, confirming that the recurrent checkpoint's
+main current skill is a robust general driving prior, not learned online adaptation.

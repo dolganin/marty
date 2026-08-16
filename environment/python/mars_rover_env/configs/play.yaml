@@ -43,8 +43,8 @@ physics:
   engine_cooling_airflow: 0.08
   engine_heater_energy_rate: 0.15
   engine_heater_heat: 18.0
-  initial_energy: 25.0
-  energy_capacity: 25.0
+  initial_energy: 60.0
+  energy_capacity: 75.0
   panel_deploy_time: 4.0
   panel_retract_time: 3.0
   brake_strength: 80.0

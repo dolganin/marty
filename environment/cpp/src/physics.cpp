@@ -651,8 +651,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       contact.slope = terrain_sample.slope;
 
       const float normal_vel = dot(wheel.velocity, contact.normal);
-      const float normal_force = penetration * 1800.0f - normal_vel * 80.0f;
-      contact.normal_force = std::max(0.0f, normal_force);
+      const float stable_penetration = clamp(penetration, 0.0f, 0.14f);
+      const float impact_speed = clamp(-normal_vel, 0.0f, 4.0f);
+      const float normal_force = stable_penetration * 1400.0f + impact_speed * 55.0f;
+      contact.normal_force = clamp(normal_force, 0.0f, 700.0f);
       wheel_force += contact.normal * contact.normal_force;
 
       const float axle_speed = dot(anchor_velocity, contact.tangent);
@@ -747,7 +749,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     auto post_ground = terrain.query(wheel.position.x);
     const float post_penetration = post_ground.height + wheel.radius - wheel.position.y;
     if (post_ground.solid && post_penetration > 0.0f) {
-      wheel.position += post_ground.normal * post_penetration;
+      const float correction = std::min(post_penetration, 0.08f);
+      wheel.position += post_ground.normal * correction;
       const float normal_speed = dot(wheel.velocity, post_ground.normal);
       if (normal_speed < 0.0f) {
         wheel.velocity -= post_ground.normal * normal_speed;
@@ -812,7 +815,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float wheel_fuel = driven_wheel && state.engine_running && !in_neutral
                                  ? std::abs(config_.motor_torque * control.throttle) *
                                        torque_split * state.clutch_engagement *
-                                       kGearEnergyMul[state.gear_index] * 0.00012f * dt
+                                       kGearEnergyMul[state.gear_index] * 0.0020f * dt
                                  : 0.0f;
     stats.energy_cost += wheel_fuel;
     stats.drive_energy_cost += wheel_fuel;

@@ -1,9 +1,14 @@
-"""PPO + GRU (RL^2) для Mars Rover.
+"""PPO + GRU (RL^2) для Mars Rover, среда v12.
 
-Запуск:
-    .venv/bin/python claude/train_rl2.py --steps 20_000_000 --num-envs 128
+Цель: за фиксированный бюджет 120 с проехать как можно дальше. Попыток внутри
+трайла не ограничено, мир внутри трайла один и тот же, поэтому оптимально не
+«выживать», а быстро понять мир и ехать агрессивно — цена ошибки только время.
 
-Идея решения — см. docstring в claude/meta_env.py и claude/README.md.
+Всё пишется в MLflow: параметры, метрики обучения, периодический eval на
+нескольких train- и test-трассах, веса как артефакты.
+
+    .venv/bin/python claude/train_rl2.py --steps 400000000 --num-envs 1024 \
+        --rollout 128 --minibatches 8 --run rl2_v12
 """
 
 from __future__ import annotations
@@ -19,9 +24,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from meta_env import MetaVecEnv
+from meta_env import MAX_ATTEMPT_BUCKETS, MetaVecEnv
 
 HERE = Path(__file__).resolve().parent
+FINISH_X = 800.0
 
 
 class RunningNorm:
@@ -76,7 +82,7 @@ class RecurrentActorCritic(nn.Module):
         x = self.encoder(obs_seq)
         # Сбросы памяти редки (раз в трайл), поэтому гоняем GRU крупными кусками
         # между точками сброса вместо шага-за-шагом — это в разы быстрее.
-        cuts = (trial_start.any(dim=1).nonzero().flatten().tolist() + [x.shape[0]])
+        cuts = trial_start.any(dim=1).nonzero().flatten().tolist() + [x.shape[0]]
         outs, start = [], 0
         for cut in cuts:
             if cut > start:
@@ -103,13 +109,13 @@ def compute_gae(rew, val, done, last_val, gamma, lam):
     return adv, adv + val
 
 
-def main() -> None:
+def build_argparser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
-    p.add_argument("--steps", type=int, default=20_000_000)
-    p.add_argument("--num-envs", type=int, default=128)
+    p.add_argument("--steps", type=int, default=400_000_000)
+    p.add_argument("--num-envs", type=int, default=1024)
     p.add_argument("--rollout", type=int, default=128)
     p.add_argument("--epochs", type=int, default=3)
-    p.add_argument("--minibatches", type=int, default=4, help="разбиение по средам")
+    p.add_argument("--minibatches", type=int, default=8, help="разбиение по средам")
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--gamma", type=float, default=0.9995)
     p.add_argument("--lam", type=float, default=0.95)
@@ -120,10 +126,78 @@ def main() -> None:
     p.add_argument("--max-grad", type=float, default=0.5)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--biome-split", type=int, default=1)
-    p.add_argument("--run", type=str, default="rl2")
+    p.add_argument("--run", type=str, default="rl2_v12")
     p.add_argument("--resume", type=str, default="")
     p.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-    args = p.parse_args()
+    # несколько трасс на train / test + MLflow
+    p.add_argument("--train-seeds", type=str, default="101,202,303")
+    p.add_argument("--test-seeds", type=str, default="1001,2002,3003")
+    p.add_argument("--eval-every", type=int, default=250, help="апдейтов между eval; 0 = выкл")
+    p.add_argument("--eval-trials", type=int, default=32, help="трайлов на трассу")
+    p.add_argument("--eval-envs", type=int, default=256)
+    p.add_argument("--mlflow-uri", type=str, default="http://swagstation.netcraze.pro:4249")
+    p.add_argument("--experiment", type=str, default="mars-rover-meta-rl")
+    p.add_argument("--experiment-id", type=str, default="18", help="приоритетнее --experiment")
+    p.add_argument("--no-mlflow", action="store_true")
+    return p
+
+
+def setup_mlflow(args):
+    if args.no_mlflow:
+        return None
+    import mlflow
+
+    import _mars_rover_cpp as native
+
+    mlflow.set_tracking_uri(args.mlflow_uri)
+    if args.experiment_id:
+        experiment_id = args.experiment_id
+    else:
+        exp = mlflow.get_experiment_by_name(args.experiment)
+        experiment_id = exp.experiment_id if exp else mlflow.create_experiment(args.experiment)
+    mlflow.start_run(experiment_id=experiment_id, run_name=args.run)
+    mlflow.log_params(vars(args))
+    mlflow.set_tags({"env_version": str(native.environment_version()), "algo": "PPO+GRU (RL^2)"})
+    return mlflow
+
+
+def run_eval(net, obs_norm, args, device, mlf, global_step, update, log_file):
+    from evaluate import evaluate_many
+
+    row = {"update": update, "step": global_step}
+    for name, split, seeds in (
+        ("eval_train", 1, args.train_seeds),
+        ("eval_test", 2, args.test_seeds),
+    ):
+        res = evaluate_many(
+            net,
+            obs_norm,
+            biome_split=split,
+            seeds=[int(s) for s in seeds.split(",")],
+            num_envs=args.eval_envs,
+            trials=args.eval_trials,
+            device=device,
+        )
+        for key in (
+            "best_run_m",
+            "best_run_m_std",
+            "total_distance_m",
+            "trial_return",
+            "attempts_per_trial",
+            "finish_rate",
+            "adaptation_gain_mps",
+        ):
+            row[f"{name}/{key}"] = round(float(res[key]), 3)
+    print(json.dumps(row), flush=True)
+    log_file.write(json.dumps(row) + "\n")
+    log_file.flush()
+    if mlf is not None:
+        mlf.log_metrics({k: v for k, v in row.items() if k not in ("update", "step")}, step=global_step)
+    return row
+
+
+def main() -> None:
+    args = build_argparser().parse_args()
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -131,9 +205,12 @@ def main() -> None:
     out_dir = HERE / "runs" / args.run
     out_dir.mkdir(parents=True, exist_ok=True)
     log_file = (out_dir / "log.jsonl").open("a")
+    mlf = setup_mlflow(args)
 
     env = MetaVecEnv(args.num_envs, seed=args.seed, biome_split=args.biome_split)
     N, T = env.num_envs, args.rollout
+    if mlf is not None:
+        mlf.log_params({"obs_dim": env.obs_dim, "trial_budget_steps": env.trial_budget})
     net = RecurrentActorCritic(env.obs_dim, env.num_actions).to(device)
     obs_norm = RunningNorm(env.obs_dim, device)
     opt = torch.optim.Adam(net.parameters(), lr=args.lr, eps=1e-5)
@@ -158,8 +235,6 @@ def main() -> None:
     b_rew = torch.zeros(T, N, device=device)
     b_done = torch.zeros(T, N, device=device)
     b_ts = torch.zeros(T, N, device=device)
-
-    from meta_env import MAX_ATTEMPT_BUCKETS
 
     prog_hist = [deque(maxlen=400) for _ in range(MAX_ATTEMPT_BUCKETS)]
     trial_best = deque(maxlen=200)
@@ -246,12 +321,16 @@ def main() -> None:
                 "update": update,
                 "step": global_step,
                 "sps": int(global_step / max(1e-6, time.time() - t0)),
-                # прогресс по номеру попытки внутри трайла: должен расти слева направо
+                # прогресс по номеру попытки: рост слева направо = адаптация внутри трайла
                 "prog_by_attempt": [
                     round(float(np.mean(r)), 3) if r else None for r in prog_hist
                 ],
-                "trial_best_m": round(float(np.mean(trial_best)) * 800, 1) if trial_best else None,
-                "trial_sum_m": round(float(np.mean(trial_sum)) * 800, 1) if trial_sum else None,
+                "trial_best_m": (
+                    round(float(np.mean(trial_best)) * FINISH_X, 1) if trial_best else None
+                ),
+                "trial_sum_m": (
+                    round(float(np.mean(trial_sum)) * FINISH_X, 1) if trial_sum else None
+                ),
                 "trial_return": round(float(np.mean(trial_ret)), 1) if trial_ret else None,
                 "attempts": round(float(np.mean(trial_att)), 2) if trial_att else None,
                 **{k: round(v, 4) for k, v in stats.items()},
@@ -259,7 +338,27 @@ def main() -> None:
             print(json.dumps(row), flush=True)
             log_file.write(json.dumps(row) + "\n")
             log_file.flush()
-        if update % 100 == 0 or update == n_updates - 1:
+            if mlf is not None:
+                mlf.log_metrics(
+                    {
+                        f"train/{k}": float(v)
+                        for k, v in row.items()
+                        if isinstance(v, (int, float)) and k not in ("update", "step")
+                    },
+                    step=global_step,
+                )
+                mlf.log_metrics(
+                    {
+                        f"train/prog_attempt_{i}": float(v)
+                        for i, v in enumerate(row["prog_by_attempt"])
+                        if v is not None
+                    },
+                    step=global_step,
+                )
+
+        is_last = update == n_updates - 1
+        if update % 100 == 0 or is_last:
+            ckpt_path = out_dir / "ckpt.pt"
             torch.save(
                 {
                     "net": net.state_dict(),
@@ -268,8 +367,16 @@ def main() -> None:
                     "update": update,
                     "args": vars(args),
                 },
-                out_dir / "ckpt.pt",
+                ckpt_path,
             )
+            if mlf is not None:
+                mlf.log_artifact(str(ckpt_path), artifact_path="weights")
+
+        if args.eval_every and update > start_update and (update % args.eval_every == 0 or is_last):
+            run_eval(net, obs_norm, args, device, mlf, global_step, update, log_file)
+
+    if mlf is not None:
+        mlf.end_run()
 
 
 if __name__ == "__main__":

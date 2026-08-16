@@ -56,7 +56,7 @@ generation:
       cold-start lockout, overheating shutdown and cooling. The clutch physically couples engine and
       wheels. There are 8 forward gears with ratios 4.20, 3.10, 2.35, 1.80, 1.40, 1.10, 0.86, 0.68;
       high gears lug at low RPM and consume progressively more energy. Shifts require clutch and sync.
-    - The battery stores 25 energy units. Solar charging locks propulsion while the panel
+    - The battery stores 75 energy units and starts a trial with 60. Solar charging locks propulsion while the panel
       deploys/charges/stows. Ambient temperature,
       thermal transfer and solar rate come from the biome. Liquid biomes create basins and apply
       immersion, drag, buoyancy and enhanced thermal transfer.
@@ -144,8 +144,8 @@ generation:
     not pass. Ranking the styles differently while the same style still wins does not pass.
 
     ENERGY IS NOW THE BINDING RESOURCE — design against it explicitly.
-    The rover starts with 6 of 25 energy units and consumes roughly 6.4 crossing the course,
-    so it CANNOT finish on the starting charge: it must either recharge or spend less. The
+    The rover starts with 60 of 75 energy units and sustained driving consumes that reserve in
+    roughly two minutes, so it CANNOT finish a long course on the starting charge: it must either recharge or spend less. The
     solar panel now costs only ~90 steps (~1.6 m) to deploy and stow, so recharging is
     genuinely profitable where the sun is strong (solar_charge_rate 2.2 returns ~+8.8 energy
     for 4.9 m) and still a trap where it is weak (0.25 returns ~+1.0 for the same 4.9 m).
