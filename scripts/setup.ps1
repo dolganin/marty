@@ -1,22 +1,22 @@
 param(
     [ValidateSet("Debug", "Release", "RelWithDebInfo")]
-    [string]$BuildType = "Debug",
+    [string]$BuildType = "Release",
     [ValidateSet("Auto", "MSVC", "GCC")]
     [string]$Toolchain = "Auto",
-    [string]$Python = "python",
+    [string]$Python = "py",
     [switch]$Recreate
 )
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Venv = Join-Path $ProjectRoot ".venv"
+$EnvironmentRoot = Join-Path $ProjectRoot "environment"
+$BaselinesRoot = Join-Path $ProjectRoot "baselines"
 
 function Invoke-Checked {
     param([scriptblock]$Command)
     & $Command
-    if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code $LASTEXITCODE"
-    }
+    if ($LASTEXITCODE -ne 0) { throw "Command failed with exit code $LASTEXITCODE" }
 }
 
 if ($Recreate -and (Test-Path -LiteralPath $Venv)) {
@@ -25,40 +25,23 @@ if ($Recreate -and (Test-Path -LiteralPath $Venv)) {
 if (-not (Test-Path -LiteralPath $Venv)) {
     Invoke-Checked { & $Python -m venv $Venv }
 }
+
 $VenvPython = Join-Path $Venv "Scripts\python.exe"
-Invoke-Checked { & $VenvPython -m pip install --upgrade pip setuptools wheel }
-Invoke-Checked { & $VenvPython -m pip install pybind11 }
+Invoke-Checked { & $VenvPython -m pip install --upgrade pip setuptools wheel pybind11 cmake numpy gymnasium PyYAML }
 $env:MARS_ROVER_BUILD_TYPE = $BuildType
+
 if ($Toolchain -eq "Auto") {
-    $Toolchain = if (Get-Command cl.exe -ErrorAction SilentlyContinue) { "MSVC" } elseif (Get-Command g++.exe -ErrorAction SilentlyContinue) { "GCC" } else { "MSVC" }
+    $Toolchain = if (Get-Command cl.exe -ErrorAction SilentlyContinue) { "MSVC" } else { "GCC" }
+}
+if ($Toolchain -eq "GCC" -and -not (Get-Command g++.exe -ErrorAction SilentlyContinue)) {
+    throw "g++.exe is not on PATH. Install MinGW-w64 or run from a Visual Studio developer shell."
 }
 
-if ($Toolchain -eq "GCC") {
-    $env:MARS_ROVER_SKIP_NATIVE = "1"
-    Invoke-Checked { & $VenvPython -m pip install --editable "$ProjectRoot[dev]" --no-build-isolation }
-    Remove-Item Env:MARS_ROVER_SKIP_NATIVE -ErrorAction SilentlyContinue
-    $BuildDir = Join-Path $ProjectRoot "build-python-gcc"
-    $PythonCMakePath = $VenvPython.Replace("\", "/")
-    Invoke-Checked {
-        & cmake -S (Join-Path $ProjectRoot "cpp") -B $BuildDir -G Ninja `
-            "-DPython_EXECUTABLE=$PythonCMakePath" -DMARS_ROVER_BUILD_PYTHON=ON `
-            "-DCMAKE_BUILD_TYPE=$BuildType"
-    }
-    Invoke-Checked { & cmake --build $BuildDir --parallel }
-    $SitePackages = & $VenvPython -c "import sysconfig; print(sysconfig.get_paths()['purelib'])"
-    if ($LASTEXITCODE -ne 0) { throw "Could not locate site-packages" }
-    Copy-Item (Join-Path $BuildDir "_mars_rover_cpp*.pyd") $SitePackages -Force
-    Copy-Item (Join-Path $BuildDir "_mars_rover_cpp*.pyd") (Join-Path $ProjectRoot "python") -Force
-    $DllDir = Join-Path $SitePackages "_mars_rover_dlls"
-    New-Item -ItemType Directory -Force -Path $DllDir | Out-Null
-    $Gxx = (Get-Command g++.exe -ErrorAction Stop).Source
-    $GccBin = Split-Path -Parent $Gxx
-    foreach ($Dll in "libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll", "libgomp-1.dll", "libdl.dll") {
-        $DllPath = Join-Path $GccBin $Dll
-        if (Test-Path -LiteralPath $DllPath) { Copy-Item $DllPath $DllDir -Force }
-    }
-} else {
-    Invoke-Checked { & $VenvPython -m pip install --editable "$ProjectRoot[dev]" --no-build-isolation }
-}
+# The repository root is intentionally not a Python package.  Install the two
+# distributions separately so their editable sources and native extension land
+# in this virtual environment.
+Invoke-Checked { & $VenvPython -m pip install --editable $EnvironmentRoot --no-build-isolation }
+Invoke-Checked { & $VenvPython -m pip install --editable $BaselinesRoot --no-build-isolation }
 Invoke-Checked { & $VenvPython -m mars_rover_env.tools.doctor }
-Write-Host "Ready ($Toolchain/$BuildType). Play: .\.venv\Scripts\mars-rover-play.exe --debug"
+
+Write-Host "Ready ($Toolchain/$BuildType). Play: .\scripts\windows\play.ps1 -Debug"
