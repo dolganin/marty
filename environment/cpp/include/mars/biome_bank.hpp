@@ -1032,7 +1032,7 @@ class CommitmentLedgeField final : public Biome {
     p.terrain_step_mul = 0.30f;
     p.ledge_start_x = 18.0f;
     p.ledge_spacing = 25.0f;
-    p.ledge_gap_width = 2.6f + 0.2f * biome_random01(s, 6);
+    p.ledge_gap_width = 3.2f + 0.4f * biome_random01(s, 6);
     p.ledge_ramp_length = 2.8f;
     p.ledge_ramp_height = 0.72f;
     return p;

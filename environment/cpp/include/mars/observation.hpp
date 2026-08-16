@@ -16,7 +16,7 @@ constexpr int kObservationDim =
     kMaxWheels * 3 +
     kTerrainSamplesAhead * 2 +
     kBiomeSamplesAhead * 3 +
-    20 +
+    21 +
     kImuObservationDim +
     kBodyContactObservationDim +
     kWheelEncoderObservationDim;

@@ -118,6 +118,8 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                     "engine_heat_per_fuel",
                     "engine_cooling_conductance",
                     "engine_cooling_airflow",
+                    "engine_heater_energy_rate",
+                    "engine_heater_heat",
                     "initial_energy",
                     "energy_capacity",
                     "panel_deploy_time",

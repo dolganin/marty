@@ -45,6 +45,7 @@ class ManualPlayer:
             ("down", "Z  GEAR DOWN"),
             ("up", "X  GEAR UP"),
             ("ignition", "E  IGNITION"),
+            ("heater", "H  ENGINE HEAT"),
             ("solar", "F  SOLAR CHARGE"),
             ("lidar", "G  LIDAR SCAN"),
             ("drive", "V  RWD / FWD / AWD"),
@@ -91,6 +92,7 @@ class ManualPlayer:
         ignition = "e" in self.keys
         toggle_charge = "f" in self.keys
         lidar = "g" in self.keys
+        heater = "h" in self.keys
         action = 0
         if gas or reverse:
             action |= 1
@@ -116,6 +118,8 @@ class ManualPlayer:
             action |= 1024
         if lidar:
             action |= 2048
+        if heater:
+            action |= 4096
         return action
 
     def update(self) -> None:
@@ -160,6 +164,9 @@ class ManualPlayer:
         elif debug["engine_overheated"]:
             engine_text = "ENGINE OVERHEAT - COOLING"
             engine_color = "#ff5555"
+        elif debug.get("heater_active", False):
+            engine_text = "ENGINE PREHEAT - H"
+            engine_color = "#ffb84d"
         elif debug["engine_cold_locked"]:
             engine_text = "ENGINE TOO COLD"
             engine_color = "#65bfff"
@@ -236,7 +243,8 @@ class ManualPlayer:
              f"PWR {debug['cold_power_factor'] * 100:3.0f}%", temperature_color),
             (f"GRAVITY {debug.get('gravity', -3.71):5.2f} m/s²  "
              f"x{debug.get('gravity_multiplier', 1.0):.2f}", "#d5c6ff"),
-            (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}", "#f4f4f4"),
+            (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}  "
+             f"HEATER {'ON' if debug.get('heater_active', False) else 'OFF'}", "#f4f4f4"),
             (solar_text, solar_color),
             ((f"LIDAR ACTIVE {debug.get('lidar_range', 0.0):.1f} m  "
               f"COST {debug.get('lidar_energy_cost', 0.0):.2f}")
@@ -299,6 +307,10 @@ class ManualPlayer:
             bg=active if "e" in self.keys else
             (ready if not debug["engine_running"] and not debug["engine_cold_locked"] and
              not debug["engine_overheated"] else idle)
+        )
+        self.control_labels["heater"].configure(
+            bg=active if debug.get("heater_active", False) else
+            (ready if debug["engine_cold_locked"] else idle)
         )
         self.control_labels["solar"].configure(
             bg=active if debug["charging_active"] else

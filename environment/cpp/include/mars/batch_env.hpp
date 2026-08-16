@@ -21,7 +21,7 @@ class BatchEnv {
 
   int num_envs() const { return static_cast<int>(envs_.size()); }
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 4096; }
+  int action_dim() const { return 8192; }
 
   Env& env_at(int env_id) { return envs_[env_id]; }
   const Env& env_at(int env_id) const { return envs_[env_id]; }

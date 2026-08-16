@@ -15,6 +15,7 @@ enum ControlBits : int {
   ControlIgnition = 1 << 9,
   ControlToggleCharge = 1 << 10,
   ControlLidar = 1 << 11,
+  ControlHeater = 1 << 12,
 };
 
 struct ControlInput {
@@ -28,6 +29,7 @@ struct ControlInput {
   bool ignition = false;
   bool toggle_charge = false;
   bool lidar = false;
+  bool heater = false;
 };
 
 inline ControlInput decode_discrete_action(int action, float tilt_torque) {
@@ -49,6 +51,7 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   out.ignition = (action & ControlIgnition) != 0;
   out.toggle_charge = (action & ControlToggleCharge) != 0;
   out.lidar = (action & ControlLidar) != 0;
+  out.heater = (action & ControlHeater) != 0;
   return out;
 }
 

@@ -106,6 +106,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("engine_cooling_conductance",
                      &mars::PhysicsConfig::engine_cooling_conductance)
       .def_readwrite("engine_cooling_airflow", &mars::PhysicsConfig::engine_cooling_airflow)
+      .def_readwrite("engine_heater_energy_rate", &mars::PhysicsConfig::engine_heater_energy_rate)
+      .def_readwrite("engine_heater_heat", &mars::PhysicsConfig::engine_heater_heat)
       .def_readwrite("initial_energy", &mars::PhysicsConfig::initial_energy)
       .def_readwrite("energy_capacity", &mars::PhysicsConfig::energy_capacity)
       .def_readwrite("panel_deploy_time", &mars::PhysicsConfig::panel_deploy_time)
@@ -298,6 +300,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["engine_stalled"] = state.engine_stalled;
              d["engine_overheated"] = state.engine_overheated;
              d["engine_cold_locked"] = state.engine_cold_locked;
+             d["heater_active"] = state.heater_active;
+             d["heater_energy_rate"] = env.config().physics.engine_heater_energy_rate;
              d["cold_start_temperature"] = env.config().physics.cold_start_temperature;
              d["minimum_operating_temperature"] =
                  env.config().physics.minimum_operating_temperature;

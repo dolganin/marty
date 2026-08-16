@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v11-trial-time-budget";
+    "mars-env-v12-thermal-heater-launch-terrain";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -67,7 +67,7 @@ class Env {
   const MechanicZone& mechanic_at(float x) const { return mechanic_layout_.at(x); }
 
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 4096; }
+  int action_dim() const { return 8192; }
 
   int trial_steps_used() const { return trial_steps_used_; }
   int trial_step_budget() const;

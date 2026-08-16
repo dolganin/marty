@@ -48,7 +48,7 @@ generation:
       dedicated episode to build up an effect. The goal is progress toward +X while preserving energy
       and avoiding flips/stalls.
     - Actions are bit flags and may be combined: gas, brake, reverse, clutch pedal, body tilt left/right,
-      shift up/down, cycle RWD/FWD/AWD, ignition, deploy/stow solar panel, and pulse lidar.
+      shift up/down, cycle RWD/FWD/AWD, ignition, engine preheat, deploy/stow solar panel, and pulse lidar.
     - The mechanical engine has RPM/inertia/drag, an idle and redline, temperature-dependent power,
       cold-start lockout, overheating shutdown and cooling. The clutch physically couples engine and
       wheels. There are 8 forward gears with ratios 4.20, 3.10, 2.35, 1.80, 1.40, 1.10, 0.86, 0.68;

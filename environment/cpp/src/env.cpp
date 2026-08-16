@@ -192,6 +192,7 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.engine_stalled ? 1.0f : 0.0f;
   obs_out[k++] = state_.clutch_engagement;
   obs_out[k++] = state_.engine_temperature / 120.0f;
+  obs_out[k++] = state_.heater_active ? 1.0f : 0.0f;
 
 
 
@@ -212,7 +213,7 @@ void Env::build_observation(float* obs_out) const {
                      ? static_cast<float>(state_.lidar_cooldown_steps) * config_.physics.dt
                      : 0.0f;
   obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
-  obs_out[k++] = static_cast<float>(state_.previous_action) / 4095.0f;
+  obs_out[k++] = static_cast<float>(state_.previous_action) / 8191.0f;
   obs_out[k++] = state_.last_reward / std::max(1.0f, config_.reward.finish_bonus);
 
   obs_out[k++] = state_.solar_irradiance / 3.0f;
@@ -457,9 +458,18 @@ void Env::finalize_mechanic_layout() {
       const float last_ledge = std::min({config_.termination.finish_x - 4.0f,
                                          terrain_.length() - 4.0f, zone.end_x - 4.0f});
       for (float begin = zone_start; begin < last_ledge; begin += zone.params.ledge_spacing) {
-        terrain_.carve_ledge(begin, begin + zone.params.ledge_gap_width,
-                             zone.params.ledge_ramp_length,
-                             zone.params.ledge_ramp_height);
+        const uint64_t ledge_index = static_cast<uint64_t>(std::max(0.0f, std::floor(begin)));
+        const bool heavy_ledge = biome_random01(zone.terrain_seed, 700 + ledge_index) > 0.66f;
+        const float gap_scale = heavy_ledge
+                                    ? 1.65f
+                                    : 0.90f + 0.35f * biome_random01(zone.terrain_seed, 900 + ledge_index);
+        const float ramp_scale = heavy_ledge
+                                     ? 0.70f
+                                     : 1.0f + 0.20f * biome_random01(zone.terrain_seed, 1100 + ledge_index);
+        const float gap_width = zone.params.ledge_gap_width * gap_scale;
+        terrain_.carve_ledge(begin, begin + gap_width,
+                             zone.params.ledge_ramp_length * ramp_scale,
+                             zone.params.ledge_ramp_height * (heavy_ledge ? 1.20f : 1.0f));
       }
     }
   }

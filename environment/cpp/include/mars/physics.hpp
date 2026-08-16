@@ -29,6 +29,8 @@ struct PhysicsConfig {
   float engine_heat_per_fuel = 3.0f;
   float engine_cooling_conductance = 0.10f;
   float engine_cooling_airflow = 0.08f;
+  float engine_heater_energy_rate = 0.15f;
+  float engine_heater_heat = 18.0f;
   float initial_energy = 25.0f;
   float energy_capacity = 25.0f;
   float panel_deploy_time = 4.0f;

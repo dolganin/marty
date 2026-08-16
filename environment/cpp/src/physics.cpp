@@ -132,6 +132,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     control.shift_down = false;
     control.toggle_drive = false;
     control.ignition = false;
+    control.heater = false;
   }
   const bool shift_up_pressed = control.shift_up && (state.previous_action & ControlShiftUp) == 0;
   const bool shift_down_pressed =
@@ -402,13 +403,27 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
        config_.engine_cooling_airflow * airflow_factor) * thermal_transfer;
   const float heat_removed = conductance * (state.engine_temperature - ambient_temperature);
   const float fuel_power = state.drive_fuel_rate;
+  const float rpm_heat_factor =
+      0.55f + 0.45f * clamp(state.engine_rpm / kRedlineRpm, 0.0f, 1.0f);
   const float combustion_heat =
       state.engine_running
           ? config_.engine_idle_heat * (0.6f + 0.4f * rpm01) +
-                config_.engine_heat_per_fuel * fuel_power
+                config_.engine_heat_per_fuel * fuel_power * rpm_heat_factor +
+                config_.engine_idle_heat * 1.6f * std::abs(control.throttle) * rpm01
           : 0.0f;
   const float thermal_mass = std::max(0.01f, config_.engine_thermal_mass);
-  state.engine_temperature += (combustion_heat - heat_removed) / thermal_mass * dt;
+  const float heater_energy =
+      std::max(0.0f, config_.engine_heater_energy_rate) * dt;
+  state.heater_active = control.heater && !charging_lockout &&
+                        !state.engine_overheated && state.energy >= heater_energy;
+  if (state.heater_active) {
+    stats.energy_cost += heater_energy;
+  }
+  const float total_heat = combustion_heat +
+                           (state.heater_active
+                                ? std::max(0.0f, config_.engine_heater_heat)
+                                : 0.0f);
+  state.engine_temperature += (total_heat - heat_removed) / thermal_mass * dt;
   if (state.engine_temperature >= config_.overheat_temperature) {
     state.engine_temperature = std::min(state.engine_temperature,
                                         config_.overheat_temperature + 15.0f);

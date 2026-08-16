@@ -43,8 +43,8 @@ struct RoverState {
   float previous_x = 0.0f;
   float last_reward = 0.0f;
   int previous_action = 0;
-  int gear_index = -1;
-  float engine_rpm = 900.0f;
+  int gear_index = 0;
+  float engine_rpm = 1100.0f;
   float engine_temperature = 20.0f;
   float ambient_temperature = -45.0f;
   float thermal_transfer = 1.0f;
@@ -73,6 +73,7 @@ struct RoverState {
   bool engine_stalled = false;
   bool engine_overheated = false;
   bool engine_cold_locked = false;
+  bool heater_active = false;
   float recommended_upshift_rpm = 0.0f;
   float minimum_upshift_rpm = 0.0f;
   float projected_upshift_rpm = 0.0f;
