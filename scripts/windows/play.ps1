@@ -17,7 +17,7 @@ if (-not (Test-Path $Python)) {
     throw "No .venv found. Run scripts\windows\setup.ps1 first."
 }
 
-$PlayArgs = @("python\mars_rover_env\tools\play.py", "--seed", $Seed)
+$PlayArgs = @("-m", "mars_rover_env.tools.play", "--seed", $Seed)
 if ($Debug) { $PlayArgs += "--debug" }
 
 & $Python @PlayArgs
