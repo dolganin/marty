@@ -267,7 +267,6 @@ def _syntax_check(candidate: dict[str, str], compiler: str, split: str) -> None:
         r"\bstatic\s+(?!constexpr\b)": "static storage",
         r"\b(?:mutable|thread_local|volatile)\b": "mutable hidden state",
         r"\b(?:uintptr_t|addressof|random_device)\b": "address or process-derived randomness",
-        r"\b(?:chrono|time|clock|gettimeofday)\b": "wall-clock input",
         r"#\s*(?:include|define)\b": "preprocessor directives",
         r"\b(?:std::)?(?:cout|cerr|clog|cin)\b": "stream I/O",
         r"\b(?:fopen|freopen|system|fork)\s*\(": "external process or file I/O",

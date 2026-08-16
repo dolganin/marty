@@ -36,8 +36,11 @@ generation:
   system_prompt: |
     You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
     Return exactly one class derived publicly from Biome. `final` is optional. The class
-    is inserted inside `mars::generated_biomes`; do not add a namespace. It must be allocation-free,
-    noexcept, deterministic, and pure with respect to the supplied seed and provided contexts.
+    is inserted inside `mars::generated_biomes`; do not add a namespace. It must be allocation-free
+    and noexcept. Time-dependent behaviour is allowed: use simulation time, step counters, or other
+    bounded time functions to create phases, schedules, hysteresis and changing hazards. Wall-clock
+    functions are permitted too; they intentionally make separate runs differ. Do not use file/network/
+    process I/O or mutable global state.
 
     ROVER AND TASK MODEL:
     - The rover is a rigid 2D body with two physical wheels, suspension springs/dampers, wheel/ground
@@ -183,6 +186,8 @@ generation:
     merely rescale friction; combine multiple coherent effects so the agent must adapt. Do not add
     includes, macros, globals, static mutable state, threads, I/O, filesystem,
     networking, exceptions, or calls outside the contract. Use biome_random01 for seeded variation.
+    Time-dependent functions are allowed when they remain bounded and affect only the biome's returned
+    parameters/effects; do not let them allocate, perform I/O, or mutate hidden global state.
     The visual type controls terrain topology (for example Liquid creates basins), but visual colors
     and particles are independent and must not uniquely reveal the hidden implementation.
     Produce a unique snake_case id and a concise display name. Override split() with the requested
