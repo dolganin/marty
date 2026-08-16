@@ -268,6 +268,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              const float speed = std::abs(state.body.velocity.x);
              d["speed"] = speed;
              d["speed_kmh"] = speed * 3.6f;
+             d["gravity"] = env.config().physics.gravity * zone.params.gravity_mul;
+             d["gravity_multiplier"] = zone.params.gravity_mul;
              d["engine_rpm"] = state.engine_rpm;
              d["engine_temperature"] = state.engine_temperature;
              d["ambient_temperature"] = state.ambient_temperature;
@@ -302,6 +304,12 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                      env.config().physics.dt;
              d["lidar_range"] = state.lidar_range;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
+             constexpr const char* kTerminationReasons[] = {
+                 "RUNNING", "FINISH REACHED", "FATAL LANDING", "ROVER ROLLOVER",
+                 "FELL OUT OF COURSE", "BATTERY DEPLETED", "NO PROGRESS", "STEP LIMIT",
+             };
+             d["termination_reason"] = kTerminationReasons[
+                 std::clamp(state.termination_reason, 0, 7)];
              d["screen_brightness"] = visuals.screen_brightness;
              const auto& hazard_biome = mars::biome_by_id(zone.biome_id);
              d["hazard"] = hazard_biome.hazard_at(state.step_index);

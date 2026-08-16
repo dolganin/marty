@@ -234,6 +234,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tracking-uri", default=os.environ.get("MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI))
     parser.add_argument("--experiment", default=DEFAULT_EXPERIMENT)
     parser.add_argument("--preflight", action="store_true")
+    parser.add_argument(
+        "--allow-unfrozen-bank",
+        action="store_true",
+        help="Учиться на незамороженном банке; прогон помечается как внепротокольный.",
+    )
     return parser
 
 
@@ -261,16 +266,17 @@ def main() -> None:
         raise SystemExit("selection-min-auc must be in [0, 1]")
     if not 0.0 <= args.selection_min_survival <= 1.0:
         raise SystemExit("selection-min-survival must be in [0, 1]")
-    audit(args.manifest, require_reference=True, require_test_gate=True)
+    if args.allow_unfrozen_bank:
+        print("ВНИМАНИЕ: банк не заморожен, обучение идёт вне штатного протокола", flush=True)
+    else:
+        audit(args.manifest, require_reference=True, require_test_gate=True)
     manifest = load_manifest(args.manifest)
     bank_version = require_compiled_bank(manifest)
-                                                                               
-                                                                                
-                                                                                
     anchor_references_available = bool(manifest.get("anchor_references"))
     config_hash = _sha256(args.config)
-    if config_hash != manifest["difficulty_gates"]["train"].get("config_sha256"):
-        raise SystemExit("RL2 config differs from the frozen bank protocol")
+    if not args.allow_unfrozen_bank:
+        if config_hash != manifest["difficulty_gates"]["train"].get("config_sha256"):
+            raise SystemExit("RL2 config differs from the frozen bank protocol")
 
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)

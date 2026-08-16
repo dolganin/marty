@@ -1060,166 +1060,6 @@ inline void append(std::vector<const Biome*>& out) {
 namespace generated_biomes {
 
 // <MARS_GENERATED_BIOMES>
-class TractionBandDustField final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "traction_band_dust_field"; }
-  std::string_view display_name() const noexcept override { return "Traction Band Dust Field"; }
-  std::string_view skill_stratum() const noexcept override { return "traction_loss"; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Sand; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
-
-  
-  int hazard_at(int) const noexcept override { return 2; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    
-    p.friction_mul = 0.80f + 0.15f * biome_random01(s);
-    p.sink_rate = 0.012f + 0.014f * biome_random01(s, 1);
-    p.viscosity = 0.15f + 0.10f * biome_random01(s, 2);
-    p.energy_drain_mul = 1.35f + 0.25f * biome_random01(s, 3);
-    p.wind_force = 1.5f + 1.0f * biome_random01(s, 4);
-    
-    
-    p.ambient_temperature = 38.0f + 16.0f * biome_random01(s, 5);
-    p.thermal_transfer = 1.1f + 0.3f * biome_random01(s, 6);
-    p.solar_charge_rate = 0.15f + 0.10f * biome_random01(s, 7);
-    p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 8);
-    p.crust_deform = 0.018f + 0.012f * biome_random01(s, 9);
-    
-    p.lidar_energy_mul = 5.5f + 1.0f * biome_random01(s, 10);
-    p.lidar_range_mul = 0.09f + 0.04f * biome_random01(s, 11);
-    
-    
-    p.terrain_amplitude_mul = 1.45f + 0.30f * biome_random01(s, 12);
-    p.terrain_roughness_mul = 1.30f + 0.30f * biome_random01(s, 13);
-    p.terrain_crater_mul = 0.50f + 0.20f * biome_random01(s, 14);
-    p.terrain_step_mul = 0.30f + 0.15f * biome_random01(s, 15);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    
-    return p.friction_mul * 0.85f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      
-      float speed = std::abs(c.wheel_speed);
-      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.5f * std::tanh(speed * 0.18f));
-    }
-    if (c.wheel_force && c.contact) {
-      float depth = c.contact->penetration * 28.0f;
-      
-      float drag = (0.22f + p.viscosity * 1.2f * (1.0f + depth) + 0.10f * depth) * c.wheel_speed;
-      *c.wheel_force += c.contact->tangent * (-drag);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.02f + 0.10f * depth));
-    }
-    if (c.energy_cost) {
-      float depth = c.contact->penetration * 28.0f;
-      *c.energy_cost += (0.012f + depth * 0.16f + std::abs(c.wheel_speed) * 0.004f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    const float t = static_cast<float>(c.step_index);
-    const float speed = std::abs(c.velocity.x);
-    const float speed_norm = std::tanh(speed * 0.10f);
-
-    
-    
-    
-    
-    
-    const float floor = 1.55f;
-    const float ceiling = 2.55f;
-    const float band_width = ceiling - floor;
-
-    if (c.body_force) {
-      
-      
-      const float pack = clamp((floor - speed) / floor, 0.0f, 1.0f);
-      const float pack_force = (0.5f + 1.6f * pack) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
-
-      
-      
-      const float over = clamp((speed - ceiling) / ceiling, 0.0f, 1.0f);
-      const float fluid_drag = (0.3f + 2.2f * over * over) * c.mass * speed_norm * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
-
-      
-      
-      const float in_band = 1.0f - clamp(std::abs(speed - (floor + ceiling) * 0.5f) / (band_width * 0.5f), 0.0f, 1.0f);
-      const float band_assist = in_band * 0.022f * c.mass * c.gravity;
-
-      
-      
-      
-      const float lateral = std::sin(t * 0.021f + speed * 0.049f) * (0.05f + 0.20f * (1.0f - in_band) + 0.12f * speed_norm) * c.mass * c.gravity;
-
-      
-      const float damping = 0.05f + 0.03f * speed_norm + 0.25f * over;
-
-      c.body_force->x += band_assist + lateral - pack_force - fluid_drag;
-      c.body_force->x -= c.velocity.x * c.mass * damping;
-      c.body_force->y -= c.velocity.y * c.mass * (0.04f + 0.04f * over);
-
-      if (c.body_torque) {
-        
-        
-        
-        
-        const float pack_torque = pack * (0.4f + 0.8f * speed_norm) * c.mass;
-        const float fluid_torque = over * (0.3f + 1.1f * speed_norm) * c.mass;
-        *c.body_torque -= pack_torque;
-        *c.body_torque += fluid_torque;
-        *c.body_torque -= c.angular_velocity * c.mass * (0.03f + 0.04f * over);
-      }
-    }
-
-    if (c.energy_cost) {
-      const float speed = std::abs(c.velocity.x);
-      const float speed_norm = std::tanh(speed * 0.10f);
-      const float floor = 1.55f;
-      const float ceiling = 2.55f;
-      const float pack = clamp((floor - speed) / floor, 0.0f, 1.0f);
-      const float over = clamp((speed - ceiling) / ceiling, 0.0f, 1.0f);
-
-      
-      
-      
-      if (speed < floor) {
-        *c.energy_cost += (0.10f + 0.45f * pack * pack) * p.energy_drain_mul * c.dt;
-      } else if (speed > ceiling) {
-        *c.energy_cost += (0.08f + 0.65f * over * over) * p.energy_drain_mul * c.dt;
-      } else {
-        *c.energy_cost += (0.006f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
-      }
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    
-    
-    v.ground = {92, 64, 40};
-    v.particles = {208, 166, 108};
-    v.liquid = {30, 22, 16};
-    v.sky = {156, 108, 72};
-    v.particle_rate = 8.0f;
-    v.particle_lift = 0.9f;
-    v.particle_spread = 1.0f;
-    v.base_particles = 2;
-    v.max_particles = 20;
-    v.particle_size = 2;
-    v.ambient_particles = 14;
-    v.ambient_drift = 2.0f;
-    v.screen_brightness = 0.07f;
-    v.liquid_surface = false;
-    return v;
-  }
-};
-
 class LateralShearBelt final : public Biome {
  public:
   std::string_view id() const noexcept override { return "lateral_shear_belt"; }
@@ -2047,165 +1887,6 @@ class RimeQuarryDawn final : public Biome {
   static constexpr int kCycle = 760;
   static constexpr int kRimeSteps = 210;
   static constexpr int kPhase = 240;
-};
-
-class CreepThrottleGrit final : public Biome {
- public:
-  std::string_view id() const noexcept override { return "creep_throttle_grit"; }
-  std::string_view display_name() const noexcept override { return "Creep-Throttle Grit"; }
-  std::string_view skill_stratum() const noexcept override { return "traction_loss"; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Sand; }
-  BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
-
-  
-  int hazard_at(int) const noexcept override { return 1; }
-
-  MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p;
-    
-    p.friction_mul = 0.90f + 0.10f * biome_random01(s);
-    p.sink_rate = 0.010f + 0.012f * biome_random01(s, 1);
-    p.viscosity = 0.10f + 0.08f * biome_random01(s, 2);
-    p.energy_drain_mul = 1.45f + 0.25f * biome_random01(s, 3);
-    p.wind_force = 0.8f + 0.8f * biome_random01(s, 4);
-    
-    p.ambient_temperature = 28.0f + 12.0f * biome_random01(s, 5);
-    p.thermal_transfer = 0.9f + 0.3f * biome_random01(s, 6);
-    p.solar_charge_rate = 0.10f + 0.05f * biome_random01(s, 7);
-    
-    p.gravity_mul = 1.02f + 0.08f * biome_random01(s, 8);
-    p.crust_deform = 0.020f + 0.010f * biome_random01(s, 9);
-    
-    p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 10);
-    p.lidar_range_mul = 0.08f + 0.03f * biome_random01(s, 11);
-    
-    
-    p.terrain_amplitude_mul = 1.35f + 0.25f * biome_random01(s, 12);
-    p.terrain_roughness_mul = 1.20f + 0.25f * biome_random01(s, 13);
-    p.terrain_crater_mul = 0.40f + 0.15f * biome_random01(s, 14);
-    p.terrain_step_mul = 0.25f + 0.10f * biome_random01(s, 15);
-    return p;
-  }
-
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    
-    return p.friction_mul * 0.95f;
-  }
-
-  void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
-    if (c.contact) {
-      
-      float speed = std::abs(c.wheel_speed);
-      c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.5f * std::tanh(speed * 0.20f));
-    }
-    if (c.wheel_force && c.contact) {
-      float depth = c.contact->penetration * 26.0f;
-      
-      float drag = (0.20f + p.viscosity * 1.1f * (1.0f + depth) + 0.08f * depth) * c.wheel_speed;
-      *c.wheel_force += c.contact->tangent * (-drag);
-      *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.02f + 0.09f * depth));
-    }
-    if (c.energy_cost) {
-      float depth = c.contact->penetration * 26.0f;
-      *c.energy_cost += (0.011f + depth * 0.14f + std::abs(c.wheel_speed) * 0.005f) * p.energy_drain_mul * c.dt;
-    }
-  }
-
-  void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
-    const float t = static_cast<float>(c.step_index);
-    const float speed = std::abs(c.velocity.x);
-    const float speed_norm = std::tanh(speed * 0.10f);
-
-    
-    
-    
-    
-    
-    const float creep_floor = 0.40f;
-    const float creep_ceiling = 0.90f;
-    const float band_width = creep_ceiling - creep_floor;
-
-    if (c.body_force) {
-      
-      
-      const float pack = clamp((creep_floor - speed) / creep_floor, 0.0f, 1.0f);
-      const float pack_force = (0.5f + 2.0f * pack) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
-
-      
-      
-      const float over = clamp((speed - creep_ceiling) / creep_ceiling, 0.0f, 1.0f);
-      const float fluid_drag = (0.3f + 2.6f * over * over) * c.mass * speed_norm * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
-
-      
-      const float in_band = 1.0f - clamp(std::abs(speed - (creep_floor + creep_ceiling) * 0.5f) / (band_width * 0.5f), 0.0f, 1.0f);
-      const float band_assist = in_band * 0.025f * c.mass * c.gravity;
-
-      
-      
-      
-      const float lateral = std::sin(t * 0.021f + speed * 0.049f) * (0.05f + 0.22f * (1.0f - in_band) + 0.10f * speed_norm) * c.mass * c.gravity;
-
-      
-      const float damping = 0.06f + 0.04f * speed_norm + 0.28f * over;
-
-      c.body_force->x += band_assist + lateral - pack_force - fluid_drag;
-      c.body_force->x -= c.velocity.x * c.mass * damping;
-      c.body_force->y -= c.velocity.y * c.mass * (0.04f + 0.04f * over);
-
-      if (c.body_torque) {
-        
-        
-        
-        
-        const float pack_torque = pack * (0.4f + 0.8f * speed_norm) * c.mass;
-        const float fluid_torque = over * (0.3f + 1.1f * speed_norm) * c.mass;
-        *c.body_torque -= pack_torque;
-        *c.body_torque += fluid_torque;
-        *c.body_torque -= c.angular_velocity * c.mass * (0.03f + 0.04f * over);
-      }
-    }
-
-    if (c.energy_cost) {
-      const float speed = std::abs(c.velocity.x);
-      const float speed_norm = std::tanh(speed * 0.10f);
-      const float creep_floor = 0.40f;
-      const float creep_ceiling = 0.90f;
-      const float pack = clamp((creep_floor - speed) / creep_floor, 0.0f, 1.0f);
-      const float over = clamp((speed - creep_ceiling) / creep_ceiling, 0.0f, 1.0f);
-
-      
-      
-      
-      if (speed < creep_floor) {
-        *c.energy_cost += (0.12f + 0.55f * pack * pack) * p.energy_drain_mul * c.dt;
-      } else if (speed > creep_ceiling) {
-        *c.energy_cost += (0.08f + 0.75f * over * over) * p.energy_drain_mul * c.dt;
-      } else {
-        *c.energy_cost += (0.006f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
-      }
-    }
-  }
-
-  BiomeVisuals visuals() const noexcept override {
-    BiomeVisuals v;
-    
-    
-    v.ground = {138, 92, 56};
-    v.particles = {220, 176, 120};
-    v.liquid = {40, 28, 20};
-    v.sky = {156, 108, 72};
-    v.particle_rate = 8.0f;
-    v.particle_lift = 0.8f;
-    v.particle_spread = 1.0f;
-    v.base_particles = 2;
-    v.max_particles = 20;
-    v.particle_size = 2;
-    v.ambient_particles = 16;
-    v.ambient_drift = 2.2f;
-    v.screen_brightness = 0.06f;
-    v.liquid_surface = false;
-    return v;
-  }
 };
 
 class GravityShearEscarpment final : public Biome {
@@ -3797,28 +3478,26 @@ class GripInversionScree final : public Biome {
 };
 
 inline void append(std::vector<const Biome*>& out) {
-  static const TractionBandDustField biome_0; out.push_back(&biome_0);
-  static const LateralShearBelt biome_1; out.push_back(&biome_1);
-  static const HysteresisSurgeBog biome_2; out.push_back(&biome_2);
-  static const GravityShelfLug biome_3; out.push_back(&biome_3);
-  static const ThermalSurgeRelay biome_4; out.push_back(&biome_4);
-  static const RimeQuarryDawn biome_5; out.push_back(&biome_5);
-  static const CreepThrottleGrit biome_6; out.push_back(&biome_6);
-  static const GravityShearEscarpment biome_7; out.push_back(&biome_7);
-  static const EbbTractionDark biome_8; out.push_back(&biome_8);
-  static const BakeCycleBasaltFan biome_9; out.push_back(&biome_9);
-  static const ReversibleMomentumLagoon biome_10; out.push_back(&biome_10);
-  static const MassSwingFetch biome_11; out.push_back(&biome_11);
-  static const BatteryBayTycho biome_12; out.push_back(&biome_12);
-  static const ShatterStepBerm biome_13; out.push_back(&biome_13);
-  static const FathomDraftFlux biome_14; out.push_back(&biome_14);
-  static const GripInversionScree biome_15; out.push_back(&biome_15);
+  static const LateralShearBelt biome_0; out.push_back(&biome_0);
+  static const HysteresisSurgeBog biome_1; out.push_back(&biome_1);
+  static const GravityShelfLug biome_2; out.push_back(&biome_2);
+  static const ThermalSurgeRelay biome_3; out.push_back(&biome_3);
+  static const RimeQuarryDawn biome_4; out.push_back(&biome_4);
+  static const GravityShearEscarpment biome_5; out.push_back(&biome_5);
+  static const EbbTractionDark biome_6; out.push_back(&biome_6);
+  static const BakeCycleBasaltFan biome_7; out.push_back(&biome_7);
+  static const ReversibleMomentumLagoon biome_8; out.push_back(&biome_8);
+  static const MassSwingFetch biome_9; out.push_back(&biome_9);
+  static const BatteryBayTycho biome_10; out.push_back(&biome_10);
+  static const ShatterStepBerm biome_11; out.push_back(&biome_11);
+  static const FathomDraftFlux biome_12; out.push_back(&biome_12);
+  static const GripInversionScree biome_13; out.push_back(&biome_13);
 }
 // </MARS_GENERATED_BIOMES>
 
 }  
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:025b0573176fba0eec6287959e9ecce026014bc0b5dfbefe6e1ba7d8bc24b930";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:a8d4c516f957a6a573913c03f5e56d7dd5c7c50a7a7a5fafb14c71ecba58cc90";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;

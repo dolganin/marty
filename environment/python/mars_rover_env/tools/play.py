@@ -28,6 +28,7 @@ class ManualPlayer:
         self.last_time = time.perf_counter()
         self.fps_value = 0.0
         self.frame_ms = max(1, int(1000 / args.fps))
+        self.restart_notice = ""
 
         self.root = tk.Tk()
         self.root.title("Mars Rover Manual Control")
@@ -67,6 +68,7 @@ class ManualPlayer:
         key = event.keysym.lower()
         self.keys.add(key)
         if key == "r":
+            self.restart_notice = "RESTART: MANUAL RESET; SAME TRIAL"
             self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": False})
         elif key in {"escape", "q"}:
             self.root.destroy()
@@ -125,7 +127,9 @@ class ManualPlayer:
         obs, reward, terminated, truncated, _ = self.env.step(self.action())
         self.obs = obs
         if terminated or truncated:
+            reason = self.env.debug_info().get("termination_reason", "EPISODE ENDED")
             self.seed += 1
+            self.restart_notice = f"RESTART: {reason}; NEW EPISODE (seed {self.seed})"
             self.obs, self.info = self.env.reset(seed=self.seed)
 
         rgb = self.env.render()
@@ -141,7 +145,8 @@ class ManualPlayer:
         self.status.configure(
             text=(
                 f"gear={debug['gear']} mechanic={debug['mechanic']} x={debug['x']:.2f} vx={debug['vx']:.2f} "
-                f"energy={debug['energy']:.3f} damage={debug['damage']:.3f} reward={reward:.3f}"
+                f"energy={debug['energy']:.3f} damage={debug['damage']:.3f} reward={reward:.3f}  "
+                f"{self.restart_notice}"
             )
         )
         self.root.after(self.frame_ms, self.update)
@@ -228,6 +233,8 @@ class ManualPlayer:
             (f"TEMP {debug['engine_temperature']:5.1f} C  "
              f"ENV {debug['ambient_temperature']:5.1f} C  "
              f"PWR {debug['cold_power_factor'] * 100:3.0f}%", temperature_color),
+            (f"GRAVITY {debug.get('gravity', -3.71):5.2f} m/s²  "
+             f"x{debug.get('gravity_multiplier', 1.0):.2f}", "#d5c6ff"),
             (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}", "#f4f4f4"),
             (solar_text, solar_color),
             ((f"LIDAR ACTIVE {debug.get('lidar_range', 0.0):.1f} m  "
@@ -261,7 +268,9 @@ class ManualPlayer:
              ("#ffb84d" if debug["should_shift_down"] else "#888888")),
         ]
         if self.hud_bg_id is None:
-            self.hud_bg_id = self.canvas.create_rectangle(6, 6, 430, 292, fill="#111111", outline="")
+            self.hud_bg_id = self.canvas.create_rectangle(
+                6, 6, 430, 16 + len(lines) * 18, fill="#111111", outline=""
+            )
             self.hud_text_ids = [
                 self.canvas.create_text(12, 12 + i * 18, anchor="nw", font=("Consolas", 12, "bold"))
                 for i in range(len(lines))

@@ -97,6 +97,14 @@ StepOutput Env::step(int action, float* obs_out) {
   out.terminated = finished || fatal || state_.energy <= config_.termination.min_energy || stuck;
   out.truncated = config_.termination.max_steps > 0 &&
                   state_.step_index + 1 >= config_.termination.max_steps;
+  state_.termination_reason = 0;
+  if (finished) state_.termination_reason = 1;
+  else if (state_.landing_fatal) state_.termination_reason = 2;
+  else if (flipped) state_.termination_reason = 3;
+  else if (fallen) state_.termination_reason = 4;
+  else if (state_.energy <= config_.termination.min_energy) state_.termination_reason = 5;
+  else if (stuck) state_.termination_reason = 6;
+  else if (out.truncated) state_.termination_reason = 7;
   out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, fatal, stuck);
   state_.last_reward = out.reward;
   state_.previous_action = action;

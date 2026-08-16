@@ -338,8 +338,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float coupled_rpm = state.gear_index == 0 && std::abs(control.throttle) > 0.0f
                                   ? std::max(kIdleRpm, road_coupled_rpm)
                                   : road_coupled_rpm;
+    // The clutch transfers torque over a finite synchronization interval.  A
+    // first-order speed match avoids the previous near-instant RPM snap when
+    // the pedal was released or a gear was selected under load.
+    const float clutch_sync_gain = 2.4f + 1.2f * state.clutch_engagement;
     const float clutch_acceleration =
-        clamp((coupled_rpm - state.engine_rpm) * 5.0f,
+        clamp((coupled_rpm - state.engine_rpm) * clutch_sync_gain,
               -config_.clutch_sync_rate * 1.6f, config_.clutch_sync_rate);
     
     

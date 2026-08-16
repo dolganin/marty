@@ -91,6 +91,9 @@ struct RoverState {
   bool landing_event = false;
   bool landing_fatal = false;
   bool fatal_error = false;
+  // 0=running, 1=finish, 2=fatal landing, 3=rollover, 4=fall,
+  // 5=energy depleted, 6=stuck, 7=step limit.
+  int termination_reason = 0;
   float last_impact_speed = 0.0f;
   float last_landing_angle = 0.0f;
 };

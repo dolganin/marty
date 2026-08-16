@@ -97,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tracking-uri", default=os.environ.get("MLFLOW_TRACKING_URI", DEFAULT_TRACKING_URI))
     parser.add_argument("--experiment", default=DEFAULT_EXPERIMENT)
     parser.add_argument("--preflight", action="store_true")
+    parser.add_argument(
+        "--allow-unfrozen-bank",
+        action="store_true",
+        help="Учиться на незамороженном банке; прогон помечается как внепротокольный.",
+    )
     return parser
 
 
@@ -132,11 +137,15 @@ def main() -> None:
 
     manifest = load_manifest(args.manifest)
     bank_version = require_compiled_bank(manifest)
-    train_version = require_frozen_train_bank(manifest)
     config_hash = _sha256(args.config)
-    gate_hash = manifest["difficulty_gates"]["train"].get("config_sha256")
-    if gate_hash != config_hash:
-        raise SystemExit("training config differs from the frozen train difficulty gate")
+    if args.allow_unfrozen_bank:
+        train_version = "unfrozen:" + str(manifest.get("train_version", ""))
+        print("ВНИМАНИЕ: банк не заморожен, обучение идёт вне штатного протокола", flush=True)
+    else:
+        train_version = require_frozen_train_bank(manifest)
+        gate_hash = manifest["difficulty_gates"]["train"].get("config_sha256")
+        if gate_hash != config_hash:
+            raise SystemExit("training config differs from the frozen train difficulty gate")
 
     import _mars_rover_cpp as native
 

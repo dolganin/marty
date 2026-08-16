@@ -28,7 +28,7 @@ physics:
   overheat_temperature: 115.0
   overheat_restart_temperature: 92.0
   engine_heat_rate: 4.5
-  engine_cooling_rate: 0.012
+  engine_cooling_rate: 0.004
   initial_energy: 25.0
   energy_capacity: 25.0
   panel_deploy_time: 4.0
