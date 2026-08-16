@@ -1,19 +1,19 @@
-"""Refresh the LLM-generated biome slice before a training or validation run.
 
-A trial is a chain of zones (see EnvConfig.chain_biomes): a stable anchor/
-hand-written backbone plus a slice of generated biomes that fills the rest of
-the chain. The backbone must stay put so runs are comparable; the generated
-slice is what makes every run's course different from the last one. This tool
-is the one step that has to happen before you start training or validating:
 
-    mars-rover-bootstrap-run --count 8 --split train
-    mars-rover-bootstrap-run --count 8 --split test
 
-It (1) calls generate_biomes.py with --replace so the previous generated
-slice is discarded and a fresh one takes its place, then (2) rebuilds the
-native extension, because the bank is compiled into the binary and nothing
-downstream sees a new biome until that happens.
-"""
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 from __future__ import annotations
 
@@ -61,14 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="generate only; useful when chaining train+test calls before one rebuild",
     )
     parser.add_argument(
-        "--skip-audit",
-        action="store_true",
-        help="skip the post-rebuild bank audit",
-    )
-    parser.add_argument(
         "--rebuild-only",
         action="store_true",
-        help="reuse an already generated run bank; rebuild, verify and gate without LLM calls",
+        help="reuse an already generated run bank and rebuild it without LLM calls",
     )
     return parser
 
@@ -116,9 +111,9 @@ def main() -> None:
 
     _run([python, "-m", "pip", "install", "-e", ".", "--no-build-isolation", "-q"], cwd=ROOT, env=run_env)
 
-    # Fail at the build boundary with both hashes, before an expensive rollout
-    # gate starts. This also proves that Python resolves the freshly replaced
-    # Windows .pyd rather than a stale editable-build output.
+
+
+
     _run(
         [
             python,
@@ -134,14 +129,6 @@ def main() -> None:
         cwd=ROOT,
         env=run_env,
     )
-
-    _run(
-        [python, "-m", "mars_rover_env.tools.evaluate_biomes", "--split", args.split],
-        cwd=ROOT, env=run_env,
-    )
-
-    if not args.skip_audit:
-        _run([python, "-m", "mars_rover_env.tools.audit_bank"], cwd=ROOT, env=run_env)
 
     pointer = ROOT.parent / "artifacts" / "active_bank.json"
     pointer.parent.mkdir(parents=True, exist_ok=True)

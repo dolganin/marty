@@ -8,7 +8,7 @@ from mars_rover_env.config import load_env_config
 
 
 class MarsRoverVecEnv:
-    """Thin batch wrapper. Designed for SB3/CleanRL adapters without per-env Python stepping."""
+
 
     def __init__(
         self,
@@ -65,7 +65,7 @@ class MarsRoverVecEnv:
         return self.obs, self.rewards, self.terminated_bool, self.truncated_bool, {}
 
     def step_uint8(self, actions: np.ndarray):
-        """Fast path for training loops that can consume uint8 done flags without bool copies."""
+
         actions = np.asarray(actions, dtype=np.int32)
         self.core.step(actions, self.obs, self.rewards, self.terminated, self.truncated)
         return self.obs, self.rewards, self.terminated, self.truncated, {}

@@ -52,4 +52,4 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   return out;
 }
 
-}  
+}

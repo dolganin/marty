@@ -355,9 +355,9 @@ def _print_biome_catalog() -> None:
     print("-" * 177)
     for biome in biome_catalog():
         p = biome["parameters"]
-                                                                           
-                                                                           
-                                                                             
+
+
+
         v = biome.get("visuals", {
             "ground_rgb": (42, 35, 30),
             "particle_rate": 0.0,

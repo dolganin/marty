@@ -30,4 +30,4 @@ struct DeformationContact {
 
 using DeformationContactArray = std::array<DeformationContact, kMaxWheels>;
 
-}  
+}

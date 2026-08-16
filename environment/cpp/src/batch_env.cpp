@@ -54,4 +54,4 @@ void BatchEnv::render_rgb(int env_id, uint8_t* rgb_out, int width, int height,
   renderer_.render_rgb(envs_.at(static_cast<size_t>(env_id)), rgb_out, width, height);
 }
 
-}  
+}

@@ -30,10 +30,10 @@ struct PhysicsConfig {
   float energy_capacity = 25.0f;
   float panel_deploy_time = 4.0f;
   float panel_retract_time = 3.0f;
-  float lidar_energy_cost = 2.0f;
-  float lidar_scan_duration = 1.5f;
-  float lidar_cooldown = 2.0f;
-  float lidar_base_range = 12.0f;
+  float lidar_energy_cost = 0.65f;
+  float lidar_scan_duration = 2.0f;
+  float lidar_cooldown = 1.25f;
+  float lidar_base_range = 24.0f;
   float brake_strength = 20.0f;
   float body_tilt_torque = 8.0f;
   float linear_damping = 0.01f;
@@ -65,4 +65,4 @@ class PhysicsEngine {
   PhysicsConfig config_{};
 };
 
-}  
+}

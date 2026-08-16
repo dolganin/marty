@@ -13,15 +13,6 @@ dependencies = [
   "PyYAML>=6.0"
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pybind11>=2.11",
-  "pytest>=8",
-]
-benchmark = [
-  "stable-baselines3>=2.3",
-]
-
 [tool.setuptools]
 package-dir = {"" = "python"}
 
@@ -35,13 +26,4 @@ mars_rover_env = ["configs/*.yaml", "configs/*.json"]
 mars-rover-play = "mars_rover_env.tools.play:main"
 mars-rover-bootstrap-run = "mars_rover_env.tools.bootstrap_run:main"
 mars-rover-doctor = "mars_rover_env.tools.doctor:main"
-mars-rover-benchmark = "mars_rover_env.tools.benchmark:main"
 mars-rover-generate-biomes = "mars_rover_env.tools.generate_biomes:main"
-mars-rover-gate-biomes = "mars_rover_env.tools.evaluate_biomes:main"
-mars-rover-train-robust-ppo = "mars_rover_env.tools.train_robust_ppo:main"
-mars-rover-anchor-eval = "mars_rover_env.tools.anchor_eval:main"
-mars-rover-equate-banks = "mars_rover_env.tools.equate_banks:main"
-mars-rover-ranking-stability = "mars_rover_env.tools.ranking_stability:main"
-mars-rover-audit-bank = "mars_rover_env.tools.audit_bank:main"
-mars-rover-score-bank = "mars_rover_env.tools.score_bank:main"
-mars-rover-snapshot-bank = "mars_rover_env.tools.snapshot_bank:main"

@@ -32,18 +32,18 @@ struct MechanicParams {
   float solar_charge_rate = 1.0f;
   float lidar_energy_mul = 1.0f;
   float lidar_range_mul = 1.0f;
-  
-  
-  
-  
-  
+
+
+
+
+
   float terrain_amplitude_mul = 1.0f;
   float terrain_roughness_mul = 1.0f;
   float terrain_crater_mul = 1.0f;
   float terrain_step_mul = 1.0f;
-  
-  
-  
+
+
+
   float ledge_gap_width = 0.0f;
   float ledge_spacing = 0.0f;
   float ledge_ramp_length = 0.0f;
@@ -59,6 +59,8 @@ struct MechanicZone {
   MechanicType type = MechanicType::Normal;
   int biome_id = 0;
   uint64_t terrain_seed = 0;
+  int terrain_surprise_mode = 0;
+  float terrain_surprise_strength = 0.0f;
   MechanicParams params{};
   float liquid_level = -1.0e9f;
 };
@@ -104,4 +106,4 @@ float mechanic_friction_scale(int biome_id, const MechanicParams& params);
 void apply_body_mechanic(int biome_id, const MechanicParams& params, MechanicBodyContext& ctx);
 int builtin_biome_id(MechanicType type);
 
-}  
+}

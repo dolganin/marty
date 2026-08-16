@@ -56,11 +56,18 @@ struct RoverState {
   bool charging_active = false;
   float solar_panel_deployment = 0.0f;
   float solar_charge_rate = 0.0f;
+  float solar_irradiance = 0.0f;
   int lidar_active_steps = 0;
   int lidar_cooldown_steps = 0;
   float lidar_last_energy_cost = 0.0f;
   float lidar_range = 0.0f;
-  int drive_mode = 0;  
+  Vec2 imu_acceleration{};
+  float imu_angular_acceleration = 0.0f;
+  float imu_impact = 0.0f;
+  bool body_contact_front = false;
+  bool body_contact_belly = false;
+  bool body_contact_rear = false;
+  int drive_mode = 0;
   bool engine_running = true;
   bool engine_stalled = false;
   bool engine_overheated = false;
@@ -82,17 +89,17 @@ struct RoverState {
   int step_index = 0;
   int episode_in_trial = 0;
   bool trial_start = true;
-  
-  
-  
+
+
+
   bool airborne = false;
   bool has_grounded = false;
   int airborne_steps = 0;
   bool landing_event = false;
   bool landing_fatal = false;
   bool fatal_error = false;
-  // 0=running, 1=finish, 2=fatal landing, 3=rollover, 4=fall,
-  // 5=energy depleted, 6=stuck, 7=step limit.
+
+
   int termination_reason = 0;
   float last_impact_speed = 0.0f;
   float last_landing_angle = 0.0f;
@@ -104,4 +111,4 @@ struct EpisodeResult {
   bool truncated = false;
 };
 
-}  
+}

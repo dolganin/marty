@@ -8,7 +8,7 @@ from mars_rover_env.envs.mars_rover_vec_env import MarsRoverVecEnv
 
 
 class MarsRoverSb3VecEnv(VecEnv):
-    """SB3 adapter over one native batched C++ environment call per step."""
+
 
     render_mode = None
 
@@ -22,9 +22,9 @@ class MarsRoverSb3VecEnv(VecEnv):
         seed: int = 0,
         fixed_biome_id: int | None = None,
     ):
-                                                                                  
-                                                                                   
-                       
+
+
+
         self.native = MarsRoverVecEnv(
             num_envs,
             config_path=config_path,

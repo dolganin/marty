@@ -35,4 +35,4 @@ void apply_body_mechanic(int biome_id, const MechanicParams& params, MechanicBod
   biome_by_id(biome_id).apply_body_effects(params, ctx);
 }
 
-}  
+}

@@ -11,7 +11,6 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Venv = Join-Path $ProjectRoot ".venv"
 $EnvironmentRoot = Join-Path $ProjectRoot "environment"
-$BaselinesRoot = Join-Path $ProjectRoot "baselines"
 
 function Invoke-Checked {
     param([scriptblock]$Command)
@@ -43,11 +42,7 @@ if ($Toolchain -eq "GCC" -and -not (Get-Command g++.exe -ErrorAction SilentlyCon
     throw "g++.exe is not on PATH. Install MinGW-w64 or run from a Visual Studio developer shell."
 }
 
-# The repository root is intentionally not a Python package.  Install the two
-# distributions separately so their editable sources and native extension land
-# in this virtual environment.
 Invoke-Checked { & $VenvPython -m pip install --editable $EnvironmentRoot --no-build-isolation }
-Invoke-Checked { & $VenvPython -m pip install --editable $BaselinesRoot --no-build-isolation }
 Invoke-Checked { & $VenvPython -m mars_rover_env.tools.doctor }
 
 Write-Host "Ready ($Toolchain/$BuildType). Play: .\scripts\windows\play.ps1 -Debug"

@@ -7,41 +7,30 @@
       "request": "launch",
       "module": "mars_rover_env.tools.play",
       "args": ["--debug"],
-      "cwd": "${workspaceFolder}/mars_rover",
-      "python": "${workspaceFolder}/mars_rover/.venv/Scripts/python.exe",
-      "linux": { "python": "${workspaceFolder}/mars_rover/.venv/bin/python" },
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "linux": { "python": "${workspaceFolder}/.venv/bin/python" },
       "justMyCode": false
     },
     {
       "name": "Mars Rover: native (Windows)",
       "type": "cppvsdbg",
       "request": "launch",
-      "program": "${workspaceFolder}\\mars_rover\\.venv\\Scripts\\python.exe",
+      "program": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
       "args": ["-m", "mars_rover_env.tools.play", "--debug"],
-      "cwd": "${workspaceFolder}\\mars_rover",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal"
     },
     {
       "name": "Mars Rover: native (Linux)",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/mars_rover/.venv/bin/python",
+      "program": "${workspaceFolder}/.venv/bin/python",
       "args": ["-m", "mars_rover_env.tools.play", "--debug"],
-      "cwd": "${workspaceFolder}/mars_rover",
+      "cwd": "${workspaceFolder}",
       "MIMode": "gdb",
       "stopAtEntry": false,
       "externalConsole": false
-    },
-    {
-      "name": "Mars Rover: pytest",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["-q"],
-      "cwd": "${workspaceFolder}/mars_rover",
-      "python": "${workspaceFolder}/mars_rover/.venv/Scripts/python.exe",
-      "linux": { "python": "${workspaceFolder}/mars_rover/.venv/bin/python" },
-      "justMyCode": false
     }
   ]
 }

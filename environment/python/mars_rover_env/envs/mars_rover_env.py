@@ -5,7 +5,7 @@ import numpy as np
 try:
     import gymnasium as gym
     from gymnasium import spaces
-except ImportError as exc:                    
+except ImportError as exc:
     raise ImportError("gymnasium is required for MarsRoverEnv") from exc
 
 from _mars_rover_cpp import MarsRoverBatchEnv

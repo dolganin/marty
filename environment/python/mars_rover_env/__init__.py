@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-                                                                                     
+
 if os.name == "nt":
     _dll_dir = Path(sys.prefix) / "Lib" / "site-packages" / "_mars_rover_dlls"
     if _dll_dir.is_dir():

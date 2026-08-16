@@ -8,6 +8,8 @@ env:
   chain_zone_count: 14
   chain_segment_min_length: 30.0
   chain_segment_max_length: 70.0
+  terrain_surprise_probability: 0.28
+  terrain_surprise_strength: 1.15
 
 terrain:
   sample_count: 4096

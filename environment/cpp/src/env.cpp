@@ -18,16 +18,16 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
     trial_mechanic_seed_ = seed;
     has_trial_mechanic_seed_ = true;
   }
-  
-  
-  
+
+
+
   select_mechanic_layout(trial_mechanic_seed_);
   const auto& picked_params = mechanic_layout_.zones[0].params;
   TerrainConfig scaled_terrain = config_.terrain;
-  
-  
-  
-  
+
+
+
+
   scaled_terrain.amplitude *= clamp(picked_params.terrain_amplitude_mul, 0.5f, 1.8f);
   scaled_terrain.roughness *= clamp(picked_params.terrain_roughness_mul, 0.5f, 2.5f);
   scaled_terrain.crater_count = static_cast<int>(std::lround(
@@ -41,6 +41,10 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   finalize_mechanic_layout();
   const float spawn_y = terrain_.query(1.0f).height + 1.0f;
   physics_.initialize_state(config_.rig, state_, {1.0f, spawn_y});
+  const auto& spawn_zone = mechanic_layout_.at(1.0f);
+  const auto spawn_thermal = mechanic_layout_.thermal_at(1.0f, spawn_zone);
+  state_.ambient_temperature = spawn_thermal.ambient_temperature;
+  state_.solar_irradiance = std::max(0.0f, spawn_zone.params.solar_charge_rate);
   state_.trial_start = trial_start;
   state_.episode_in_trial = next_episode_in_trial;
   stuck_counter_ = 0;
@@ -81,11 +85,11 @@ StepOutput Env::step(int action, float* obs_out) {
   if (fallen) state_.fatal_error = true;
   const bool flipped = is_flipped();
   const bool fatal = flipped || state_.fatal_error;
-  
-  
-  
-  
-  
+
+
+
+
+
   if (state_.body.position.x >= best_progress_x_ + 0.5f) {
     best_progress_x_ = state_.body.position.x;
     stuck_counter_ = 0;
@@ -127,12 +131,12 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.body.angle;
   obs_out[k++] = state_.body.angular_velocity / 10.0f;
   obs_out[k++] = state_.energy / energy_scale;
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
   obs_out[k++] = 0.0f;
   for (int i = 0; i < kMaxWheels; ++i) {
     const auto& w = state_.wheels[static_cast<size_t>(i)];
@@ -140,15 +144,15 @@ void Env::build_observation(float* obs_out) const {
     obs_out[k++] = i < state_.wheel_count ? w.slip : 0.0f;
     obs_out[k++] = i < state_.wheel_count ? w.normal_force / 200.0f : 0.0f;
   }
-  constexpr float sample_dx = 0.5f;
   const bool contact_scanners_available = !state_.airborne;
   const bool lidar_active = state_.lidar_active_steps > 0 && contact_scanners_available;
   const int height_base = k;
   const int slope_base = k + kTerrainSamplesAhead;
   for (int i = 0; i < kTerrainSamplesAhead; ++i) {
-    const auto sample = terrain_.query(
-        state_.body.position.x + sample_dx * static_cast<float>(i + 1));
-    const float distance = sample_dx * static_cast<float>(i + 1);
+
+    const float distance = i < 12 ? 0.5f * static_cast<float>(i + 1)
+                                  : 6.0f + 1.5f * static_cast<float>(i - 11);
+    const auto sample = terrain_.query(state_.body.position.x + distance);
     const bool visible = lidar_active && distance <= state_.lidar_range;
     obs_out[height_base + i] = visible && sample.solid
                                    ? sample.height - state_.body.position.y
@@ -157,13 +161,14 @@ void Env::build_observation(float* obs_out) const {
   }
   k += kTerrainSamplesAhead * 2;
   for (int i = 0; i < kBiomeSamplesAhead; ++i) {
-    const float sample_x = state_.body.position.x + 1.5f * static_cast<float>(i + 1);
-    const bool visible = lidar_active && 1.5f * static_cast<float>(i + 1) <= state_.lidar_range;
+    const float distance = 3.0f * static_cast<float>(i + 1);
+    const float sample_x = state_.body.position.x + distance;
+    const bool visible = lidar_active && distance <= state_.lidar_range;
     const auto sample = terrain_.query(sample_x);
     const auto behind = terrain_.query(sample_x - 0.25f);
     const auto ahead = terrain_.query(sample_x + 0.25f);
-    
-    
+
+
     obs_out[k++] = visible && sample.solid
                        ? 1.0f / (1.0f + std::abs(sample.slope))
                        : 0.0f;
@@ -184,16 +189,16 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.engine_stalled ? 1.0f : 0.0f;
   obs_out[k++] = state_.clutch_engagement;
   obs_out[k++] = state_.engine_temperature / 120.0f;
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  obs_out[k++] = 0.0f;
+
+
+
+
+
+
+
+
+
+  obs_out[k++] = state_.ambient_temperature / 120.0f;
   obs_out[k++] = state_.engine_overheated ? 1.0f : 0.0f;
   obs_out[k++] = state_.engine_cold_locked ? 1.0f : 0.0f;
   obs_out[k++] = state_.solar_panel_deployment;
@@ -206,8 +211,41 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
   obs_out[k++] = static_cast<float>(state_.previous_action) / 4095.0f;
   obs_out[k++] = state_.last_reward / std::max(1.0f, config_.reward.finish_bonus);
-  
-  obs_out[k++] = 0.0f;
+
+  obs_out[k++] = state_.solar_irradiance / 3.0f;
+
+
+  obs_out[k++] = clamp(state_.imu_acceleration.x / 20.0f, -4.0f, 4.0f);
+  obs_out[k++] = clamp(state_.imu_acceleration.y / 20.0f, -4.0f, 4.0f);
+  obs_out[k++] = clamp(state_.imu_angular_acceleration / 20.0f, -4.0f, 4.0f);
+  obs_out[k++] = clamp(state_.imu_impact / 10.0f, 0.0f, 4.0f);
+
+
+  obs_out[k++] = state_.body_contact_front ? 1.0f : 0.0f;
+  obs_out[k++] = state_.body_contact_belly ? 1.0f : 0.0f;
+  obs_out[k++] = state_.body_contact_rear ? 1.0f : 0.0f;
+
+
+  for (int i = 0; i < kMaxWheels; ++i) {
+    obs_out[k++] = i < state_.wheel_count
+                       ? clamp(state_.wheels[static_cast<size_t>(i)].angular_velocity / 60.0f,
+                               -4.0f, 4.0f)
+                       : 0.0f;
+  }
+  for (int i = 0; i < kMaxWheels; ++i) {
+    if (i >= state_.wheel_count || i >= static_cast<int>(config_.rig.wheels.size())) {
+      obs_out[k++] = 0.0f;
+      continue;
+    }
+    const auto& wheel = state_.wheels[static_cast<size_t>(i)];
+    const auto& wheel_rig = config_.rig.wheels[static_cast<size_t>(i)];
+    const Vec2 anchor = state_.body.position + rotate(wheel_rig.local_anchor, state_.body.angle);
+    const Vec2 axis = rotate({0.0f, -1.0f}, state_.body.angle);
+    const float travel = dot(wheel.position - anchor, axis);
+    const float span = std::max(0.01f, wheel_rig.suspension.max_length -
+                                           wheel_rig.suspension.min_length);
+    obs_out[k++] = clamp((wheel_rig.suspension.max_length - travel) / span, 0.0f, 1.0f);
+  }
 }
 
 void Env::select_mechanic_layout(uint64_t seed) {
@@ -229,16 +267,16 @@ void Env::select_mechanic_layout(uint64_t seed) {
     }
   }
   if (eligible_biomes.empty()) {
-    
-    
+
+
     eligible_biomes.push_back(builtin_biome_id(MechanicType::Normal));
   }
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
 
   if (config_.fixed_biome_id >= 0 || !config_.chain_biomes) {
-    
-    
-    
+
+
+
     std::uniform_int_distribution<size_t> biome_dist(0, eligible_biomes.size() - 1);
     const int biome_id = eligible_biomes[biome_dist(rng_)];
     const Biome& biome = *bank[static_cast<size_t>(biome_id)];
@@ -250,25 +288,33 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.biome_id = biome_id;
     zone.params = biome.sample_params(rng_());
     zone.terrain_seed = rng_();
+    zone.terrain_surprise_mode = 0;
+    zone.terrain_surprise_strength = 0.0f;
+    if (config_.fixed_biome_id < 0 &&
+        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f)) {
+      zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
+      zone.terrain_surprise_strength =
+          std::max(0.0f, config_.terrain_surprise_strength) * (0.75f + 0.5f * u(rng_));
+    }
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[0] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
     return;
   }
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
   std::vector<int> anchors;
   std::vector<int> rest;
   rest.reserve(eligible_biomes.size());
@@ -289,8 +335,8 @@ void Env::select_mechanic_layout(uint64_t seed) {
   size_t pool_cursor = 0;
   int previous_id = -1;
   for (int slot = 0; slot < zone_count; ++slot) {
-    
-    
+
+
     const bool take_anchor = !anchors.empty() && (slot % 3 == 0);
     int candidate;
     if (take_anchor) {
@@ -309,7 +355,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
   }
 
   mechanic_layout_.count = static_cast<int>(order.size());
-  float cursor = -8.0f;  
+  float cursor = -8.0f;
   std::uniform_real_distribution<float> length_dist(config_.chain_segment_min_length,
                                                       config_.chain_segment_max_length);
   for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
@@ -318,15 +364,23 @@ void Env::select_mechanic_layout(uint64_t seed) {
     auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
     zone.begin_x = cursor;
     const bool last = slot + 1 == mechanic_layout_.count;
-    
-    
-    
+
+
+
     cursor += last ? 1000000.0f : length_dist(rng_);
     zone.end_x = cursor;
     zone.type = biome.visual_type();
     zone.biome_id = biome_id;
     zone.params = biome.sample_params(rng_());
     zone.terrain_seed = rng_();
+    zone.terrain_surprise_mode = 0;
+    zone.terrain_surprise_strength = 0.0f;
+    if (config_.fixed_biome_id < 0 &&
+        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f)) {
+      zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
+      zone.terrain_surprise_strength =
+          std::max(0.0f, config_.terrain_surprise_strength) * (0.75f + 0.5f * u(rng_));
+    }
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[static_cast<size_t>(slot)] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
@@ -334,11 +388,11 @@ void Env::select_mechanic_layout(uint64_t seed) {
 }
 
 void Env::finalize_mechanic_layout() {
-  
-  
-  
-  
-  
+
+
+
+
+
   for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
     auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
     const Biome& biome = biome_by_id(zone.biome_id);
@@ -353,6 +407,40 @@ void Env::finalize_mechanic_layout() {
       const float delta = biome.terrain_height_delta(local_x, zone.terrain_seed);
       if (std::isfinite(delta)) {
         terrain_.add_height_at_index(sample, clamp(delta, -2.5f, 2.5f));
+      }
+      if (zone.terrain_surprise_mode > 0) {
+        const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 91);
+        const float entrance = clamp(local_x / 3.0f, 0.0f, 1.0f);
+        const float spawn_safe = clamp((world_x - 5.0f) / 4.0f, 0.0f, 1.0f);
+        const float remaining = zone.end_x - world_x;
+        const float exit = zone.end_x < 999999.0f
+                               ? clamp(remaining / 3.0f, 0.0f, 1.0f)
+                               : 1.0f;
+        const float envelope = entrance * entrance * (3.0f - 2.0f * entrance) *
+                               exit * exit * (3.0f - 2.0f * exit) * spawn_safe;
+        float surprise = 0.0f;
+        switch (zone.terrain_surprise_mode) {
+          case 1:
+            surprise = 0.42f * std::sin(0.12f * local_x + 0.005f * local_x * local_x + phase);
+            break;
+          case 2:
+            surprise = 0.34f * std::tanh(3.2f * std::sin(0.19f * local_x + phase)) +
+                       0.10f * std::sin(0.83f * local_x + phase * 0.37f);
+            break;
+          case 3: {
+            const float ridge = std::max(0.0f, std::sin(0.31f * local_x + phase));
+            surprise = 0.62f * ridge * ridge * ridge * ridge - 0.10f;
+            break;
+          }
+          case 4:
+            surprise = -0.38f * std::abs(std::sin(0.105f * local_x + phase)) +
+                       0.13f * std::sin(1.17f * local_x + phase);
+            break;
+          default:
+            break;
+        }
+        terrain_.add_height_at_index(
+            sample, clamp(surprise * zone.terrain_surprise_strength * envelope, -1.25f, 1.25f));
       }
     }
     const float depth = pending_basin_depth_[static_cast<size_t>(slot)];
@@ -386,4 +474,4 @@ bool Env::is_stuck() const {
          stuck_counter_ > config_.termination.stuck_steps;
 }
 
-}  
+}

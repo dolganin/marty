@@ -55,4 +55,4 @@ class Terrain {
   int step_count_ = 16;
 };
 
-}  
+}

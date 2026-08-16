@@ -44,4 +44,4 @@ struct RoverRig {
   static RoverRig default_two_wheel();
 };
 
-}  
+}

@@ -18,11 +18,11 @@ struct TerminationConfig {
   float min_energy = 0.0f;
   float flip_angle = 2.2f;
   int stuck_steps = 600;
-  int max_steps = 0;  
+  int max_steps = 0;
   float fatal_fall_y = -8.0f;
 };
 
 float compute_reward(const RewardConfig& config, const RoverState& state, float energy_cost,
                      bool finished, bool flipped, bool stuck);
 
-}  
+}

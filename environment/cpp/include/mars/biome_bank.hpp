@@ -63,19 +63,19 @@ class Biome {
   virtual BiomeSplit split() const noexcept { return BiomeSplit::Builtin; }
   virtual bool is_anchor() const noexcept { return false; }
   virtual MechanicParams sample_params(uint64_t seed) const noexcept = 0;
-  // Optional deterministic geometry layered onto the procedural base terrain.
-  // local_x is measured from the beginning of this biome zone. The engine
-  // clamps the returned height delta before applying it.
+
+
+
   virtual float terrain_height_delta(float local_x, uint64_t seed) const noexcept {
     (void)local_x;
     (void)seed;
     return 0.0f;
   }
-  
-  
-  
-  
-  
+
+
+
+
+
   virtual int hazard_at(int step) const noexcept { (void)step; return 0; }
   virtual BiomeVisuals visuals() const noexcept {
     uint32_t hash = 2166136261u;
@@ -360,7 +360,7 @@ class MoltenWindowBiome : public Biome {
     p.ambient_temperature = 5.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 1.1f + 0.3f * biome_random01(s, 3);
     p.solar_charge_rate = 1.4f + 0.4f * biome_random01(s, 4);
-    
+
     p.lidar_range_mul = 0.35f;
     p.lidar_energy_mul = 2.0f;
     p.terrain_amplitude_mul = 0.8f;
@@ -374,8 +374,8 @@ class MoltenWindowBiome : public Biome {
     const float speed = std::abs(c.wheel_speed);
     const float excess = speed - kCreepSpeed;
     if (excess <= 0.0f) return;
-    
-    
+
+
     const float severity = clamp(excess * 1.6f, 0.0f, 6.0f);
     c.contact->penetration += (0.30f + 0.55f * severity) * c.dt;
     if (c.wheel_force) {
@@ -392,12 +392,12 @@ class MoltenWindowBiome : public Biome {
     if (speed <= kCreepSpeed) return;
     const float severity = clamp((speed - kCreepSpeed) * 1.4f, 0.0f, 5.0f);
     if (c.body_force) c.body_force->y -= c.mass * std::abs(c.gravity) * (0.55f + 0.30f * severity);
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
   }
 
  protected:
@@ -485,8 +485,8 @@ class SetpointRimeShelf final : public Biome {
     if (!c.contact || !c.contact->active) return;
     const float speed = std::abs(c.wheel_speed);
     if (speed >= kReleaseSpeed) return;
-    
-    
+
+
     const float bite = clamp((kReleaseSpeed - speed) / kReleaseSpeed, 0.0f, 1.0f);
     c.contact->penetration += 0.16f * bite * c.dt;
     if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-14.0f * bite * c.wheel_speed);
@@ -543,11 +543,11 @@ class CollapseWindowScarp final : public MoltenWindowBiome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
   int cycle_steps() const noexcept override { return 560; }
   int melt_steps() const noexcept override { return 125; }
-  
-  
-  
-  
-  
+
+
+
+
+
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p = MoltenWindowBiome::sample_params(s);
     p.friction_mul = 0.72f + 0.10f * biome_random01(s, 11);
@@ -562,7 +562,7 @@ class CollapseWindowScarp final : public MoltenWindowBiome {
   }
   void apply_body_effects(const MechanicParams& p, MechanicBodyContext& c) const noexcept override {
     MoltenWindowBiome::apply_body_effects(p, c);
-    
+
     if (c.body_force) c.body_force->x -= c.mass * 0.85f * clamp(c.velocity.x, 0.0f, 3.0f);
   }
   BiomeVisuals visuals() const noexcept override {
@@ -600,7 +600,7 @@ class CollapseWindowPlaya final : public MoltenWindowBiome {
   }
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     MoltenWindowBiome::apply_effects(p, c);
-    
+
     if (c.wheel_force && c.contact && c.contact->active)
       *c.wheel_force += c.contact->tangent * (-p.viscosity * 2.8f * c.wheel_speed);
   }
@@ -652,7 +652,7 @@ class SpeedBandTalus final : public Biome {
     if (!c.contact || !c.contact->active) return;
     const float speed = std::abs(c.wheel_speed);
     if (speed > kCeiling) {
-      
+
       const float over = clamp((speed - kCeiling) * 1.5f, 0.0f, 5.0f);
       c.contact->penetration += (0.22f + 0.40f * over) * c.dt;
       if (c.wheel_force) {
@@ -661,7 +661,7 @@ class SpeedBandTalus final : public Biome {
       }
       if (c.energy_cost) *c.energy_cost += (0.08f + 0.12f * over) * p.energy_drain_mul * c.dt;
     } else if (speed < kFloor) {
-      
+
       const float bite = clamp((kFloor - speed) / kFloor, 0.0f, 1.0f);
       c.contact->penetration += 0.14f * bite * c.dt;
       if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-11.0f * bite * c.wheel_speed);
@@ -739,8 +739,8 @@ class SlipPhasePan final : public Biome {
     if (!c.contact || !c.contact->active || !slipping(c.step_index)) return;
     const float effort = std::abs(c.drive_force);
     if (effort <= 1.0f) return;
-    
-    
+
+
     const float waste = clamp(effort / 60.0f, 0.0f, 4.0f);
     c.contact->slip = clamp(c.contact->slip + 0.55f + 0.15f * waste, 0.0f, 1.0f);
     if (c.wheel_force) {
@@ -791,10 +791,10 @@ class SolarWindowPan final : public Biome {
     if (phase < 0) phase += kCycle;
     return phase < kWindowSteps;
   }
-  
-  
-  
-  
+
+
+
+
   int hazard_at(int step) const noexcept override { return clear_sky(step) ? 3 : 2; }
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
@@ -803,7 +803,7 @@ class SolarWindowPan final : public Biome {
     p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 1);
     p.ambient_temperature = 16.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 1.45f + 0.35f * biome_random01(s, 3);
-    
+
     p.solar_charge_rate = 0.18f + 0.10f * biome_random01(s, 4);
     p.energy_drain_mul = 1.35f + 0.20f * biome_random01(s, 5);
     p.lidar_range_mul = 0.32f;
@@ -829,7 +829,7 @@ class SolarWindowPan final : public Biome {
     if (!c.energy_cost) return;
     const float speed = std::abs(c.wheel_speed);
     if (clear_sky(c.step_index) && speed <= kStillThreshold) {
-      
+
       *c.energy_cost -= kChargePerSecond * c.dt;
       return;
     }
@@ -893,7 +893,7 @@ class PulseGravityReef final : public Biome {
 
   void apply_effects(const MechanicParams&, MechanicContext& c) const noexcept override {
     if (!c.contact || !c.contact->active || !pulsing(c.step_index)) return;
-    
+
     if (c.wheel_force)
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.72f);
   }
@@ -1013,7 +1013,7 @@ class CommitmentLedgeField final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
 
-  
+
   int hazard_at(int) const noexcept override { return 2; }
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
@@ -1063,11 +1063,13 @@ inline void append(std::vector<const Biome*>& out) {
   static const CommitmentLedgeField commitment_ledge; out.push_back(&commitment_ledge);
 }
 
-}  
+}
 
 namespace generated_biomes {
 
-// <MARS_GENERATED_BIOMES>
+inline constexpr int kGeneratedBiomeBankStart = 0;
+
+
 class LateralShearBelt final : public Biome {
  public:
   std::string_view id() const noexcept override { return "lateral_shear_belt"; }
@@ -1080,23 +1082,23 @@ class LateralShearBelt final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.78f + 0.15f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.35f + 0.25f * biome_random01(s, 2);
     p.wind_force = 4.0f + 2.0f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -55.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.60f + 0.20f * biome_random01(s, 5);
     p.solar_charge_rate = 0.10f + 0.06f * biome_random01(s, 6);
     p.gravity_mul = 1.05f + 0.08f * biome_random01(s, 7);
     p.crust_deform = 0.004f + 0.006f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.08f + 0.03f * biome_random01(s, 10);
-    
-    
+
+
     p.terrain_amplitude_mul = 0.80f + 0.15f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.40f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.50f + 0.15f * biome_random01(s, 13);
@@ -1105,18 +1107,18 @@ class LateralShearBelt final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.15f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.12f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -1126,44 +1128,44 @@ class LateralShearBelt final : public Biome {
     const float speed = std::abs(c.velocity.x);
     const float speed_norm = std::tanh(speed * 0.10f);
 
-    
-    
-    
-    
-    
+
+
+
+
+
     const float shear_phase = t * 0.0044f + c.velocity.x * 0.011f;
-    const float cross = 0.5f + 0.5f * std::sin(shear_phase);  
+    const float cross = 0.5f + 0.5f * std::sin(shear_phase);
     const float straight = 1.0f - cross;
 
-    
-    
-    
+
+
+
     const float pulse_phase = t * 0.031f + c.velocity.x * 0.073f;
     const float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
     const float pulse_narrow = pulse * pulse;
 
     if (c.body_force) {
-      
-      
-      
-      
-      
+
+
+
+
+
       const float cross_lateral = cross * std::sin(shear_phase + 1.2f) *
           (0.08f + 0.30f * speed_norm * speed_norm) * c.mass * c.gravity * 0.35f;
 
-      
+
       const float pulse_lateral = cross * pulse_narrow *
           (0.05f + 0.18f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 0.9f);
 
-      
+
       const float straight_assist = straight * 0.020f * c.mass * c.gravity;
 
-      
-      
+
+
       const float precession = std::sin(shear_phase * 0.5f + 0.6f) *
           (0.03f + 0.10f * speed_norm) * c.mass * c.gravity;
 
-      
+
       const float damping = 0.04f + 0.02f * cross + 0.02f * speed_norm;
 
       c.body_force->x += straight_assist + cross_lateral + pulse_lateral + precession;
@@ -1171,17 +1173,17 @@ class LateralShearBelt final : public Biome {
       c.body_force->y -= c.velocity.y * c.mass * (0.04f + 0.02f * cross);
 
       if (c.body_torque) {
-        
-        
-        
+
+
+
         const float yaw_cross = cross * std::cos(shear_phase + 1.5f) *
             (0.05f + 0.18f * speed_norm) * c.mass * c.gravity * 0.22f;
 
-        
+
         const float pulse_torque = cross * pulse_narrow *
             (0.03f + 0.10f * speed_norm) * c.mass * c.gravity * std::sin(pulse_phase + 0.6f);
 
-        
+
         const float pitch_damping = 0.025f + 0.02f * straight + 0.01f * speed_norm;
         *c.body_torque += yaw_cross + pulse_torque;
         *c.body_torque -= c.angular_velocity * c.mass * pitch_damping;
@@ -1189,23 +1191,23 @@ class LateralShearBelt final : public Biome {
     }
 
     if (c.energy_cost) {
-      
-      
-      
-      
-      
-      
+
+
+
+
+
+
       const bool in_cross = cross > 0.5f;
       if (in_cross) {
         if (speed > 0.25f) {
-          
+
           *c.energy_cost += (0.014f + 0.030f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += 0.018f * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.005f + 0.003f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -1213,14 +1215,14 @@ class LateralShearBelt final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
-    
-    v.ground = {28, 30, 36};         
-    v.particles = {96, 106, 124};     
-    v.liquid = {16, 18, 24};          
-    v.sky = {48, 54, 68};             
+
+
+
+
+    v.ground = {28, 30, 36};
+    v.particles = {96, 106, 124};
+    v.liquid = {16, 18, 24};
+    v.sky = {48, 54, 68};
     v.particle_rate = 3.0f;
     v.particle_lift = 0.7f;
     v.particle_spread = 0.5f;
@@ -1229,7 +1231,7 @@ class LateralShearBelt final : public Biome {
     v.particle_size = 1;
     v.ambient_particles = 4;
     v.ambient_drift = 0.8f;
-    v.screen_brightness = 0.06f;      
+    v.screen_brightness = 0.06f;
     v.liquid_surface = false;
     return v;
   }
@@ -1243,29 +1245,29 @@ class HysteresisSurgeBog final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Mud; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
 
-  
-  
+
+
   int hazard_at(int) const noexcept override { return 2; }
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.42f + 0.18f * biome_random01(s);
     p.sink_rate = 0.014f + 0.020f * biome_random01(s, 1);
     p.viscosity = 1.4f + 1.6f * biome_random01(s, 2);
     p.energy_drain_mul = 1.60f + 0.45f * biome_random01(s, 3);
     p.wind_force = 0.0f;
-    
+
     p.ambient_temperature = -25.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 2.2f + 0.5f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.04f * biome_random01(s, 6);
     p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
     p.crust_deform = 0.012f + 0.016f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 5.8f + 1.2f * biome_random01(s, 9);
     p.lidar_range_mul = 0.09f + 0.04f * biome_random01(s, 10);
-    
-    
+
+
     p.terrain_amplitude_mul = 1.35f + 0.30f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.60f + 0.20f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.40f + 0.15f * biome_random01(s, 13);
@@ -1274,27 +1276,27 @@ class HysteresisSurgeBog final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 0.55f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.contact) {
       float speed = std::abs(c.wheel_speed);
-      
+
       c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.8f * std::tanh(speed * 0.20f));
     }
     if (c.wheel_force && c.contact) {
       float depth = c.contact->penetration * 28.0f;
       float speed = std::abs(c.wheel_speed);
-      
+
       float drag = (0.28f + p.viscosity * 1.6f * (1.0f + depth) + 0.10f * depth) * c.wheel_speed;
       *c.wheel_force += c.contact->tangent * (-drag);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.09f * depth));
     }
     if (c.energy_cost) {
       float depth = c.contact->penetration * 28.0f;
-      
+
       *c.energy_cost += (0.015f + depth * 0.20f + std::abs(c.wheel_speed) * 0.005f) * p.energy_drain_mul * c.dt;
     }
   }
@@ -1304,48 +1306,48 @@ class HysteresisSurgeBog final : public Biome {
     const float speed = std::abs(c.velocity.x);
     const float speed_norm = std::tanh(speed * 0.10f);
 
-    
-    
-    
-    
+
+
+
+
     const float surge_phase = t * 0.0045f + c.velocity.x * 0.012f;
-    const float surge = 0.5f + 0.5f * std::sin(surge_phase);  
+    const float surge = 0.5f + 0.5f * std::sin(surge_phase);
     const float release = 1.0f - surge;
 
-    
-    
-    
+
+
+
     const float pulse_phase = t * 0.035f + c.velocity.x * 0.085f;
     const float pulse = 0.5f + 0.5f * std::sin(pulse_phase);
     const float pulse_narrow = pulse * pulse;
 
-    
-    
+
+
     const float memory = 0.5f + 0.5f * std::tanh((speed_norm - 0.25f) * 5.0f);
     const float hysteresis = surge * memory * (0.5f + 0.5f * pulse_narrow);
 
     if (c.body_force) {
-      
-      
+
+
       const float suck_drag = surge * (0.08f + 0.16f * memory) * c.mass * speed_norm *
           (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
 
-      
-      
-      
+
+
+
       const float release_assist = release * (0.02f + 0.04f * memory) * c.mass * c.gravity;
 
-      
-      
+
+
       const float pulse_drag = hysteresis * (0.10f + 0.14f * speed_norm) * c.mass *
           (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
 
-      
-      
+
+
       const float lateral = std::sin(t * 0.021f + c.velocity.x * 0.049f) *
           (0.04f + 0.12f * std::abs(surge - 0.5f) * 2.0f + 0.08f * speed_norm) * c.mass * c.gravity;
 
-      
+
       const float damping = 0.05f + 0.04f * surge + 0.02f * speed_norm;
 
       c.body_force->x += release_assist + lateral - suck_drag - pulse_drag;
@@ -1353,9 +1355,9 @@ class HysteresisSurgeBog final : public Biome {
       c.body_force->y -= c.velocity.y * c.mass * (0.04f + 0.02f * surge);
 
       if (c.body_torque) {
-        
-        
-        
+
+
+
         const float suck_torque = surge * (0.2f + 0.4f * speed_norm) * c.mass;
         const float release_torque = release * (0.1f + 0.3f * speed_norm) * c.mass;
         const float pulse_torque = hysteresis * (0.3f + 0.35f * speed_norm) * c.mass *
@@ -1367,17 +1369,17 @@ class HysteresisSurgeBog final : public Biome {
     }
 
     if (c.energy_cost) {
-      
-      
-      
-      
-      
+
+
+
+
+
       const float suck_cost = surge * (0.012f + 0.028f * memory) * p.energy_drain_mul;
       const float pulse_penalty = hysteresis * (0.014f + 0.020f * speed_norm) * p.energy_drain_mul;
       const float release_cost = release * (0.006f + 0.004f * speed_norm) * p.energy_drain_mul;
       const float low_speed_cost = std::max(0.0f, 0.25f - speed_norm) * 0.012f * p.energy_drain_mul;
 
-      
+
       const float base_cost = 0.008f;
 
       *c.energy_cost += (base_cost + suck_cost + pulse_penalty + release_cost + low_speed_cost) * c.dt;
@@ -1386,13 +1388,13 @@ class HysteresisSurgeBog final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
-    v.ground = {34, 36, 28};         
-    v.particles = {120, 124, 88};     
-    v.liquid = {18, 20, 14};          
-    v.sky = {42, 44, 34};             
+
+
+
+    v.ground = {34, 36, 28};
+    v.particles = {120, 124, 88};
+    v.liquid = {18, 20, 14};
+    v.sky = {42, 44, 34};
     v.particle_rate = 8.0f;
     v.particle_lift = 0.7f;
     v.particle_spread = 1.0f;
@@ -1401,7 +1403,7 @@ class HysteresisSurgeBog final : public Biome {
     v.particle_size = 2;
     v.ambient_particles = 8;
     v.ambient_drift = 1.2f;
-    v.screen_brightness = 0.07f;      
+    v.screen_brightness = 0.07f;
     v.liquid_surface = false;
     return v;
   }
@@ -1415,7 +1417,7 @@ class GravityShelfLug final : public Biome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
   MechanicType visual_type() const noexcept override { return MechanicType::LowGravity; }
 
-  
+
   int hazard_at(int step) const noexcept override { return shelving(step) ? 1 : 0; }
 
   bool shelving(int step) const noexcept {
@@ -1426,22 +1428,22 @@ class GravityShelfLug final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.95f + 0.10f * biome_random01(s);
     p.sink_rate = 0.001f + 0.002f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.10f + 0.15f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -70.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.50f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.85f + 0.10f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.08f + 0.03f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.65f + 0.15f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.40f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.80f + 0.20f * biome_random01(s, 13);
@@ -1450,18 +1452,18 @@ class GravityShelfLug final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.05f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -1474,40 +1476,40 @@ class GravityShelfLug final : public Biome {
 
     if (c.body_force) {
       if (shelf) {
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
         const float heavy = 3.8f * c.mass * c.gravity;
         c.body_force->y += heavy;
 
-        
-        
-        
+
+
+
         if (speed > kShelfCreep) {
           const float over = clamp((speed - kShelfCreep) * 1.5f, 0.0f, 5.0f);
           const float drag = (2.5f + 2.0f * over) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->x -= drag;
 
-          
+
           const float lateral = speed_norm * 0.6f * c.mass * std::sin(t * 0.013f + 0.6f);
           c.body_force->x += lateral;
 
-          
+
           c.body_force->x -= c.velocity.x * c.mass * 2.0f;
         } else {
-          
+
           c.body_force->x -= c.velocity.x * c.mass * 0.8f;
         }
 
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 1.2f;
       } else {
-        
-        
+
+
         const float assist = 0.018f * c.mass * c.gravity;
         const float damping = 0.03f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -1516,15 +1518,15 @@ class GravityShelfLug final : public Biome {
 
       if (c.body_torque) {
         if (shelf) {
-          
-          
+
+
           const float pitch = (0.05f + 0.35f * speed_norm) * c.mass;
           *c.body_torque += pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
 
-          
+
           *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
         } else {
-          
+
           *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
         }
       }
@@ -1533,16 +1535,16 @@ class GravityShelfLug final : public Biome {
     if (c.energy_cost) {
       if (shelf) {
         if (speed <= kShelfCreep) {
-          
+
           *c.energy_cost += 0.012f * p.energy_drain_mul * c.dt;
         } else {
-          
-          
+
+
           const float over = clamp((speed - kShelfCreep) * 1.5f, 0.0f, 5.0f);
           *c.energy_cost += (0.30f + 0.90f * over * over) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.005f + 0.003f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -1550,10 +1552,10 @@ class GravityShelfLug final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
-    
+
+
+
+
     v.ground = {104, 112, 124};
     v.particles = {178, 186, 198};
     v.liquid = {48, 56, 66};
@@ -1586,7 +1588,7 @@ class ThermalSurgeRelay final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
 
-  
+
   int hazard_at(int step) const noexcept override { return hot_surge(step) ? 1 : 0; }
 
   bool hot_surge(int step) const noexcept {
@@ -1597,22 +1599,22 @@ class ThermalSurgeRelay final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.55f + 0.20f * biome_random01(s);
     p.sink_rate = 0.006f + 0.010f * biome_random01(s, 1);
     p.viscosity = 0.60f + 0.80f * biome_random01(s, 2);
     p.energy_drain_mul = 1.25f + 0.25f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.5f * biome_random01(s, 4);
-    
+
     p.ambient_temperature = 48.0f + 12.0f * biome_random01(s, 5);
     p.thermal_transfer = 3.4f + 0.6f * biome_random01(s, 6);
     p.solar_charge_rate = 0.12f + 0.06f * biome_random01(s, 7);
     p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 8);
     p.crust_deform = 0.004f + 0.006f * biome_random01(s, 9);
-    
+
     p.lidar_energy_mul = 5.8f + 1.0f * biome_random01(s, 10);
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 11);
-    
+
     p.terrain_amplitude_mul = 0.60f + 0.15f * biome_random01(s, 12);
     p.terrain_roughness_mul = 0.35f + 0.10f * biome_random01(s, 13);
     p.terrain_crater_mul = 0.40f + 0.10f * biome_random01(s, 14);
@@ -1621,7 +1623,7 @@ class ThermalSurgeRelay final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 0.72f;
   }
 
@@ -1645,20 +1647,20 @@ class ThermalSurgeRelay final : public Biome {
 
     if (c.body_force) {
       if (hot) {
-        
-        
-        
-        
+
+
+
+
         const float churn = 0.12f + 0.25f * speed_norm;
         c.body_force->x -= c.velocity.x * c.mass * (0.5f + 1.2f * speed_norm);
         c.body_force->y += churn * c.mass * c.gravity * std::sin(t * 0.017f);
-        
+
         c.body_force->x += speed_norm * 0.22f * c.mass * c.gravity * std::sin(t * 0.013f + 0.7f);
-        
+
         c.body_force->x -= c.velocity.x * c.mass * 1.4f;
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
+
         const float assist = 0.014f * c.mass * c.gravity;
         const float damping = 0.03f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -1667,10 +1669,10 @@ class ThermalSurgeRelay final : public Biome {
 
       if (c.body_torque) {
         if (hot) {
-          
+
           const float pitch = (0.05f + 0.35f * speed_norm) * c.mass * std::sin(t * 0.015f + 0.4f);
           *c.body_torque += pitch;
-          
+
           *c.body_torque -= c.angular_velocity * c.mass * 1.2f;
         } else {
           *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
@@ -1681,16 +1683,16 @@ class ThermalSurgeRelay final : public Biome {
     if (c.energy_cost) {
       if (hot) {
         if (speed <= 0.14f) {
-          
+
           *c.energy_cost -= 2.4f * c.dt;
-          
+
           *c.energy_cost += 0.04f * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.35f + 0.85f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.006f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -1698,12 +1700,12 @@ class ThermalSurgeRelay final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    v.ground = {20, 28, 34};        
-    v.particles = {120, 160, 170};   
-    v.liquid = {14, 40, 50};         
-    v.sky = {32, 42, 52};            
+
+
+    v.ground = {20, 28, 34};
+    v.particles = {120, 160, 170};
+    v.liquid = {14, 40, 50};
+    v.sky = {32, 42, 52};
     v.particle_rate = 4.0f;
     v.particle_lift = 1.6f;
     v.particle_spread = 0.8f;
@@ -1712,7 +1714,7 @@ class ThermalSurgeRelay final : public Biome {
     v.particle_size = 2;
     v.ambient_particles = 8;
     v.ambient_drift = 1.3f;
-    v.screen_brightness = 0.07f;     
+    v.screen_brightness = 0.07f;
     v.liquid_surface = true;
     return v;
   }
@@ -1736,27 +1738,27 @@ class RimeQuarryDawn final : public Biome {
     if (phase < 0) phase += kCycle;
     return phase < kRimeSteps;
   }
-  
+
   int hazard_at(int step) const noexcept override { return rime_phase(step) ? 2 : 1; }
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.85f + 0.15f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.20f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -95.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.4f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.55f + 0.15f * biome_random01(s, 7);
     p.crust_deform = 0.004f + 0.006f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 5.5f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.60f + 0.15f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.55f + 0.15f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.90f + 0.20f * biome_random01(s, 13);
@@ -1765,18 +1767,18 @@ class RimeQuarryDawn final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.20f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -1789,10 +1791,10 @@ class RimeQuarryDawn final : public Biome {
 
     if (c.body_force) {
       if (rime) {
-        
-        
-        
-        
+
+
+
+
         const float release = 1.10f;
         if (speed < release) {
           const float bite = clamp((release - speed) / release, 0.0f, 1.0f);
@@ -1800,27 +1802,27 @@ class RimeQuarryDawn final : public Biome {
                                    (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->x -= bite_force;
 
-          
+
           c.body_force->x += (0.2f + 0.5f * bite) * c.mass * std::sin(t * 0.017f + 0.6f);
 
-          
+
           c.body_force->x -= c.velocity.x * c.mass * (0.8f + 1.5f * bite);
         } else {
-          
-          
+
+
           c.body_force->x += 0.025f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.03f;
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float thaw_damping = 0.04f + 0.02f * speed_norm;
         c.body_force->x -= c.velocity.x * c.mass * thaw_damping;
         if (speed <= 0.2f) {
-          
+
           c.body_force->x += 0.012f * c.mass * c.gravity;
         }
         c.body_force->y -= c.velocity.y * c.mass * 0.03f;
@@ -1829,9 +1831,9 @@ class RimeQuarryDawn final : public Biome {
       if (c.body_torque) {
         if (rime) {
           if (speed < 1.10f) {
-            
-            
-            
+
+
+
             const float bite = clamp((1.10f - speed) / 1.10f, 0.0f, 1.0f);
             const float pitch = (0.02f + 0.30f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -1848,22 +1850,22 @@ class RimeQuarryDawn final : public Biome {
     if (c.energy_cost) {
       if (rime) {
         if (speed < 1.10f) {
-          
-          
+
+
           const float bite = clamp((1.10f - speed) / 1.10f, 0.0f, 1.0f);
           *c.energy_cost += (0.15f + 0.75f * bite * bite) * p.energy_drain_mul * c.dt;
         } else {
-          
-          
+
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.2f) {
-          
-          
+
+
           *c.energy_cost -= 0.8f * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.006f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         }
       }
@@ -1872,12 +1874,12 @@ class RimeQuarryDawn final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    v.ground = {102, 110, 122};       
-    v.particles = {196, 204, 214};     
-    v.liquid = {44, 52, 62};           
-    v.sky = {56, 66, 80};              
+
+
+    v.ground = {102, 110, 122};
+    v.particles = {196, 204, 214};
+    v.liquid = {44, 52, 62};
+    v.sky = {56, 66, 80};
     v.particle_rate = 4.0f;
     v.particle_lift = 0.7f;
     v.particle_spread = 0.5f;
@@ -1905,7 +1907,7 @@ class GravityShearEscarpment final : public Biome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Train; }
   MechanicType visual_type() const noexcept override { return MechanicType::LowGravity; }
 
-  
+
   int hazard_at(int step) const noexcept override { return shear_phase(step) ? 1 : 0; }
 
   bool shear_phase(int step) const noexcept {
@@ -1915,23 +1917,23 @@ class GravityShearEscarpment final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.85f + 0.15f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.15f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.8f + 0.6f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -80.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.55f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.60f + 0.15f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.09f + 0.03f * biome_random01(s, 10);
-    
-    
+
+
     p.terrain_amplitude_mul = 1.50f + 0.30f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.80f + 0.20f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.60f + 0.20f * biome_random01(s, 13);
@@ -1940,18 +1942,18 @@ class GravityShearEscarpment final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.10f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -1964,41 +1966,41 @@ class GravityShearEscarpment final : public Biome {
 
     if (c.body_force) {
       if (shear) {
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+
         const float creep_limit = 0.60f;
         if (speed > creep_limit) {
           const float over = clamp((speed - creep_limit) * 1.8f, 0.0f, 5.0f);
-          
+
           const float shove = (2.2f + 2.8f * over) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->x -= shove;
 
-          
+
           c.body_force->x += (0.3f + 0.7f * over) * c.mass * std::sin(t * 0.013f + 0.6f);
 
-          
+
           c.body_force->x -= c.velocity.x * c.mass * (0.8f + 1.2f * over);
 
-          
+
           c.body_force->y += 0.15f * over * c.mass * c.gravity;
         } else {
-          
-          
+
+
           c.body_force->x += 0.020f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
         }
 
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float assist = 0.030f * c.mass * c.gravity;
         const float damping = 0.025f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -2008,15 +2010,15 @@ class GravityShearEscarpment final : public Biome {
       if (c.body_torque) {
         if (shear) {
           if (speed > 0.60f) {
-            
-            
-            
+
+
+
             const float over = clamp((speed - 0.60f) * 1.8f, 0.0f, 5.0f);
             const float pitch = (0.04f + 0.28f * over) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
 
-            
-            
+
+
             *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
           } else {
             *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
@@ -2030,17 +2032,17 @@ class GravityShearEscarpment final : public Biome {
     if (c.energy_cost) {
       if (shear) {
         if (speed > 0.60f) {
-          
-          
+
+
           const float over = clamp((speed - 0.60f) * 1.8f, 0.0f, 5.0f);
           *c.energy_cost += (0.20f + 0.70f * over * over) * p.energy_drain_mul * c.dt;
         } else {
-          
-          
+
+
           *c.energy_cost += (0.005f + 0.003f * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.004f + 0.003f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -2048,10 +2050,10 @@ class GravityShearEscarpment final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
-    
+
+
+
+
     v.ground = {118, 122, 128};
     v.particles = {188, 192, 200};
     v.liquid = {46, 52, 62};
@@ -2083,7 +2085,7 @@ class EbbTractionDark final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  
+
   int hazard_at(int step) const noexcept override { return slick(step) ? 2 : 1; }
 
   bool slick(int step) const noexcept {
@@ -2094,22 +2096,22 @@ class EbbTractionDark final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.90f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -90.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.2f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.03f + 0.02f * biome_random01(s, 6);
     p.gravity_mul = 1.00f + 0.08f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.09f + 0.03f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.55f + 0.10f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.30f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.40f + 0.10f * biome_random01(s, 13);
@@ -2118,18 +2120,18 @@ class EbbTractionDark final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.05f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2142,10 +2144,10 @@ class EbbTractionDark final : public Biome {
 
     if (c.body_force) {
       if (wet) {
-        
-        
-        
-        
+
+
+
+
         const float release_speed = 1.05f;
         if (speed < release_speed) {
           const float bite = clamp((release_speed - speed) / release_speed, 0.0f, 1.0f);
@@ -2154,16 +2156,16 @@ class EbbTractionDark final : public Biome {
           c.body_force->x += (0.25f + 0.7f * bite) * c.mass * std::sin(t * 0.017f + 0.7f);
           c.body_force->x -= c.velocity.x * c.mass * (1.2f + 2.2f * bite);
         } else {
-          
-          
+
+
           c.body_force->x += 0.020f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
+
+
         const float stall_speed = 0.45f;
         if (speed > stall_speed) {
           const float over = clamp((speed - stall_speed) * 1.4f, 0.0f, 4.0f);
@@ -2172,8 +2174,8 @@ class EbbTractionDark final : public Biome {
           c.body_force->x += (0.2f + 0.5f * over) * c.mass * std::sin(t * 0.021f + 0.9f);
           c.body_force->x -= c.velocity.x * c.mass * (0.5f + 1.1f * over);
         } else {
-          
-          
+
+
           c.body_force->x += 0.012f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.03f;
         }
@@ -2183,7 +2185,7 @@ class EbbTractionDark final : public Biome {
       if (c.body_torque) {
         if (wet) {
           if (speed < 1.05f) {
-            
+
             const float bite = clamp((1.05f - speed) / 1.05f, 0.0f, 1.0f);
             const float pitch = (0.03f + 0.34f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -2193,7 +2195,7 @@ class EbbTractionDark final : public Biome {
           }
         } else {
           if (speed > 0.45f) {
-            
+
             const float over = clamp((speed - 0.45f) * 1.4f, 0.0f, 4.0f);
             const float pitch = (0.02f + 0.26f * over) * c.mass;
             *c.body_torque += pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -2208,22 +2210,22 @@ class EbbTractionDark final : public Biome {
     if (c.energy_cost) {
       if (wet) {
         if (speed < 1.05f) {
-          
+
           const float bite = clamp((1.05f - speed) / 1.05f, 0.0f, 1.0f);
           *c.energy_cost += (0.16f + 0.90f * bite * bite) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.006f + 0.012f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.18f) {
-          
+
           *c.energy_cost -= 0.7f * c.dt;
         } else if (speed <= 0.45f) {
-          
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           const float over = clamp((speed - 0.45f) * 1.4f, 0.0f, 4.0f);
           *c.energy_cost += (0.08f + 0.70f * over * over) * p.energy_drain_mul * c.dt;
         }
@@ -2233,7 +2235,7 @@ class EbbTractionDark final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
+
     v.ground = {24, 30, 40};
     v.particles = {96, 116, 140};
     v.liquid = {14, 18, 26};
@@ -2265,8 +2267,8 @@ class BakeCycleBasaltFan final : public Biome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
   MechanicType visual_type() const noexcept override { return MechanicType::Wind; }
 
-  
-  
+
+
   int hazard_at(int step) const noexcept override { return blast(step) ? 3 : 0; }
 
   bool blast(int step) const noexcept {
@@ -2277,22 +2279,22 @@ class BakeCycleBasaltFan final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.95f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.15f + 0.20f * biome_random01(s, 2);
     p.wind_force = 2.5f + 1.0f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = 52.0f + 18.0f * biome_random01(s, 4);
     p.thermal_transfer = 2.9f + 0.6f * biome_random01(s, 5);
     p.solar_charge_rate = 0.06f + 0.04f * biome_random01(s, 6);
     p.gravity_mul = 1.02f + 0.08f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.50f + 0.10f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.30f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.30f + 0.10f * biome_random01(s, 13);
@@ -2301,18 +2303,18 @@ class BakeCycleBasaltFan final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.05f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2325,25 +2327,25 @@ class BakeCycleBasaltFan final : public Biome {
 
     if (c.body_force) {
       if (hot) {
-        
-        
-        
-        
-        
+
+
+
+
+
         const float jolt_amp = 0.08f + 0.14f * speed_norm;
         c.body_force->y += jolt_amp * c.mass * c.gravity * std::sin(t * 0.014f);
 
-        
+
         const float lateral = (0.15f + 0.35f * speed_norm) * c.mass * c.gravity * std::sin(t * 0.017f + 0.7f);
         c.body_force->x += lateral;
 
-        
+
         c.body_force->x -= c.velocity.x * c.mass * (0.8f + 1.2f * speed_norm);
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float assist = 0.020f * c.mass * c.gravity;
         const float damping = 0.03f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -2352,10 +2354,10 @@ class BakeCycleBasaltFan final : public Biome {
 
       if (c.body_torque) {
         if (hot) {
-          
+
           const float pitch = (0.04f + 0.30f * speed_norm) * c.mass * std::sin(t * 0.015f + 0.4f);
           *c.body_torque += pitch;
-          
+
           *c.body_torque -= c.angular_velocity * c.mass * 1.1f;
         } else {
           *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
@@ -2366,16 +2368,16 @@ class BakeCycleBasaltFan final : public Biome {
     if (c.energy_cost) {
       if (hot) {
         if (speed <= 0.14f) {
-          
+
           *c.energy_cost -= 2.2f * c.dt;
-          
+
           *c.energy_cost += 0.04f * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.30f + 0.90f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -2383,9 +2385,9 @@ class BakeCycleBasaltFan final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
+
+
+
     v.ground = {28, 26, 30};
     v.particles = {150, 110, 80};
     v.liquid = {16, 14, 20};
@@ -2417,7 +2419,7 @@ class ReversibleMomentumLagoon final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  
+
   int hazard_at(int step) const noexcept override { return surging(step) ? 2 : 1; }
 
   bool surging(int step) const noexcept {
@@ -2428,22 +2430,22 @@ class ReversibleMomentumLagoon final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.45f + 0.15f * biome_random01(s);
     p.sink_rate = 0.004f + 0.006f * biome_random01(s, 1);
     p.viscosity = 0.35f + 0.40f * biome_random01(s, 2);
     p.energy_drain_mul = 1.30f + 0.25f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.3f * biome_random01(s, 4);
-    
+
     p.ambient_temperature = 12.0f + 14.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.4f + 0.4f * biome_random01(s, 6);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 7);
     p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 8);
     p.crust_deform = 0.002f + 0.003f * biome_random01(s, 9);
-    
+
     p.lidar_energy_mul = 5.5f + 1.0f * biome_random01(s, 10);
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 11);
-    
+
     p.terrain_amplitude_mul = 0.55f + 0.10f * biome_random01(s, 12);
     p.terrain_roughness_mul = 0.30f + 0.10f * biome_random01(s, 13);
     p.terrain_crater_mul = 0.45f + 0.10f * biome_random01(s, 14);
@@ -2452,25 +2454,25 @@ class ReversibleMomentumLagoon final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 0.75f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.contact) {
-      
+
       float speed = std::abs(c.wheel_speed);
       c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.2f * std::tanh(speed * 0.16f));
     }
     if (c.wheel_force && c.contact) {
       float depth = c.contact->penetration * 22.0f;
-      
+
       float drag = (0.18f + p.viscosity * 1.3f * (1.0f + depth) * c.immersion + 0.06f * depth) * c.wheel_speed;
       *c.wheel_force += c.contact->tangent * (-drag);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.02f + 0.07f * depth * c.immersion));
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.006f + std::abs(c.wheel_speed) * 0.003f) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2481,15 +2483,15 @@ class ReversibleMomentumLagoon final : public Biome {
     const float speed_norm = std::tanh(speed * 0.10f);
     const bool surge = surging(c.step_index);
 
-    
-    
+
+
     const float momentum = 0.5f + 0.5f * std::tanh((speed_norm - 0.35f) * 5.0f);
 
     if (c.body_force) {
       if (surge) {
-        
-        
-        
+
+
+
         if (speed <= 0.75f) {
           const float bite = clamp((0.75f - speed) / 0.75f, 0.0f, 1.0f);
           const float lock_force = (0.5f + 2.6f * bite) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -2497,22 +2499,22 @@ class ReversibleMomentumLagoon final : public Biome {
           c.body_force->x += (0.2f + 0.6f * bite) * c.mass * std::sin(t * 0.019f + 0.8f);
           c.body_force->x -= c.velocity.x * c.mass * (0.9f + 1.8f * bite);
         } else {
-          
+
           c.body_force->x += 0.035f * c.mass * c.gravity * speed_norm;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float ebb_drag = (0.4f + 1.8f * momentum) * c.mass * speed_norm * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
         const float ebb_settle = 0.02f * c.mass * c.gravity;
         c.body_force->x -= ebb_drag;
         c.body_force->x += ebb_settle;
         if (speed <= 0.25f) {
-          
+
           c.body_force->x += 0.015f * c.mass * c.gravity;
         }
         c.body_force->x -= c.velocity.x * c.mass * (0.04f + 0.03f * momentum);
@@ -2522,18 +2524,18 @@ class ReversibleMomentumLagoon final : public Biome {
       if (c.body_torque) {
         if (surge) {
           if (speed <= 0.75f) {
-            
+
             const float bite = clamp((0.75f - speed) / 0.75f, 0.0f, 1.0f);
             const float pitch = (0.03f + 0.30f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
             *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
           } else {
-            
+
             *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
           }
         } else {
           if (speed > 0.45f) {
-            
+
             const float over = clamp((speed - 0.45f) * 1.5f, 0.0f, 4.0f);
             const float pitch = (0.02f + 0.24f * over) * c.mass;
             *c.body_torque += pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -2548,22 +2550,22 @@ class ReversibleMomentumLagoon final : public Biome {
     if (c.energy_cost) {
       if (surge) {
         if (speed <= 0.75f) {
-          
+
           const float bite = clamp((0.75f - speed) / 0.75f, 0.0f, 1.0f);
           *c.energy_cost += (0.18f + 0.85f * bite * bite) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.006f + 0.010f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.18f) {
-          
+
           *c.energy_cost -= 0.6f * c.dt;
         } else if (speed <= 0.45f) {
-          
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           const float over = clamp((speed - 0.45f) * 1.5f, 0.0f, 4.0f);
           *c.energy_cost += (0.08f + 0.65f * over * over) * p.energy_drain_mul * c.dt;
         }
@@ -2573,9 +2575,9 @@ class ReversibleMomentumLagoon final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
+
+
+
     v.ground = {42, 60, 58};
     v.particles = {150, 190, 180};
     v.liquid = {36, 80, 76};
@@ -2607,8 +2609,8 @@ class MassSwingFetch final : public Biome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
   MechanicType visual_type() const noexcept override { return MechanicType::LowGravity; }
 
-  
-  
+
+
   int hazard_at(int step) const noexcept override { return window(step) ? 1 : 0; }
 
   bool window(int step) const noexcept {
@@ -2619,22 +2621,22 @@ class MassSwingFetch final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.90f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.10f + 0.15f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -76.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.55f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.55f + 0.15f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.07f + 0.03f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.55f + 0.10f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.35f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.40f + 0.10f * biome_random01(s, 13);
@@ -2643,18 +2645,18 @@ class MassSwingFetch final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.05f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2667,22 +2669,22 @@ class MassSwingFetch final : public Biome {
 
     if (c.body_force) {
       if (win) {
-        
-        
-        
-        
-        
+
+
+
+
+
         const float swing_amp = 0.08f + 0.22f * speed_norm;
         const float swing = swing_amp * c.mass * c.gravity * std::sin(t * 0.019f);
         c.body_force->x += swing;
 
-        
+
         c.body_force->x -= c.velocity.x * c.mass * (1.2f + 1.5f * speed_norm);
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float assist = 0.028f * c.mass * c.gravity;
         const float damping = 0.025f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -2691,13 +2693,13 @@ class MassSwingFetch final : public Biome {
 
       if (c.body_torque) {
         if (win) {
-          
-          
-          
+
+
+
           const float pitch = (0.05f + 0.38f * speed_norm) * c.mass * std::sin(t * 0.021f + 0.5f);
           *c.body_torque += pitch;
-          
-          
+
+
           *c.body_torque -= c.angular_velocity * c.mass * 1.2f;
         } else {
           *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
@@ -2708,18 +2710,18 @@ class MassSwingFetch final : public Biome {
     if (c.energy_cost) {
       if (win) {
         if (speed <= 0.16f) {
-          
-          
+
+
           *c.energy_cost -= 2.6f * c.dt;
-          
+
           *c.energy_cost += 0.04f * c.dt;
         } else {
-          
-          
+
+
           *c.energy_cost += (0.30f + 0.95f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -2727,9 +2729,9 @@ class MassSwingFetch final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
+
+
+
     v.ground = {74, 84, 82};
     v.particles = {168, 180, 172};
     v.liquid = {36, 46, 44};
@@ -2761,8 +2763,8 @@ class BatteryBayTycho final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  
-  
+
+
   int hazard_at(int step) const noexcept override { return glimmer(step) ? 3 : 0; }
 
   bool glimmer(int step) const noexcept {
@@ -2773,22 +2775,22 @@ class BatteryBayTycho final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.95f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = 24.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.3f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.10f + 0.06f * biome_random01(s, 6);
     p.gravity_mul = 1.00f + 0.08f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 10);
-    
+
     p.terrain_amplitude_mul = 0.50f + 0.10f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.30f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.30f + 0.10f * biome_random01(s, 13);
@@ -2797,18 +2799,18 @@ class BatteryBayTycho final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.05f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2821,23 +2823,23 @@ class BatteryBayTycho final : public Biome {
 
     if (c.body_force) {
       if (glimmer) {
-        
-        
-        
-        
+
+
+
+
         const float jolt_amp = 0.06f + 0.12f * speed_norm;
         c.body_force->y += jolt_amp * c.mass * c.gravity * std::sin(t * 0.015f);
 
-        
+
         const float lateral = (0.12f + 0.30f * speed_norm) * c.mass * c.gravity * std::sin(t * 0.018f + 0.7f);
         c.body_force->x += lateral;
 
-        
+
         c.body_force->x -= c.velocity.x * c.mass * (0.8f + 1.2f * speed_norm);
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
+
+
         const float assist = 0.020f * c.mass * c.gravity;
         const float damping = 0.03f + 0.02f * speed_norm;
         c.body_force->x += assist - c.velocity.x * c.mass * damping;
@@ -2846,10 +2848,10 @@ class BatteryBayTycho final : public Biome {
 
       if (c.body_torque) {
         if (glimmer) {
-          
+
           const float pitch = (0.04f + 0.28f * speed_norm) * c.mass * std::sin(t * 0.016f + 0.4f);
           *c.body_torque += pitch;
-          
+
           *c.body_torque -= c.angular_velocity * c.mass * 1.1f;
         } else {
           *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
@@ -2860,16 +2862,16 @@ class BatteryBayTycho final : public Biome {
     if (c.energy_cost) {
       if (glimmer) {
         if (speed <= 0.14f) {
-          
+
           *c.energy_cost -= 2.5f * c.dt;
-          
+
           *c.energy_cost += 0.04f * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.32f + 0.85f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
-        
+
         *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
       }
     }
@@ -2877,7 +2879,7 @@ class BatteryBayTycho final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
+
     v.ground = {24, 26, 32};
     v.particles = {110, 130, 150};
     v.liquid = {14, 16, 22};
@@ -2909,7 +2911,7 @@ class ShatterStepBerm final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  
+
   int hazard_at(int step) const noexcept override { return brittle(step) ? 2 : 1; }
 
   bool brittle(int step) const noexcept {
@@ -2920,23 +2922,23 @@ class ShatterStepBerm final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.90f + 0.12f * biome_random01(s);
     p.sink_rate = 0.003f + 0.004f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.18f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.6f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -70.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.65f + 0.20f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.98f + 0.08f * biome_random01(s, 7);
     p.crust_deform = 0.012f + 0.008f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 5.8f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.09f + 0.03f * biome_random01(s, 10);
-    
-    
+
+
     p.terrain_amplitude_mul = 1.15f + 0.25f * biome_random01(s, 11);
     p.terrain_roughness_mul = 0.90f + 0.20f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.60f + 0.15f * biome_random01(s, 13);
@@ -2945,18 +2947,18 @@ class ShatterStepBerm final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.10f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -2967,53 +2969,53 @@ class ShatterStepBerm final : public Biome {
     const float speed_norm = std::tanh(speed * 0.10f);
     const bool brittle = this->brittle(c.step_index);
 
-    
-    
+
+
     const bool on_berm = speed <= 0.22f;
 
     if (c.body_force) {
       if (brittle) {
-        
-        
-        
-        
-        
+
+
+
+
+
         if (speed > 0.65f) {
           const float over = clamp((speed - 0.65f) * 1.6f, 0.0f, 5.0f);
-          
+
           c.body_force->x -= (1.2f + 2.4f * over) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->y -= (0.5f + 0.8f * over) * c.mass * std::abs(c.gravity);
-          
+
           c.body_force->x += (0.3f + 0.6f * over) * c.mass * std::sin(t * 0.017f + 0.8f);
-          
+
           c.body_force->x -= c.velocity.x * c.mass * (0.9f + 1.3f * over);
         } else if (speed > 0.22f) {
-          
+
           const float creep_over = clamp((speed - 0.22f) * 2.0f, 0.0f, 2.0f);
           c.body_force->x -= (0.6f + 0.8f * creep_over) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->y -= 0.20f * creep_over * c.mass * std::abs(c.gravity);
           c.body_force->x -= c.velocity.x * c.mass * (0.6f + 0.5f * creep_over);
         } else {
-          
-          
+
+
           c.body_force->x += 0.010f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.03f;
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         if (on_berm) {
-          
+
           const float bite = clamp((0.30f - speed) / 0.30f, 0.0f, 1.0f);
           const float lock = (0.8f + 2.4f * bite) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
           c.body_force->x -= lock;
           c.body_force->x += (0.2f + 0.5f * bite) * c.mass * std::sin(t * 0.019f + 0.6f);
           c.body_force->x -= c.velocity.x * c.mass * (0.9f + 1.6f * bite);
         } else {
-          
+
           c.body_force->x += 0.025f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
         }
@@ -3023,30 +3025,30 @@ class ShatterStepBerm final : public Biome {
       if (c.body_torque) {
         if (brittle) {
           if (speed > 0.65f) {
-            
+
             const float over = clamp((speed - 0.65f) * 1.6f, 0.0f, 5.0f);
             const float pitch = (0.05f + 0.32f * over) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
             *c.body_torque -= c.angular_velocity * c.mass * 1.0f;
           } else if (speed > 0.22f) {
-            
+
             const float creep_over = clamp((speed - 0.22f) * 2.0f, 0.0f, 2.0f);
             const float pitch = (0.02f + 0.14f * creep_over) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
             *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
           } else {
-            
+
             *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
           }
         } else {
           if (on_berm) {
-            
+
             const float bite = clamp((0.30f - speed) / 0.30f, 0.0f, 1.0f);
             const float pitch = (0.03f + 0.28f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
             *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
           } else {
-            
+
             *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
           }
         }
@@ -3056,23 +3058,23 @@ class ShatterStepBerm final : public Biome {
     if (c.energy_cost) {
       if (brittle) {
         if (speed <= 0.18f) {
-          
+
           *c.energy_cost -= 0.9f * c.dt;
         } else if (speed <= 0.65f) {
-          
+
           const float creep_over = clamp((speed - 0.18f) * 2.0f, 0.0f, 2.0f);
           *c.energy_cost += (0.10f + 0.25f * creep_over) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           const float over = clamp((speed - 0.65f) * 1.6f, 0.0f, 5.0f);
           *c.energy_cost += (0.25f + 0.80f * over * over) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.18f) {
-          
+
           *c.energy_cost += (0.15f + 0.55f * clamp((0.30f - speed) / 0.30f, 0.0f, 1.0f)) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         }
       }
@@ -3081,9 +3083,9 @@ class ShatterStepBerm final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
+
+
+
     v.ground = {112, 100, 88};
     v.particles = {194, 178, 156};
     v.liquid = {48, 42, 38};
@@ -3115,7 +3117,7 @@ class FathomDraftFlux final : public Biome {
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
   MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
 
-  
+
   int hazard_at(int step) const noexcept override { return suction(step) ? 2 : 1; }
 
   bool suction(int step) const noexcept {
@@ -3126,22 +3128,22 @@ class FathomDraftFlux final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.32f + 0.10f * biome_random01(s);
     p.sink_rate = 0.010f + 0.008f * biome_random01(s, 1);
     p.viscosity = 1.2f + 1.0f * biome_random01(s, 2);
     p.energy_drain_mul = 1.50f + 0.30f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.3f * biome_random01(s, 4);
-    
+
     p.ambient_temperature = -30.0f + 15.0f * biome_random01(s, 5);
     p.thermal_transfer = 2.6f + 0.5f * biome_random01(s, 6);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 7);
     p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 8);
     p.crust_deform = 0.004f + 0.005f * biome_random01(s, 9);
-    
+
     p.lidar_energy_mul = 5.5f + 1.0f * biome_random01(s, 10);
     p.lidar_range_mul = 0.09f + 0.03f * biome_random01(s, 11);
-    
+
     p.terrain_amplitude_mul = 0.55f + 0.10f * biome_random01(s, 12);
     p.terrain_roughness_mul = 0.35f + 0.10f * biome_random01(s, 13);
     p.terrain_crater_mul = 0.40f + 0.10f * biome_random01(s, 14);
@@ -3150,25 +3152,25 @@ class FathomDraftFlux final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 0.65f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.contact) {
-      
+
       float speed = std::abs(c.wheel_speed);
       c.contact->penetration += p.sink_rate * c.dt * (1.0f + 1.4f * std::tanh(speed * 0.18f));
     }
     if (c.wheel_force && c.contact) {
       float depth = c.contact->penetration * 24.0f;
-      
+
       float drag = (0.22f + p.viscosity * 1.6f * (1.0f + depth) * c.immersion + 0.08f * depth) * c.wheel_speed;
       *c.wheel_force += c.contact->tangent * (-drag);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.03f + 0.08f * depth * c.immersion));
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.007f + std::abs(c.wheel_speed) * 0.003f) * p.energy_drain_mul * c.dt;
     }
   }
@@ -3179,15 +3181,15 @@ class FathomDraftFlux final : public Biome {
     const float speed_norm = std::tanh(speed * 0.10f);
     const bool suck = suction(c.step_index);
 
-    
-    
+
+
     const float momentum = 0.5f + 0.5f * std::tanh((speed_norm - 0.30f) * 6.0f);
 
     if (c.body_force) {
       if (suck) {
-        
-        
-        
+
+
+
         if (speed <= 0.85f) {
           const float bite = clamp((0.85f - speed) / 0.85f, 0.0f, 1.0f);
           const float lock_force = (0.6f + 2.6f * bite) * c.mass * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -3196,23 +3198,23 @@ class FathomDraftFlux final : public Biome {
           c.body_force->x -= c.velocity.x * c.mass * (1.0f + 1.8f * bite);
           c.body_force->y -= (0.4f + 0.9f * bite) * c.mass * std::abs(c.gravity);
         } else {
-          
+
           c.body_force->x += 0.030f * c.mass * c.gravity * speed_norm;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
           c.body_force->y -= 0.10f * c.mass * std::abs(c.gravity);
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
+
+
+
         const float draft_drag = (0.3f + 1.6f * momentum) * c.mass * speed_norm * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
         const float draft_settle = 0.02f * c.mass * c.gravity;
         c.body_force->x -= draft_drag;
         c.body_force->x += draft_settle;
         if (speed <= 0.25f) {
-          
+
           c.body_force->x += 0.015f * c.mass * c.gravity;
         }
         c.body_force->x -= c.velocity.x * c.mass * (0.04f + 0.03f * momentum);
@@ -3222,18 +3224,18 @@ class FathomDraftFlux final : public Biome {
       if (c.body_torque) {
         if (suck) {
           if (speed <= 0.85f) {
-            
+
             const float bite = clamp((0.85f - speed) / 0.85f, 0.0f, 1.0f);
             const float pitch = (0.03f + 0.32f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
             *c.body_torque -= c.angular_velocity * c.mass * 0.9f;
           } else {
-            
+
             *c.body_torque -= c.angular_velocity * c.mass * 0.03f;
           }
         } else {
           if (speed > 0.45f) {
-            
+
             const float over = clamp((speed - 0.45f) * 1.5f, 0.0f, 4.0f);
             const float pitch = (0.02f + 0.24f * over) * c.mass;
             *c.body_torque += pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -3248,22 +3250,22 @@ class FathomDraftFlux final : public Biome {
     if (c.energy_cost) {
       if (suck) {
         if (speed <= 0.85f) {
-          
+
           const float bite = clamp((0.85f - speed) / 0.85f, 0.0f, 1.0f);
           *c.energy_cost += (0.16f + 0.85f * bite * bite) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.006f + 0.010f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.18f) {
-          
+
           *c.energy_cost -= 0.7f * c.dt;
         } else if (speed <= 0.45f) {
-          
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           const float over = clamp((speed - 0.45f) * 1.5f, 0.0f, 4.0f);
           *c.energy_cost += (0.08f + 0.65f * over * over) * p.energy_drain_mul * c.dt;
         }
@@ -3273,9 +3275,9 @@ class FathomDraftFlux final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
-    
-    
+
+
+
     v.ground = {30, 46, 40};
     v.particles = {120, 156, 140};
     v.liquid = {20, 60, 52};
@@ -3307,8 +3309,8 @@ class GripInversionScree final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
 
-  
-  
+
+
   int hazard_at(int step) const noexcept override { return slick(step) ? 2 : 1; }
 
   bool slick(int step) const noexcept {
@@ -3319,23 +3321,23 @@ class GripInversionScree final : public Biome {
 
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    
+
     p.friction_mul = 0.92f + 0.08f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
     p.energy_drain_mul = 1.40f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
-    
+
     p.ambient_temperature = -85.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.1f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.03f + 0.02f * biome_random01(s, 6);
     p.gravity_mul = 1.02f + 0.06f * biome_random01(s, 7);
     p.crust_deform = 0.003f + 0.004f * biome_random01(s, 8);
-    
+
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.08f + 0.03f * biome_random01(s, 10);
-    
-    
+
+
     p.terrain_amplitude_mul = 1.40f + 0.25f * biome_random01(s, 11);
     p.terrain_roughness_mul = 1.10f + 0.20f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.35f + 0.10f * biome_random01(s, 13);
@@ -3344,18 +3346,18 @@ class GripInversionScree final : public Biome {
   }
 
   float friction_scale(const MechanicParams& p) const noexcept override {
-    
+
     return p.friction_mul * 1.08f;
   }
 
   void apply_effects(const MechanicParams& p, MechanicContext& c) const noexcept override {
     if (c.wheel_force && c.contact) {
-      
+
       *c.wheel_force += c.contact->tangent * (-0.10f * c.wheel_speed);
       *c.wheel_force -= c.contact->normal * (c.contact->normal_force * 0.006f);
     }
     if (c.energy_cost) {
-      
+
       *c.energy_cost += (0.004f + 0.002f * std::abs(c.wheel_speed)) * p.energy_drain_mul * c.dt;
     }
   }
@@ -3368,10 +3370,10 @@ class GripInversionScree final : public Biome {
 
     if (c.body_force) {
       if (wet) {
-        
-        
-        
-        
+
+
+
+
         const float release_speed = 1.05f;
         if (speed < release_speed) {
           const float bite = clamp((release_speed - speed) / release_speed, 0.0f, 1.0f);
@@ -3380,18 +3382,18 @@ class GripInversionScree final : public Biome {
           c.body_force->x += (0.25f + 0.7f * bite) * c.mass * std::sin(t * 0.017f + 0.7f);
           c.body_force->x -= c.velocity.x * c.mass * (1.2f + 2.2f * bite);
         } else {
-          
-          
+
+
           c.body_force->x += 0.020f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.04f;
         }
-        
+
         c.body_force->y -= c.velocity.y * c.mass * 0.9f;
       } else {
-        
-        
-        
-        
+
+
+
+
         const float stall_speed = 0.30f;
         if (speed > stall_speed) {
           const float over = clamp((speed - stall_speed) * 1.6f, 0.0f, 4.0f);
@@ -3400,8 +3402,8 @@ class GripInversionScree final : public Biome {
           c.body_force->x += (0.2f + 0.5f * over) * c.mass * std::sin(t * 0.021f + 0.9f);
           c.body_force->x -= c.velocity.x * c.mass * (0.6f + 1.0f * over);
         } else {
-          
-          
+
+
           c.body_force->x += 0.015f * c.mass * c.gravity;
           c.body_force->x -= c.velocity.x * c.mass * 0.03f;
         }
@@ -3411,7 +3413,7 @@ class GripInversionScree final : public Biome {
       if (c.body_torque) {
         if (wet) {
           if (speed < 1.05f) {
-            
+
             const float bite = clamp((1.05f - speed) / 1.05f, 0.0f, 1.0f);
             const float pitch = (0.03f + 0.30f * bite) * c.mass;
             *c.body_torque -= pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -3421,7 +3423,7 @@ class GripInversionScree final : public Biome {
           }
         } else {
           if (speed > 0.30f) {
-            
+
             const float over = clamp((speed - 0.30f) * 1.6f, 0.0f, 4.0f);
             const float pitch = (0.02f + 0.24f * over) * c.mass;
             *c.body_torque += pitch * (c.velocity.x >= 0.0f ? 1.0f : -1.0f);
@@ -3436,22 +3438,22 @@ class GripInversionScree final : public Biome {
     if (c.energy_cost) {
       if (wet) {
         if (speed < 1.05f) {
-          
+
           const float bite = clamp((1.05f - speed) / 1.05f, 0.0f, 1.0f);
           *c.energy_cost += (0.16f + 0.90f * bite * bite) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           *c.energy_cost += (0.006f + 0.012f * speed_norm * speed_norm) * p.energy_drain_mul * c.dt;
         }
       } else {
         if (speed <= 0.15f) {
-          
+
           *c.energy_cost -= 0.8f * c.dt;
         } else if (speed <= 0.30f) {
-          
+
           *c.energy_cost += (0.005f + 0.004f * speed_norm) * p.energy_drain_mul * c.dt;
         } else {
-          
+
           const float over = clamp((speed - 0.30f) * 1.6f, 0.0f, 4.0f);
           *c.energy_cost += (0.08f + 0.70f * over * over) * p.energy_drain_mul * c.dt;
         }
@@ -3461,7 +3463,7 @@ class GripInversionScree final : public Biome {
 
   BiomeVisuals visuals() const noexcept override {
     BiomeVisuals v;
-    
+
     v.ground = {66, 72, 78};
     v.particles = {168, 176, 184};
     v.liquid = {24, 28, 34};
@@ -3501,11 +3503,13 @@ inline void append(std::vector<const Biome*>& out) {
   static const FathomDraftFlux biome_12; out.push_back(&biome_12);
   static const GripInversionScree biome_13; out.push_back(&biome_13);
 }
-// </MARS_GENERATED_BIOMES>
 
-}  
+inline constexpr int kGeneratedBiomeBankEnd = 0;
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:a8d4c516f957a6a573913c03f5e56d7dd5c7c50a7a7a5fafb14c71ecba58cc90";
+
+}
+
+inline constexpr std::string_view kBiomeBankVersion = "sha256:ff09c0f4965cc460a927cf1ade1978681c21f6fc0538185b562394576431f5d9";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;
@@ -3524,4 +3528,4 @@ inline const Biome& biome_by_id(int id) noexcept {
   return *bank[static_cast<size_t>(id >= 0 && id < static_cast<int>(bank.size()) ? id : 0)];
 }
 
-}  
+}

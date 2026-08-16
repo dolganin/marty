@@ -15,4 +15,4 @@ RoverRig RoverRig::default_two_wheel() {
   return rig;
 }
 
-}  
+}

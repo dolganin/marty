@@ -1,15 +1,44 @@
 from __future__ import annotations
 
+import ast
 import io
 import tokenize
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-TREES = (ROOT / "environment", ROOT / "baselines", ROOT / "scripts")
+TREES = (ROOT / "environment", ROOT / "scripts")
+
+
+def strip_docstrings(text: str) -> str:
+    tree = ast.parse(text)
+    ranges = []
+    nodes = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, nodes) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            replacement = None
+            if not isinstance(node, ast.Module) and len(node.body) == 1:
+                source = text.splitlines()[first.lineno - 1]
+                replacement = source[: len(source) - len(source.lstrip())] + "pass\n"
+            ranges.append((first.lineno, first.end_lineno or first.lineno, replacement))
+    lines = text.splitlines(keepends=True)
+    for start, end, replacement in ranges:
+        for index in range(start - 1, end):
+            lines[index] = "\n" if lines[index].endswith("\n") else ""
+        if replacement is not None:
+            lines[start - 1] = replacement
+    return "".join(lines)
 
 
 def strip_python(text: str) -> str:
+    text = strip_docstrings(text)
     tokens = []
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
         if token.type != tokenize.COMMENT:
@@ -105,15 +134,16 @@ def main() -> None:
         for path in tree.rglob("*"):
             if not path.is_file() or "__pycache__" in path.parts:
                 continue
-            text = path.read_text(encoding="utf-8-sig")
             if path.suffix in python_suffixes:
-                result = strip_python(text)
+                transform = strip_python
             elif path.suffix in cpp_suffixes:
-                result = strip_cpp(text)
+                transform = strip_cpp
             elif path.suffix in hash_suffixes or path.name in {"CMakeLists.txt", "Makefile"}:
-                result = strip_hash(text)
+                transform = strip_hash
             else:
                 continue
+            text = path.read_text(encoding="utf-8-sig")
+            result = transform(text)
             path.write_text(result, encoding="utf-8")
 
 

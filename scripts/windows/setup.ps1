@@ -38,7 +38,6 @@ if (Test-Path $ActiveBank) {
 
 Write-Host "Building the native extension (this rebuilds _mars_rover_cpp)..."
 & $Python -m pip install -e (Join-Path $RepoRoot "environment") --no-build-isolation
-& $Python -m pip install -e (Join-Path $RepoRoot "baselines") --no-build-isolation
 
 Write-Host "Verifying the build..."
 & $Python -c "import _mars_rover_cpp; print('native extension ok:', _mars_rover_cpp.__file__)"
@@ -46,5 +45,4 @@ Write-Host "Verifying the build..."
 Write-Host ""
 Write-Host "Setup complete. Next steps:"
 Write-Host "  .venv\Scripts\activate"
-Write-Host "  python -m pytest environment/tests baselines/tests -q"
 Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\windows\play.ps1"

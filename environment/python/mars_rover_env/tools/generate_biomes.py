@@ -26,8 +26,8 @@ SOURCE_MANIFEST = ROOT / "python" / "mars_rover_env" / "configs" / "biome_bank.j
 HEADER = SOURCE_HEADER
 MANIFEST = SOURCE_MANIFEST
 CHECKPOINT = ROOT / "python" / "mars_rover_env" / "configs" / "biome_generation_checkpoint.json"
-START = "// <MARS_GENERATED_BIOMES>"
-END = "// </MARS_GENERATED_BIOMES>"
+START = "inline constexpr int kGeneratedBiomeBankStart = 0;"
+END = "inline constexpr int kGeneratedBiomeBankEnd = 0;"
 VERSION_RE = re.compile(
     r'inline constexpr std::string_view kBiomeBankVersion = "[^"]*";'
 )
@@ -44,7 +44,7 @@ DEFAULT_STRATUM_QUOTA = 2
 
 
 def _configure_bank_dir(bank_dir: Path | None) -> None:
-    """Route mutable generation state to one run artifact, never to source."""
+
     global HEADER, MANIFEST, CHECKPOINT
     if bank_dir is None:
         return
@@ -62,15 +62,15 @@ def _configure_bank_dir(bank_dir: Path | None) -> None:
 
 
 class CandidateRejected(RuntimeError):
-    """The model answered, but the candidate cannot enter the bank."""
+    pass
 
 
 class FatalApiError(RuntimeError):
-    """Configuration/authentication error that retries cannot repair."""
+    pass
 
 
 class TransientApiError(RuntimeError):
-    """Temporary service/network error that should be retried."""
+    pass
 
 
 def _load(path: Path) -> dict[str, Any]:
@@ -243,7 +243,7 @@ def _strip_code_fence(text: str) -> str:
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):                                
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
 
 
@@ -262,8 +262,8 @@ def _syntax_check(candidate: dict[str, str], compiler: str, split: str) -> None:
         r"\bconst_cast\b": "mutation through const-cast",
         r"\b(?:rand|srand)\s*\(": "process-global pseudo-randomness",
         r"\b(?:new|delete)\b": "dynamic allocation",
-                                                                                    
-                                                                                       
+
+
         r"\bstatic\s+(?!constexpr\b)": "static storage",
         r"\b(?:mutable|thread_local|volatile)\b": "mutable hidden state",
         r"\b(?:uintptr_t|addressof|random_device)\b": "address or process-derived randomness",
@@ -308,7 +308,7 @@ def _syntax_check(candidate: dict[str, str], compiler: str, split: str) -> None:
 
 
 def _behavioral_fingerprint(candidate: dict[str, Any], compiler: str) -> list[float]:
-    """Compile a candidate and measure deterministic state deltas on a fixed action trace."""
+
     return _fingerprint_trace(
         candidate["class_name"],
         declarations=(
@@ -322,14 +322,14 @@ def _behavioral_fingerprint(candidate: dict[str, Any], compiler: str) -> list[fl
 
 
 def fingerprint_of_compiled_biome(qualified_class: str, compiler: str = "g++") -> list[float]:
-    """Fingerprint a biome that is already part of the compiled bank.
 
-    Hand-written biomes have no `source` field in the manifest - they live in the header
-    rather than in the generated block - so the candidate path cannot reach them, and the
-    audit rejects a bank whose rows carry no fingerprint. This runs the SAME trace against
-    the compiled class, so hand-written and generated biomes stay directly comparable and
-    the de-duplication distance keeps meaning what it meant.
-    """
+
+
+
+
+
+
+
     return _fingerprint_trace(
         qualified_class.rsplit("::", 1)[-1],
         declarations="",
@@ -479,7 +479,7 @@ def _generated_sources_and_names(text: str) -> tuple[str, list[str]]:
 
 
 def _class_source(text: str, start: int) -> tuple[str, int]:
-    """Return one generated class using brace matching rather than a fragile regex."""
+
     brace = text.find("{", start)
     if brace < 0:
         raise CandidateRejected("Generated class has no body")
@@ -597,24 +597,15 @@ def _write_manifest(
                 "split": item["split"],
                 "skill_stratum": item["skill_stratum"],
                 "source_sha256": source_hash,
-                "status": old_item.get("status", "pending_difficulty_gate") if unchanged else "pending_difficulty_gate",
-                "r_random": old_item.get("r_random") if unchanged else None,
-                "r_solve": old_item.get("r_solve") if unchanged else None,
-                "r_robust": old_item.get("r_robust") if unchanged else None,
                 "behavior_fingerprint": item.get("behavior_fingerprint") or (
                     old_item.get("behavior_fingerprint") if unchanged else None
                 ),
             }
         )
-                                                                           
-                                                                               
-                                                                              
-                                          
-    handwritten_entries = [
-        dict(item)
-        for item in old_manifest.get("biomes", [])
-        if item.get("origin") == "handwritten"
-    ]
+
+
+
+
     anchors = ["normal", "sand", "ice", "mud", "wind", "low_gravity", "crust", "liquid"]
     anchor_source = HEADER.read_text(encoding="utf-8").split(START, 1)[0]
     anchor_source_sha256 = hashlib.sha256(anchor_source.encode()).hexdigest()
@@ -651,11 +642,6 @@ def _write_manifest(
         "schema_version": 2,
         "bank_version": "sha256:" + hashlib.sha256(canonical.encode()).hexdigest(),
         **split_versions,
-        "reference_version": (
-            old_manifest.get("reference_version")
-            if old_manifest.get("train_version") == split_versions["train_version"]
-            else None
-        ),
         "anchors": anchors,
         "anchor_source_sha256": anchor_source_sha256,
         "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
@@ -664,13 +650,7 @@ def _write_manifest(
             if dedup_epsilon is not None
             else float(old_manifest.get("behavioral_dedup_epsilon", 0.035))
         ),
-        "difficulty_gates": {
-            split: old_manifest.get("difficulty_gates", {}).get(split)
-            for split in ("train", "test")
-            if old_manifest.get(f"{split}_version") == split_versions[f"{split}_version"]
-            and old_manifest.get("difficulty_gates", {}).get(split) is not None
-        },
-        "biomes": entries + handwritten_entries,
+        "biomes": entries,
     }
     MANIFEST.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -727,7 +707,7 @@ TRAIN_BRIEFS = {
     "dynamic_obstacle": "either a deterministic time-varying hazard or a ballistic ledge where survival requires committing at speed",
 }
 
-                                                                                                 
+
 TEST_BRIEFS = {
     "traction_loss": "traction inversion coupled to darkness or scan timing, without copying dry sink/deformation",
     "lateral_force": "intermittent cross-force coupled to thermal load, with calm windows for progress",
@@ -750,7 +730,7 @@ def _candidate_id(candidate: dict[str, str]) -> str:
 
 
 def _normalize_candidate(candidate: dict[str, str]) -> dict[str, str]:
-    """Repair only harmless wrapper mistakes; never change biome behavior."""
+
     source = candidate["source"].strip()
     declaration = re.search(
         r"class\s+([A-Za-z][A-Za-z0-9_]*)\s+(?:final\s*)?:\s*public\s+(?:mars::)?Biome\b",
@@ -763,15 +743,15 @@ def _normalize_candidate(candidate: dict[str, str]) -> dict[str, str]:
     class_source, end = _class_source(source, declaration.start())
     if source[end:].strip():
         raise CandidateRejected("Source must not declare globals or trailing helper code")
-                                                                          
-                                                   
+
+
     candidate = {
         "class_name": declaration.group(1),
         "skill_stratum": candidate.get("skill_stratum", ""),
         "source": class_source,
     }
-                                                                            
-                                                                
+
+
     if class_source.endswith("}"):
         candidate["source"] = class_source + ";"
     return candidate
@@ -786,6 +766,7 @@ def _prompt(
     existing_ids: set[str],
     feedback: str,
     target_stratum: str,
+    surprise_injection: str = "",
 ) -> str:
     briefs = TRAIN_BRIEFS if split == "train" else TEST_BRIEFS
     brief = briefs[target_stratum]
@@ -795,6 +776,13 @@ def _prompt(
             "\n\nYOUR PREVIOUS CANDIDATE WAS REJECTED. Repair the concrete problem below; do not "
             "repeat the same mistake. You may redesign the biome if that produces cleaner code.\n"
             "<validator_feedback>\n" + feedback[-6000:] + "\n</validator_feedback>"
+        )
+    surprise = ""
+    if surprise_injection:
+        surprise = (
+            "\n\n<stochastic_terrain_challenge>\n"
+            + surprise_injection.strip()
+            + "\n</stochastic_terrain_challenge>"
         )
     return (
         f"The bank currently has {accepted} accepted candidates and needs exactly {total}. "
@@ -816,7 +804,7 @@ def _prompt(
         "reveal the mechanic class, hazard phase, safe speed, or correct action. A surface-break "
         "precursor must remain ambiguous: it may require braking before a pit in one world and "
         "accelerating over a ramp in another."
-        + correction + "\n\n"
+        + surprise + correction + "\n\n"
         "Complete contract and existing implementation bank:\n```cpp\n" + header + "\n```"
     )
 
@@ -844,7 +832,6 @@ def main() -> None:
     )
     parser.add_argument("--list", action="store_true", help="list biome ids already present in the C++ bank")
     parser.add_argument("--refresh-manifest", action="store_true", help="rebuild bank metadata without API calls")
-    parser.add_argument("--prune-rejected", action="store_true", help="remove difficulty-rejected generated biomes")
     parser.add_argument("--dry-run", action="store_true", help="check config/compiler and print request summary without API calls")
     parser.add_argument("--replace", action="store_true", help="discard the previous generated bank instead of appending")
     parser.add_argument(
@@ -858,92 +845,12 @@ def main() -> None:
         return
     if args.refresh_manifest:
         config = _load(args.config)
-        compiler = _compiler(config)
         candidates = _generated_candidates(HEADER.read_text(encoding="utf-8"))
-        print("Refreshing deterministic fingerprints for every generated biome...")
-        for item in candidates:
-            _syntax_check(item, compiler, item["split"])
-            item["behavior_fingerprint"] = _behavioral_fingerprint(item, compiler)
         _write_manifest(
             candidates,
             float(config["generation"].get("behavioral_dedup_epsilon", 0.035)),
         )
-                                                                        
-                                                                                
-                                                                       
-        from mars_rover_env.tools.evaluate_biomes import (
-            _catalog_by_id,
-            _handwritten_class_name,
-            fingerprint_of_compiled_biome,
-        )
-
-        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        catalog = _catalog_by_id()
-        active_handwritten_ids = {
-            biome_id
-            for biome_id, biome in catalog.items()
-            if int(biome["split"]) in (1, 2)
-        }
-        manifest["biomes"] = [
-            row
-            for row in manifest["biomes"]
-            if row.get("origin") != "handwritten"
-            or str(row.get("id")) in active_handwritten_ids
-        ]
-        by_id = {str(item["id"]): item for item in manifest["biomes"]}
-        for biome_id, biome in catalog.items():
-            if int(biome["split"]) not in (1, 2):
-                continue
-            row = by_id.get(biome_id)
-            if row is None:
-                row = {
-                    "id": biome_id,
-                    "split": "train" if int(biome["split"]) == 1 else "test",
-                    "origin": "handwritten",
-                    "display_name": biome.get("name", biome_id),
-                    "skill_stratum": biome.get("skill_stratum", ""),
-                }
-                manifest["biomes"].append(row)
-                by_id[biome_id] = row
-            if row.get("origin") == "handwritten":
-                row.update(
-                    split="train" if int(biome["split"]) == 1 else "test",
-                    display_name=biome.get("name", biome_id),
-                    skill_stratum=biome.get("skill_stratum", ""),
-                )
-                row["behavior_fingerprint"] = fingerprint_of_compiled_biome(
-                    "handcrafted_biomes::" + _handwritten_class_name(biome_id)
-                )
-            row.update(
-                status="pending_difficulty_gate",
-                r_random=None,
-                r_solve=None,
-                r_robust=None,
-            )
-            for key in (
-                "random_score", "solve_score", "robust_score", "rejection_reasons",
-                "strategy_disagreement", "strategy_profile", "strategy_regret",
-                "strategy_spread", "strategy_winner",
-            ):
-                row.pop(key, None)
-                                                                                       
-                                                                                      
-        manifest["difficulty_gates"] = {}
-        MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         print(f"Refreshed {MANIFEST}")
-        return
-    if args.prune_rejected:
-        if not MANIFEST.is_file():
-            raise SystemExit(f"Missing manifest: {MANIFEST}")
-        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-        rejected = {
-            item["id"] for item in manifest.get("biomes", [])
-            if str(item.get("status", "")).startswith("rejected_")
-        }
-        existing = _generated_candidates(HEADER.read_text(encoding="utf-8"))
-        retained = [item for item in existing if _candidate_id(item) not in rejected]
-        _write_full_bank(retained)
-        print(f"Pruned {len(existing) - len(retained)} rejected biomes: {', '.join(sorted(rejected))}")
         return
     config = _load(args.config)
     count = args.count if args.count is not None else int(config["generation"].get("count", 12))
@@ -1035,8 +942,8 @@ def main() -> None:
             and str(item.get("id")) not in known_peer_ids
             and item.get("behavior_fingerprint")
         )
-                                                                               
-                                                                    
+
+
     names: set[str] = set(existing_names)
     ids: set[str] = set(_catalog_from_header())
     names.update(item["class_name"] for item in candidates)
@@ -1065,6 +972,14 @@ def main() -> None:
         context = header + ("\n\nAlready accepted in this run:\n" + accepted_context if accepted_context else "")
         candidate: dict[str, str] | None = None
         try:
+            surprise_injection = ""
+            injection_probability = float(
+                config["generation"].get("surprise_prompt_probability", 0.0)
+            )
+            injections = list(config["generation"].get("surprise_prompt_injections", []))
+            if injections and free_stratum_rng.random() < max(0.0, min(1.0, injection_probability)):
+                surprise_injection = str(free_stratum_rng.choice(injections))
+                print("Injecting stochastic terrain challenge into this LLM request.")
             candidate = _normalize_candidate(_request_candidate(
                 config,
                 _prompt(
@@ -1076,6 +991,7 @@ def main() -> None:
                     ids,
                     feedback,
                     target_stratum,
+                    surprise_injection,
                 ),
             ))
             if candidate["class_name"] in names:

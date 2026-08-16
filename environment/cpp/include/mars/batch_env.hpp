@@ -31,4 +31,4 @@ class BatchEnv {
   mutable Renderer renderer_{};
 };
 
-}  
+}

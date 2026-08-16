@@ -23,7 +23,6 @@ fi
 .venv/bin/python -m pip install --upgrade pip setuptools wheel
 .venv/bin/python -m pip install pybind11
 MARS_ROVER_BUILD_TYPE="$BUILD_TYPE" \
-  .venv/bin/python -m pip install --editable './environment[dev]' --no-build-isolation
-.venv/bin/python -m pip install --editable './baselines[train,dev]' --no-build-isolation
+  .venv/bin/python -m pip install --editable './environment' --no-build-isolation
 .venv/bin/python -m mars_rover_env.tools.doctor
 printf 'Ready (%s). Play: .venv/bin/mars-rover-play --debug\n' "$BUILD_TYPE"

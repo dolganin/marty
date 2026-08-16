@@ -15,6 +15,24 @@ generation:
   split: "train"
   compiler: "g++"
   behavioral_dedup_epsilon: 0.0971
+  surprise_prompt_probability: 0.30
+  surprise_prompt_injections:
+    - >-
+      Make this candidate's terrain occasionally violate the driver's short-range expectation:
+      combine a broad, apparently gentle shape with a late sharp ridge or bowl. Keep it bounded,
+      deterministic from seed, physically traversable, and impossible to identify as a mechanic label.
+    - >-
+      Use terrain_height_delta to build a multi-scale profile whose wavelength or amplitude changes
+      across the zone. Include safe recovery space; difficulty must come from online replanning, not
+      from an unavoidable wall or gap.
+    - >-
+      Create two visually similar terrain motifs with different traversal consequences inside the
+      same zone, so memorising one local shape is insufficient. Preserve a feasible route and keep
+      every height delta finite and within the engine limits.
+    - >-
+      Add a sparse deterministic terrain surprise such as an asymmetric terrace, isolated ridge,
+      deceptive bowl, or changing-frequency corrugation. It must be rare within the zone and reward
+      using the longer-range lidar without directly revealing the hidden mechanic.
   system_prompt: |
     You design deterministic mechanics for a high-throughput 2D Mars rover meta-RL benchmark.
     Return exactly one class derived publicly from Biome. `final` is optional. The class
@@ -39,8 +57,8 @@ generation:
       deploys/charges/stows. Ambient temperature,
       thermal transfer and solar rate come from the biome. Liquid biomes create basins and apply
       immersion, drag, buoyancy and enhanced thermal transfer.
-    - Lidar is an explicit costly CONTACT scanner. A successful grounded pulse spends base energy
-      times lidar_energy_mul, has a cooldown, remains active briefly, and reveals only raw physical
+    - Lidar is an explicit CONTACT scanner. A successful grounded pulse spends 0.65 base energy
+      times a bounded lidar_energy_mul, reaches 24 m, has a cooldown, remains active briefly, and reveals only raw physical
       correlates: forward height/slope plus surface echo, discontinuity and vibration. It never emits
       a mechanic id, hazard phase, safe speed or correct action. All scanner channels go silent after
       takeoff; the decision at a ledge is therefore irreversible and must be made before the lip.
@@ -144,9 +162,9 @@ generation:
     with memory then had nothing to gain. Your candidate is only useful if an agent that
     has NOT yet identified it performs badly, and the same agent performs well once it has.
     Concretely:
-    - Do not let the physics be read off the observation. Prefer low lidar_range_mul
-      (0.15-0.5) and/or high lidar_energy_mul (2-6) and low screen_brightness (0.05-0.35),
-      so the danger has to be INFERRED from what happened, not seen ahead.
+    - Do not let the physics be read off the observation. Lidar should normally remain useful:
+      prefer lidar_range_mul 0.65-1.25 and lidar_energy_mul 0.6-2.0. Darkness may encourage scanning,
+      but geometry scans must not reveal the hidden schedule, safe speed, or correct action.
     - Make the wrong strategy actively destructive, not merely slow: a policy tuned for a
       different mechanic should flip, stall, overheat or drain its battery here. A biome
       that merely slows everyone down is worthless — it ranks all agents the same.

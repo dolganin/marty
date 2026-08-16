@@ -22,4 +22,4 @@ class Renderer {
   RenderConfig config_{};
 };
 
-}  
+}

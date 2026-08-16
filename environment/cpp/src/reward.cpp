@@ -19,4 +19,4 @@ float compute_reward(const RewardConfig& config, const RoverState& state, float 
   return reward;
 }
 
-}  
+}

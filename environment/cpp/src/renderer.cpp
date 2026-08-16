@@ -78,7 +78,7 @@ void draw_rotated_box(uint8_t* rgb, int width, int height, int cx, int cy, float
   }
 }
 
-}  
+}
 
 Renderer::Renderer(RenderConfig config) : config_(config) {}
 
@@ -128,8 +128,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
   }
 
   if (body_style.particles.ambient_particles > 0) {
-    
-    
+
+
     for (int p = 0; p < body_style.particles.ambient_particles; ++p) {
       const uint32_t h = hash_u32(static_cast<uint32_t>(p * 977 + state.step_index / 2));
       const int drift = static_cast<int>(state.step_index * body_style.particles.ambient_drift);
@@ -231,8 +231,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
               static_cast<int>(panel_right.x), static_cast<int>(panel_right.y), {105, 175, 225});
   }
 
-  
-  
+
+
   for (int x = 0; x < width; ++x) {
     const float wx = camera_x + static_cast<float>(x) / ppm;
     const auto& zone = env.mechanic_at(wx);
@@ -250,10 +250,10 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  
-  
-  
-  
+
+
+
+
   constexpr float kMinVisibleBrightness = 0.70f;
   const float brightness =
       clamp(body_style.particles.screen_brightness, kMinVisibleBrightness, 1.5f);
@@ -276,4 +276,4 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
 
 }
 
-}  
+}

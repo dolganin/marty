@@ -11,11 +11,11 @@ class BuildExt(build_ext):
     def build_extensions(self):
         import pybind11
 
-        # The biome bank and most of the simulator live in headers. Setuptools'
-        # editable build does not reliably rebuild an extension when only one
-        # of those headers changes (notably on Windows), which can leave a
-        # perfectly installable but stale .pyd behind. A native install is an
-        # explicit rebuild boundary in this project, so always compile it.
+
+
+
+
+
         self.force = True
         build_type = os.environ.get("MARS_ROVER_BUILD_TYPE", "Release").lower()
         debug = build_type in {"debug", "relwithdebinfo"}
@@ -23,7 +23,7 @@ class BuildExt(build_ext):
         bank_include = os.environ.get("MARS_ROVER_BANK_INCLUDE")
         for ext in self.extensions:
             if bank_include:
-                # A run bank shadows the repository bank for this one binary.
+
                 ext.include_dirs.insert(0, str(Path(bank_include).resolve()))
             ext.include_dirs.append(str(Path("cpp/include").resolve()))
             ext.include_dirs.append(pybind11.get_include())

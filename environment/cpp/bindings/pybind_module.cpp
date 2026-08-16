@@ -44,7 +44,7 @@ const char* mechanic_name(mars::MechanicType type) {
 
 constexpr int kDebugGearCount = 8;
 
-}  
+}
 
 PYBIND11_MODULE(_mars_rover_cpp, m) {
   m.def("biome_bank_version", [] { return std::string(mars::kBiomeBankVersion); });
@@ -187,6 +187,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("chain_zone_count", &mars::EnvConfig::chain_zone_count)
       .def_readwrite("chain_segment_min_length", &mars::EnvConfig::chain_segment_min_length)
       .def_readwrite("chain_segment_max_length", &mars::EnvConfig::chain_segment_max_length)
+      .def_readwrite("terrain_surprise_probability",
+                     &mars::EnvConfig::terrain_surprise_probability)
+      .def_readwrite("terrain_surprise_strength", &mars::EnvConfig::terrain_surprise_strength)
       .def_readwrite("debug", &mars::EnvConfig::debug);
 
   py::class_<mars::BatchEnv>(m, "MarsRoverBatchEnv")
@@ -299,11 +302,20 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["solar_panel_deployment"] = state.solar_panel_deployment;
              d["charging_active"] = state.charging_active;
              d["solar_charge_rate"] = state.solar_charge_rate;
+             d["solar_irradiance"] = state.solar_irradiance;
              d["lidar_active"] = state.lidar_active_steps > 0;
              d["lidar_cooldown"] = static_cast<float>(state.lidar_cooldown_steps) *
                                      env.config().physics.dt;
              d["lidar_range"] = state.lidar_range;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
+             d["imu_acceleration_x"] = state.imu_acceleration.x;
+             d["imu_acceleration_y"] = state.imu_acceleration.y;
+             d["imu_angular_acceleration"] = state.imu_angular_acceleration;
+             d["imu_impact"] = state.imu_impact;
+             d["body_contact_front"] = state.body_contact_front;
+             d["body_contact_belly"] = state.body_contact_belly;
+             d["body_contact_rear"] = state.body_contact_rear;
+             d["terrain_surprise_mode"] = zone.terrain_surprise_mode;
              constexpr const char* kTerminationReasons[] = {
                  "RUNNING", "FINISH REACHED", "FATAL LANDING", "ROVER ROLLOVER",
                  "FELL OUT OF COURSE", "BATTERY DEPLETED", "NO PROGRESS", "STEP LIMIT",
@@ -313,8 +325,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["screen_brightness"] = visuals.screen_brightness;
              const auto& hazard_biome = mars::biome_by_id(zone.biome_id);
              d["hazard"] = hazard_biome.hazard_at(state.step_index);
-             
-             
+
+
              d["hazard_ahead"] = hazard_biome.hazard_at(state.step_index + 55);
              d["sky_rgb"] = py::make_tuple(visuals.sky.r, visuals.sky.g, visuals.sky.b);
              d["can_shift_up"] = state.can_shift_up;

@@ -51,4 +51,4 @@ inline float clamp(float v, float lo, float hi) {
   return std::max(lo, std::min(hi, v));
 }
 
-}  
+}

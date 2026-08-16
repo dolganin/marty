@@ -21,7 +21,7 @@ constexpr float kIdleRpm = 1100.0f;
 constexpr float kRedlineRpm = 9000.0f;
 constexpr float kSafeDownshiftRpm = 8500.0f;
 
-}  
+}
 
 PhysicsEngine::PhysicsEngine(PhysicsConfig config) : config_(config) {}
 
@@ -56,15 +56,20 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                      int discrete_action, const MechanicLayout& mechanics) const {
   PhysicsStepStats stats{};
   const float dt = config_.dt;
+  const Vec2 previous_body_velocity = state.body.velocity;
+  const float previous_body_angular_velocity = state.body.angular_velocity;
   state.landing_event = false;
   state.landing_fatal = false;
+  state.body_contact_front = false;
+  state.body_contact_belly = false;
+  state.body_contact_rear = false;
   const bool was_airborne = state.airborne;
   const int previous_airborne_steps = state.airborne_steps;
   const float pre_contact_vertical_speed = state.body.velocity.y;
   ControlInput control = decode_discrete_action(discrete_action, config_.body_tilt_torque);
-  
-  
-  
+
+
+
   if (was_airborne) {
     state.lidar_active_steps = 0;
     state.lidar_range = 0.0f;
@@ -80,7 +85,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (lidar_pressed && state.lidar_cooldown_steps == 0) {
     const auto& lidar_zone = mechanics.at(state.body.position.x);
     const float requested_cost =
-        config_.lidar_energy_cost * std::max(0.0f, lidar_zone.params.lidar_energy_mul);
+        config_.lidar_energy_cost * clamp(lidar_zone.params.lidar_energy_mul, 0.4f, 3.0f);
     if (state.energy >= requested_cost) {
       lidar_energy_cost = requested_cost;
       state.lidar_last_energy_cost = requested_cost;
@@ -90,7 +95,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
           std::max(state.lidar_active_steps,
                    static_cast<int>(config_.lidar_cooldown / std::max(0.0001f, dt)));
       state.lidar_range = config_.lidar_base_range *
-                          std::max(0.0f, lidar_zone.params.lidar_range_mul);
+                          clamp(lidar_zone.params.lidar_range_mul, 0.35f, 1.5f);
     }
   }
   const bool toggle_charge_pressed =
@@ -148,19 +153,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   const float shift_speed = std::abs(state.body.velocity.x);
   const bool clutch_pedal_down = control.clutch < 0.5f;
-  
-  
-  
-  
+
+
+
+
   const bool powered_upshift_request =
       control.shift_up && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
   if ((control.shift_up && clutch_pedal_down && !control.shift_down) ||
       powered_upshift_request) {
     state.shift_up_buffer_steps = std::max(state.shift_up_buffer_steps, 60);
@@ -178,9 +183,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (state.shift_cooldown_steps > 0) {
     --state.shift_cooldown_steps;
   }
-  
-  
-  
+
+
+
   const float drivetrain_load =
       clamp(std::abs(std::sin(state.body.angle)) * 2.2f, 0.0f, 1.0f);
   const float desired_post_shift_rpm =
@@ -194,9 +199,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   float minimum_upshift_rpm = 0.0f;
   if (state.gear_index >= 0 && state.gear_index < kGearCount - 1) {
     next_gear_rpm = shift_speed / kGearMaxSpeeds[state.gear_index + 1] * kRedlineRpm;
-    
-    
-    
+
+
+
     const float speed_step =
         kGearMaxSpeeds[state.gear_index + 1] / kGearMaxSpeeds[state.gear_index];
     recommended_upshift_rpm =
@@ -307,11 +312,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                    config_.minimum_operating_temperature),
             0.0f, 1.0f);
 
-  
-  
-  
-  
-  
+
+
+
+
+
   const float preliminary_rpm01 =
       clamp((state.engine_rpm - kIdleRpm) / (kRedlineRpm - kIdleRpm), 0.0f, 1.0f);
   const float preliminary_torque_curve =
@@ -338,15 +343,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float coupled_rpm = state.gear_index == 0 && std::abs(control.throttle) > 0.0f
                                   ? std::max(kIdleRpm, road_coupled_rpm)
                                   : road_coupled_rpm;
-    // The clutch transfers torque over a finite synchronization interval.  A
-    // first-order speed match avoids the previous near-instant RPM snap when
-    // the pedal was released or a gear was selected under load.
+
+
+
     const float clutch_sync_gain = 2.4f + 1.2f * state.clutch_engagement;
     const float clutch_acceleration =
         clamp((coupled_rpm - state.engine_rpm) * clutch_sync_gain,
               -config_.clutch_sync_rate * 1.6f, config_.clutch_sync_rate);
-    
-    
+
+
     rpm_acceleration = clutch_acceleration * drivetrain_coupling +
                        free_rpm_acceleration * (1.0f - drivetrain_coupling * 0.88f);
   }
@@ -372,6 +377,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const auto& body_zone = mechanics.at(state.body.position.x);
   state.solar_charge_rate =
       state.charging_active ? body_zone.params.solar_charge_rate : 0.0f;
+  state.solar_irradiance = std::max(0.0f, body_zone.params.solar_charge_rate);
   stats.energy_gain = state.solar_charge_rate * dt;
   const auto thermal = mechanics.thermal_at(state.body.position.x, body_zone);
   float ambient_temperature = thermal.ambient_temperature;
@@ -418,8 +424,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       !state.engine_running &&
       state.engine_temperature < config_.cold_start_temperature;
   state.engine_stalled = !state.engine_running;
-  
-  
+
+
   const float gravity = config_.gravity * body_zone.params.gravity_mul;
   Vec2 body_force{0.0f, state.body.mass * gravity};
   body_force.x += body_zone.params.wind_force;
@@ -439,6 +445,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float body_sin = std::sin(state.body.angle);
   const auto rotate_body = [body_cos, body_sin](Vec2 v) {
     return Vec2{body_cos * v.x - body_sin * v.y, body_sin * v.x + body_cos * v.y};
+  };
+  const auto register_body_contact = [&](Vec2 local) {
+    const float half_width = std::max(0.01f, rig.body.collision.size.x * 0.5f);
+    if (local.x > half_width * 0.55f) {
+      state.body_contact_front = true;
+    } else if (local.x < -half_width * 0.55f) {
+      state.body_contact_rear = true;
+    } else {
+      state.body_contact_belly = true;
+    }
   };
 
   if (rig.body.size.y > 0.0f) {
@@ -559,10 +575,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float spring_force_mag =
         -wr.suspension.stiffness * (suspension_travel - wr.suspension.rest_length) -
         wr.suspension.damping * spring_vel;
-    // Progressive bump/rebound stops keep a landing compliant through most of the
-    // stroke but resist bottoming-out much more strongly near either travel limit.
-    // This makes the wheel assembly absorb a touchdown before the chassis receives
-    // the corresponding impulse, rather than behaving like a rigid strut.
+
+
+
+
     constexpr float kStopTravel = 0.045f;
     float stop_force_mag = 0.0f;
     const float compression_stop = (min_len + kStopTravel) - suspension_travel;
@@ -584,16 +600,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     float contact_x = wheel.position.x;
     float penetration = terrain_sample.height + wheel.radius - wheel.position.y;
 
-    
-    
-    
-    
+
+
+
+
     const float motion_sign = control.throttle != 0.0f
                                   ? (control.throttle > 0.0f ? 1.0f : -1.0f)
                                   : (anchor_velocity.x >= 0.0f ? 1.0f : -1.0f);
     const float probe_dx = motion_sign * wheel.radius * 0.72f;
     const auto leading_sample = terrain.query(wheel.position.x + probe_dx);
-    const float tyre_half_height = wheel.radius * 0.693974f;  
+    const float tyre_half_height = wheel.radius * 0.693974f;
     const float leading_penetration =
         leading_sample.height + tyre_half_height - wheel.position.y;
     if (leading_penetration > penetration) {
@@ -603,9 +619,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     }
     WheelContact contact{};
     contact.wheel_index = i;
-    
-    
-    
+
+
+
     constexpr float kContactSlop = 0.018f;
     if (terrain_sample.solid && penetration > -kContactSlop) {
       contact.active = true;
@@ -627,9 +643,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                    ? clamp(1.0f - driven_speed / std::max(0.1f, gear_max_speed),
                                            0.0f, 1.0f)
                                    : 1.0f;
-      
-      
-      
+
+
+
       const float drive_torque =
           (state.engine_running ? config_.motor_torque : 0.0f) * state.cold_power_factor *
           torque_curve * driveline_load_factor *
@@ -639,9 +655,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float drive_force = drive_torque / std::max(0.05f, wheel.radius);
       Vec2 traction_force{0.0f, 0.0f};
       MechanicContext ctx{};
-      
-      
-      
+
+
+
       const float supported_mass =
           (state.body.mass + static_cast<float>(state.wheel_count) * wheel.mass) /
           static_cast<float>(std::max(1, state.wheel_count));
@@ -655,12 +671,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       ctx.base_friction = config_.wheel_friction;
       ctx.drive_force = drive_force;
       ctx.immersion = liquid_immersion;
-      
-      
-      
-      // Static/crawl assistance must stay within plausible tyre loads. The old
-      // values could override the Coulomb limit by a large factor and turn one
-      // grounded wheel into an artificial pivot for the whole chassis.
+
+
+
+
+
+
       float crawl_grip = 0.9f;
       switch (wheel_mechanic) {
         case MechanicType::Ice: crawl_grip = 0.18f; break;
@@ -735,8 +751,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const auto rolling_ground = terrain.query(wheel.position.x);
       const Vec2 rolling_tangent = normalized({rolling_ground.normal.y, -rolling_ground.normal.x});
       const float rolling_speed = dot(state.body.velocity, rolling_tangent);
-      
-      
+
+
       const float target_angular_velocity = -rolling_speed / std::max(0.05f, wheel.radius);
       if (control.brake > 0.0f) {
         wheel.angular_velocity = 0.0f;
@@ -788,9 +804,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (rig.body.collision.type == CollisionType::Box) {
     const float hw = rig.body.collision.size.x * 0.5f;
     const float hh = rig.body.collision.size.y * 0.5f;
-    // Sample the complete perimeter. Sampling only the local bottom edge makes
-    // that edge point upward after a rollover and lets the other half of the
-    // chassis tunnel through the height field.
+
+
+
     const Vec2 samples[8] = {
         {-hw, -hh}, {0.0f, -hh}, {hw, -hh}, {hw, 0.0f},
         {hw, hh}, {0.0f, hh}, {-hw, hh}, {-hw, 0.0f},
@@ -802,6 +818,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float penetration = ground.height - point.y;
       if (penetration > 0.0f) {
         body_ground_contact = true;
+        register_body_contact(local);
         const Vec2 ground_normal = ground.normal;
         const Vec2 r = point - state.body.position;
         const Vec2 point_velocity = state.body.velocity + perp(r) * state.body.angular_velocity;
@@ -826,10 +843,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.body.angular_velocity *= (1.0f - config_.angular_damping);
   state.body.angle += state.body.angular_velocity * dt;
 
-  // Forces make normal resting contact smooth, while this short sequential
-  // impulse pass prevents high-speed impacts from crossing the terrain in one
-  // frame. It also gives a rolled chassis ordinary Coulomb friction instead of
-  // allowing it to skate indefinitely on a corner.
+
+
+
+
+  float body_contact_impulse = 0.0f;
   if (rig.body.collision.type == CollisionType::Box) {
     const float hw = rig.body.collision.size.x * 0.5f;
     const float hh = rig.body.collision.size.y * 0.5f;
@@ -860,6 +878,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       if (!found) break;
 
       body_ground_contact = true;
+      register_body_contact(deepest_local);
       const Vec2 normal = deepest_ground.normal;
       state.body.position += normal * (deepest + kContactSlop);
       const Vec2 r = rotate(deepest_local, state.body.angle);
@@ -872,6 +891,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
             state.body.inv_mass + lever * lever * state.body.inv_inertia;
         if (effective_inv_mass > 1.0e-8f) {
           normal_impulse = -(1.0f + kRestitution) * normal_speed / effective_inv_mass;
+          body_contact_impulse = std::max(body_contact_impulse, normal_impulse);
           apply_body_impulse(state.body, normal * normal_impulse,
                              state.body.position + r);
         }
@@ -898,8 +918,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
   const bool grounded_now = any_wheel_grounded || body_ground_contact;
   if (!grounded_now) {
-    
-    
+
+
     state.airborne = state.has_grounded;
     state.airborne_steps = state.airborne
                                ? (was_airborne ? previous_airborne_steps + 1 : 1)
@@ -923,6 +943,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (charging_lockout) {
     stats.energy_cost = 0.0f;
   }
+  const Vec2 world_acceleration =
+      (state.body.velocity - previous_body_velocity) / std::max(0.0001f, dt);
+  state.imu_acceleration = rotate(world_acceleration, -state.body.angle);
+  state.imu_angular_acceleration =
+      (state.body.angular_velocity - previous_body_angular_velocity) /
+      std::max(0.0001f, dt);
+  state.imu_impact = std::max(stats.hard_contact * dt, body_contact_impulse) /
+                     std::max(0.1f, state.body.mass);
   stats.energy_cost += lidar_energy_cost;
   state.energy = clamp(state.energy - stats.energy_cost + stats.energy_gain,
                        0.0f, config_.energy_capacity);
@@ -934,4 +962,4 @@ void PhysicsEngine::apply_body_impulse(RigidBodyState& body, Vec2 impulse, Vec2 
   body.angular_velocity += cross(point - body.position, impulse) * body.inv_inertia;
 }
 
-}  
+}

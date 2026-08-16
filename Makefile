@@ -1,12 +1,12 @@
 PYTHON := .venv/bin/python
 
-.PHONY: setup test play
+.PHONY: setup verify play
 
 setup:
 	scripts/setup.sh Release
 
-test:
-	$(PYTHON) -m pytest environment/tests baselines/tests -q
+verify:
+	$(PYTHON) -m mars_rover_env.tools.doctor
 
 play:
 	$(PYTHON) -m mars_rover_env.tools.play

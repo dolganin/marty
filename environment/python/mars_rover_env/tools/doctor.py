@@ -23,9 +23,9 @@ def main() -> None:
     from mars_rover_env import MarsRoverEnv
     from mars_rover_env.bank import load_manifest, require_compiled_bank
 
-                                                                             
-                                                                                
-                                                                            
+
+
+
     manifest = load_manifest()
     bank_version = require_compiled_bank(manifest)
 

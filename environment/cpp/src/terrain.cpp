@@ -170,8 +170,8 @@ void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
   for (int i = ramp_first; i <= ramp_last; ++i) {
     const float x = static_cast<float>(i) * dx_;
     const float t = clamp((x - ramp_begin) / std::max(dx_, begin_x - ramp_begin), 0.0f, 1.0f);
-    
-    
+
+
     heights_[static_cast<size_t>(i)] += ramp_height * t * t;
   }
   const int first = std::max(0, static_cast<int>(std::ceil(begin_x * inv_dx_)));
@@ -184,4 +184,4 @@ float Terrain::height_at_index(int i) const {
   return heights_[static_cast<size_t>(std::clamp(i, 0, static_cast<int>(heights_.size() - 1)))];
 }
 
-}  
+}

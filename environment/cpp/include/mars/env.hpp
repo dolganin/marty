@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v9-full-body-contact-coulomb-traction-manual-continuation";
+    "mars-env-v10-proprioception-long-lidar-stochastic-terrain";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -21,26 +21,28 @@ struct EnvConfig {
   TerminationConfig termination{};
   RoverRig rig = RoverRig::default_two_wheel();
   int episodes_per_trial = 4;
-  
+
   int biome_split = 1;
-  int fixed_biome_id = -1;  
+  int fixed_biome_id = -1;
   bool debug = false;
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
+
+
+
   bool chain_biomes = false;
   int chain_zone_count = 14;
   float chain_segment_min_length = 30.0f;
   float chain_segment_max_length = 70.0f;
+  float terrain_surprise_probability = 0.22f;
+  float terrain_surprise_strength = 1.0f;
 };
 
 struct StepOutput {
@@ -88,4 +90,4 @@ class Env {
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
 };
 
-}  
+}

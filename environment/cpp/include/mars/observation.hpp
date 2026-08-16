@@ -8,16 +8,22 @@ namespace mars {
 
 constexpr int kTerrainSamplesAhead = 24;
 constexpr int kBiomeSamplesAhead = 8;
+constexpr int kImuObservationDim = 4;
+constexpr int kBodyContactObservationDim = 3;
+constexpr int kWheelEncoderObservationDim = kMaxWheels * 2;
 constexpr int kObservationDim =
-    8 +                 
-    kMaxWheels * 3 +    
+    8 +
+    kMaxWheels * 3 +
     kTerrainSamplesAhead * 2 +
-    kBiomeSamplesAhead * 3 +  
-    20;                
+    kBiomeSamplesAhead * 3 +
+    20 +
+    kImuObservationDim +
+    kBodyContactObservationDim +
+    kWheelEncoderObservationDim;
 
 struct ObservationView {
   float* data = nullptr;
   int dim = kObservationDim;
 };
 
-}  
+}

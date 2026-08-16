@@ -25,7 +25,7 @@ def _load_mapping(path: str | Path) -> dict[str, Any]:
         return json.loads(text)
     try:
         import yaml
-    except ImportError as exc:                    
+    except ImportError as exc:
         raise ImportError("Install PyYAML to load YAML config files") from exc
     data = yaml.safe_load(text)
     return {} if data is None else data
@@ -80,6 +80,12 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             )
             cfg.chain_segment_max_length = float(
                 env.get("chain_segment_max_length", cfg.chain_segment_max_length)
+            )
+            cfg.terrain_surprise_probability = float(
+                env.get("terrain_surprise_probability", cfg.terrain_surprise_probability)
+            )
+            cfg.terrain_surprise_strength = float(
+                env.get("terrain_surprise_strength", cfg.terrain_surprise_strength)
             )
             cfg.debug = bool(env.get("debug", cfg.debug))
         if "terrain" in data:
