@@ -30,7 +30,8 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 def _run(command: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
-    print(f"$ {' '.join(command)}", flush=True)
+    prompt = "PS>" if os.name == "nt" else "$"
+    print(f"{prompt} {' '.join(command)}", flush=True)
     result = subprocess.run(command, cwd=cwd, env=env)
     if result.returncode != 0:
         raise SystemExit(
@@ -64,6 +65,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="skip the post-rebuild bank audit",
     )
+    parser.add_argument(
+        "--rebuild-only",
+        action="store_true",
+        help="reuse an already generated run bank; rebuild, verify and gate without LLM calls",
+    )
     return parser
 
 
@@ -79,30 +85,55 @@ def main() -> None:
     run_env["MARS_ROVER_BANK_MANIFEST"] = str(bank_dir / "biome_bank.json")
     run_env["MARS_ROVER_BANK_INCLUDE"] = str(bank_include)
 
-    _run(
-        [
-            python,
-            "-m",
-            "mars_rover_env.tools.generate_biomes",
-            "--config",
-            str(args.config),
-            "--split",
-            args.split,
-            "--count",
-            str(args.count),
-            "--replace",
-            "--bank-dir",
-            str(bank_dir),
-        ],
-        cwd=ROOT,
-        env=run_env,
-    )
+    if args.rebuild_only:
+        required = (bank_dir / "biome_bank.json", bank_include / "mars" / "biome_bank.hpp")
+        missing = [str(path) for path in required if not path.is_file()]
+        if missing:
+            raise SystemExit("Cannot resume incomplete run bank; missing: " + ", ".join(missing))
+    else:
+        _run(
+            [
+                python,
+                "-m",
+                "mars_rover_env.tools.generate_biomes",
+                "--config",
+                str(args.config),
+                "--split",
+                args.split,
+                "--count",
+                str(args.count),
+                "--replace",
+                "--bank-dir",
+                str(bank_dir),
+            ],
+            cwd=ROOT,
+            env=run_env,
+        )
 
     if args.skip_rebuild:
         print("Skipping rebuild (--skip-rebuild); the compiled bank is now stale.")
         return
 
     _run([python, "-m", "pip", "install", "-e", ".", "--no-build-isolation", "-q"], cwd=ROOT, env=run_env)
+
+    # Fail at the build boundary with both hashes, before an expensive rollout
+    # gate starts. This also proves that Python resolves the freshly replaced
+    # Windows .pyd rather than a stale editable-build output.
+    _run(
+        [
+            python,
+            "-c",
+            (
+                "import json, os; import _mars_rover_cpp as n; "
+                "p=json.load(open(os.environ['MARS_ROVER_BANK_MANIFEST'], encoding='utf-8')); "
+                "a=n.biome_bank_version(); e=p['bank_version']; "
+                "assert a == e, f'fresh native bank mismatch: compiled={a!r}, manifest={e!r}'; "
+                "print(f'native bank verified: {a}')"
+            ),
+        ],
+        cwd=ROOT,
+        env=run_env,
+    )
 
     _run(
         [python, "-m", "mars_rover_env.tools.evaluate_biomes", "--split", args.split],

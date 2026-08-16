@@ -15,9 +15,15 @@ class BuildExt(build_ext):
         debug = build_type in {"debug", "relwithdebinfo"}
         use_openmp = os.environ.get("MARS_ROVER_OPENMP", "1") not in {"0", "false", "False"}
         bank_include = os.environ.get("MARS_ROVER_BANK_INCLUDE")
+        if bank_include:
+            # A run bank is an external generated header. Distutils does not
+            # reliably include such headers in its incremental dependency
+            # graph, especially for editable Windows builds, so stale .obj/.pyd
+            # files can otherwise survive a bank switch.
+            self.force = True
         for ext in self.extensions:
             if bank_include:
-                ext.include_dirs.append(str(Path(bank_include).resolve()))
+                ext.include_dirs.insert(0, str(Path(bank_include).resolve()))
             ext.include_dirs.append(str(Path("cpp/include").resolve()))
             ext.include_dirs.append(pybind11.get_include())
             if self.compiler.compiler_type == "msvc":
