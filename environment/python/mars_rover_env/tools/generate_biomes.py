@@ -708,6 +708,56 @@ TRAIN_BRIEFS = {
 }
 
 
+THERMAL_BANDS = (
+    (
+        "криогенный",
+        "ambient_temperature between -130 and -95, thermal_transfer between 1.5 and 2.6",
+        "The rover freezes here unless it keeps burning fuel: an idling or coasting engine falls "
+        "below minimum_operating_temperature and cold-locks permanently. Standing still, coasting "
+        "downhill and long solar stops must all be lethal; heat is produced only by throttle.",
+    ),
+    (
+        "холодный",
+        "ambient_temperature between -95 and -55, thermal_transfer between 1.1 and 1.8",
+        "Sustained throttle is thermally safe here, so the danger must come from traction, gravity "
+        "or obstacles rather than from heat. Long cautious stops still cool the engine dangerously.",
+    ),
+    (
+        "умеренный",
+        "ambient_temperature between -55 and -15, thermal_transfer between 0.8 and 1.3",
+        "The engine settles near the middle of its operating window under steady throttle, so heat "
+        "becomes a constraint only when combined with heavy drivetrain load or low speed.",
+    ),
+    (
+        "жаркий",
+        "ambient_temperature between -15 and 35, thermal_transfer between 0.45 and 0.85",
+        "Sustained full throttle must drive the engine into overheat_temperature within roughly one "
+        "to two minutes. Crossing this world requires throttle discipline: burst, coast, let the "
+        "engine shed heat, burst again.",
+    ),
+    (
+        "пекло",
+        "ambient_temperature between 35 and 95, thermal_transfer between 0.25 and 0.6",
+        "Ambient alone keeps the engine hot, so overheating is the dominant hazard and must happen "
+        "in tens of seconds of continuous throttle. Speed helps through airflow cooling, so the "
+        "correct policy may be counterintuitively fast rather than cautious.",
+    ),
+)
+
+
+ENGINE_THERMAL_CONTRACT = (
+    "Engine thermal model (PhysicsEngine::step): the engine is a lumped thermal mass. "
+    "dT/dt = (idle_heat*(0.6+0.4*rpm01) + heat_per_fuel*drivetrain_fuel_rate "
+    "- (cooling_conductance + cooling_airflow*|vx|) * thermal_transfer * (T - ambient_temperature)) "
+    "/ thermal_mass. With the shipped constants a rover holding full throttle settles roughly "
+    "125 degrees above ambient_temperature divided by thermal_transfer, an idling engine settles "
+    "about 27 degrees above it, and a stopped engine relaxes to ambient with a time constant near "
+    "12 seconds. overheat_temperature is 115, the engine restarts only below 92, and it cold-locks "
+    "below -38. Therefore ambient_temperature and thermal_transfer together decide whether this "
+    "world burns the engine, freezes it, or leaves heat irrelevant. Choose them deliberately."
+)
+
+
 TEST_BRIEFS = {
     "traction_loss": "traction inversion coupled to darkness or scan timing, without copying dry sink/deformation",
     "lateral_force": "intermittent cross-force coupled to thermal load, with calm windows for progress",
@@ -777,6 +827,16 @@ def _prompt(
             "repeat the same mistake. You may redesign the biome if that produces cleaner code.\n"
             "<validator_feedback>\n" + feedback[-6000:] + "\n</validator_feedback>"
         )
+    band_name, band_ranges, band_intent = THERMAL_BANDS[request_number % len(THERMAL_BANDS)]
+    thermal = (
+        "\n\n<thermal_assignment>\n"
+        + ENGINE_THERMAL_CONTRACT
+        + f"\nThis candidate is assigned the {band_name} band: {band_ranges}. {band_intent}\n"
+        "The bank as a whole must span everything from worlds that freeze the engine solid to "
+        "worlds that burn it out, so do not drift back toward the comfortable middle: honour the "
+        "assigned band even if a milder value would be easier to balance.\n"
+        "</thermal_assignment>"
+    )
     surprise = ""
     if surprise_injection:
         surprise = (
@@ -804,7 +864,7 @@ def _prompt(
         "reveal the mechanic class, hazard phase, safe speed, or correct action. A surface-break "
         "precursor must remain ambiguous: it may require braking before a pit in one world and "
         "accelerating over a ramp in another."
-        + surprise + correction + "\n\n"
+        + thermal + surprise + correction + "\n\n"
         "Complete contract and existing implementation bank:\n```cpp\n" + header + "\n```"
     )
 

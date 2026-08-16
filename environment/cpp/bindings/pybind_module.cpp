@@ -259,6 +259,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                       ? std::max(0.0f, zone.liquid_level -
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
+             d["drive_fuel_rate"] = state.drive_fuel_rate;
              d["trial_steps_used"] = env.trial_steps_used();
              d["trial_step_budget"] = env.trial_step_budget();
              d["trial_time_left"] = env.trial_time_left();

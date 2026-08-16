@@ -38,7 +38,7 @@ physics:
   overheat_restart_temperature: 92.0
   engine_thermal_mass: 1.0
   engine_idle_heat: 2.2
-  engine_heat_per_fuel: 44.0
+  engine_heat_per_fuel: 730.0
   engine_cooling_conductance: 0.08
   engine_cooling_airflow: 0.012
   initial_energy: 25.0
