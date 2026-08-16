@@ -1,13 +1,13 @@
-mars_rover/.venv/
-mars_rover/build/
-mars_rover/build-*/
-mars_rover/render-smoke.png
-mars_rover/dist/
-mars_rover/*.egg-info/
-mars_rover/python/*.egg-info/
+.venv/
+build/
+build-*/
+dist/
+artifacts/
+runs/
 **/__pycache__/
 **/.pytest_cache/
 **/.ipynb_checkpoints/
+**/*.egg-info/
 *.py[cod]
 *.pyd
 *.so
@@ -15,13 +15,6 @@ mars_rover/python/*.egg-info/
 *.o
 *.obj
 *.pdb
-mars_rover/python/mars_rover_env/configs/biome_generator.local.yaml
-mars_rover/python/mars_rover_env/configs/biome_generation_checkpoint.json
-mars_rover/artifacts/
-# Local baseline runs (models, checkpoints, traces, and rendered behavior).
-mars_rover_agents/runs/
-mars_rover_agents/dist/
-mars_rover_agents/src/*.egg-info/
-
-# Stray symlink to a system binary, not part of this project.
+environment/python/mars_rover_env/configs/biome_generator.local.yaml
+environment/python/mars_rover_env/configs/biome_generation_checkpoint.json
 /codex

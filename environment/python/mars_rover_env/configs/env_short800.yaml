@@ -1,0 +1,55 @@
+env:
+  episodes_per_trial: 4
+
+  biome_split: 1
+  fixed_biome_id: -1
+  debug: false
+
+terrain:
+  sample_count: 4096
+  dx: 0.25
+  base_height: 0.0
+  amplitude: 0.5
+  length: 1024.0
+
+physics:
+  dt: 0.016666667
+  gravity: -3.71
+  wheel_friction: 1.2
+  motor_torque: 91.125
+  final_drive_ratio: 4.5
+  engine_inertia: 0.48
+  engine_drag_torque: 7.0
+  clutch_sync_rate: 3200.0
+  initial_engine_temperature: 20.0
+  cold_start_temperature: -25.0
+  minimum_operating_temperature: -38.0
+  full_power_temperature: 65.0
+  overheat_temperature: 115.0
+  overheat_restart_temperature: 92.0
+  engine_heat_rate: 4.5
+  engine_cooling_rate: 0.012
+  initial_energy: 25.0
+  energy_capacity: 25.0
+  panel_deploy_time: 4.0
+  panel_retract_time: 3.0
+  lidar_energy_cost: 2.0
+  lidar_scan_duration: 1.5
+  lidar_cooldown: 2.0
+  lidar_base_range: 12.0
+  brake_strength: 20.0
+  body_tilt_torque: 8.0
+
+termination:
+  finish_x: 100.0
+  max_steps: 800
+  flip_angle: 2.2
+  min_energy: 0.0
+  stuck_steps: 180
+
+reward:
+  progress_scale: 1.0
+  energy_cost_scale: 0.01
+  flip_penalty: 5.0
+  stuck_penalty: 0.05
+  finish_bonus: 100.0
