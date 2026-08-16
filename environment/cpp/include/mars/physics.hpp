@@ -24,11 +24,11 @@ struct PhysicsConfig {
   float full_power_temperature = 65.0f;
   float overheat_temperature = 115.0f;
   float overheat_restart_temperature = 92.0f;
-  float engine_thermal_mass = 1.0f;
+  float engine_thermal_mass = 8.0f;
   float engine_idle_heat = 2.2f;
-  float engine_heat_per_fuel = 730.0f;
-  float engine_cooling_conductance = 0.08f;
-  float engine_cooling_airflow = 0.012f;
+  float engine_heat_per_fuel = 3.0f;
+  float engine_cooling_conductance = 0.10f;
+  float engine_cooling_airflow = 0.08f;
   float initial_energy = 25.0f;
   float energy_capacity = 25.0f;
   float panel_deploy_time = 4.0f;

@@ -395,10 +395,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   state.ambient_temperature = ambient_temperature;
   state.thermal_transfer = thermal_transfer;
+  const float speed = std::abs(state.body.velocity.x);
+  const float airflow_factor = speed / (speed + 6.0f);
   const float conductance =
       (config_.engine_cooling_conductance +
-       config_.engine_cooling_airflow * std::abs(state.body.velocity.x)) *
-      thermal_transfer;
+       config_.engine_cooling_airflow * airflow_factor) * thermal_transfer;
   const float heat_removed = conductance * (state.engine_temperature - ambient_temperature);
   const float fuel_power = state.drive_fuel_rate;
   const float combustion_heat =

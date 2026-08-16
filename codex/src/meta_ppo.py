@@ -28,12 +28,12 @@ EVENT_MASK = sum(1 << bit for bit in range(6, 12))
 class Config:
     total_frames: int = 20_000_000
     num_envs: int = 64
-    rollout_steps: int = 256
+    rollout_steps: int = 512
     frame_skip: int = 4
     hidden_size: int = 256
     learning_rate: float = 3e-4
-    gamma: float = 0.997
-    gae_lambda: float = 0.95
+    gamma: float = 0.9995
+    gae_lambda: float = 0.995
     clip: float = 0.2
     entropy: float = 0.015
     value_coef: float = 0.5
@@ -113,19 +113,27 @@ class Runner:
     def __init__(self, n: int, split: int, seed: int, skip: int, gamma: float):
         self.env = MarsRoverVecEnv(n, biome_split=split)
         self.finish_x = float(load_env_config().termination.finish_x)
+        self.trial_budget = int(self.env.core.trial_step_budget(0))
         self.n, self.skip, self.gamma = n, skip, gamma
         self.rng = np.random.default_rng(seed + 17)
         self.obs = self.env.reset(seed).copy()
         self.start = np.ones(n, np.float32); self.prev_done = np.ones(n, np.float32)
         self.prev_action = np.zeros(n, np.int64); self.prev_reward = np.zeros(n, np.float32)
-        self.episode = np.zeros(n, np.int32)
+        self.attempt = np.zeros(n, np.int32)
         self.trial = np.zeros(n, np.int64)
         self.returns = np.zeros(n); self.lengths = np.zeros(n, np.int64)
+        self.trial_steps = np.zeros(n, np.int64)
+        self.trial_returns = np.zeros(n, np.float64)
+        self.trial_best_distance = np.zeros(n, np.float64)
+        self.trial_total_distance = np.zeros(n, np.float64)
         self.completed: list[dict[str, float]] = []
+        self.completed_trials: list[dict[str, float]] = []
 
     @property
-    def episode_fraction(self):
-        return self.episode.astype(np.float32) / max(1, self.env.episodes_per_trial - 1)
+    def trial_fraction(self):
+        if self.trial_budget <= 0:
+            return np.zeros(self.n, np.float32)
+        return np.clip(self.trial_steps / self.trial_budget, 0.0, 1.0).astype(np.float32)
 
     def step(self, actions: np.ndarray):
         macros = np.take(np.asarray(ACTION_MACROS, np.int32), actions)
@@ -135,24 +143,41 @@ class Runner:
             applied = macros if repeat == 0 else macros & ~EVENT_MASK
             obs, reward, terminated, truncated, _ = self.env.step(applied)
             reward_sum += self.gamma**repeat * reward
-            self.returns += reward; self.lengths += 1; repeats += 1
+            self.returns += reward; self.trial_returns += reward
+            self.lengths += 1; self.trial_steps += 1; repeats += 1
             done = terminated | truncated
             if done.any():
                 terminal = obs.copy()
                 for i in np.flatnonzero(done):
                     is_start = bool(self.env.next_trial_start[i]); next_start[i] = is_start
+                    distance = max(0.0, float(terminal[i, 0]) * self.finish_x - 1.0)
                     self.completed.append({
                         "env": float(i), "trial": float(self.trial[i]),
-                        "episode": float(self.episode[i] + 1), "return": float(self.returns[i]),
+                        "attempt": float(self.attempt[i] + 1), "return": float(self.returns[i]),
                         "length": float(self.lengths[i]), "progress": float(terminal[i, 0]),
-                        "distance_m": max(0.0, float(terminal[i, 0]) * self.finish_x - 1.0),
+                        "distance_m": distance,
                         "success": float(terminal[i, 0] >= 1.0),
                     })
+                    self.trial_best_distance[i] = max(self.trial_best_distance[i], distance)
+                    self.trial_total_distance[i] += distance
+                    if is_start:
+                        self.completed_trials.append({
+                            "env": float(i), "trial": float(self.trial[i]),
+                            "return": float(self.trial_returns[i]),
+                            "best_distance_m": float(self.trial_best_distance[i]),
+                            "total_distance_m": float(self.trial_total_distance[i]),
+                            "attempts": float(self.attempt[i] + 1),
+                            "success": float(self.trial_best_distance[i] >= self.finish_x - 1.0),
+                        })
                     seed = int(self.rng.integers(0, np.iinfo(np.uint32).max, dtype=np.uint32))
                     self.env.reset_at(i, seed, trial_start=is_start)
                     self.returns[i] = 0; self.lengths[i] = 0
-                    if is_start: self.trial[i] += 1
-                    self.episode[i] = 0 if is_start else self.episode[i] + 1
+                    if is_start:
+                        self.trial[i] += 1; self.attempt[i] = 0; self.trial_steps[i] = 0
+                        self.trial_returns[i] = 0; self.trial_best_distance[i] = 0
+                        self.trial_total_distance[i] = 0
+                    else:
+                        self.attempt[i] += 1
                 break
         self.obs = self.env.obs.copy(); self.start = next_start.astype(np.float32)
         self.prev_done = done.astype(np.float32); self.prev_action = actions.copy()
@@ -163,26 +188,33 @@ class Runner:
         result, self.completed = self.completed, []
         return result
 
+    def pop_trials(self):
+        result, self.completed_trials = self.completed_trials, []
+        return result
 
-def summary(rows: list[dict[str, float]]) -> dict[str, Any]:
-    result: dict[str, Any] = {"episodes": len(rows), "by_episode": {}}
-    for number in range(1, 5):
-        group = [x for x in rows if int(x["episode"]) == number]
-        if group:
-            result["by_episode"][str(number)] = {k: float(np.mean([x[k] for x in group]))
-                                                 for k in ("return", "progress", "success", "length", "distance_m")}
-            distances = np.asarray([x["distance_m"] for x in group])
-            result["by_episode"][str(number)].update({
-                "distance_median": float(np.median(distances)),
-                "distance_p90": float(np.percentile(distances, 90)),
-                "distance_max": float(np.max(distances)),
-            })
-            result["by_episode"][str(number)]["count"] = len(group)
-    first = result["by_episode"].get("1")
-    later = [v for k, v in result["by_episode"].items() if k != "1"]
-    if first and later:
-        result["adaptation_return_delta"] = float(np.mean([x["return"] for x in later]) - first["return"])
-        result["adaptation_success_delta"] = float(np.mean([x["success"] for x in later]) - first["success"])
+
+def summary(trials: list[dict[str, float]], attempts: list[dict[str, float]]) -> dict[str, Any]:
+    result: dict[str, Any] = {"trials": len(trials), "attempts": len(attempts)}
+    if trials:
+        for key in ("return", "best_distance_m", "total_distance_m", "attempts", "success"):
+            values = np.asarray([row[key] for row in trials])
+            result[key + "_mean"] = float(values.mean())
+            result[key + "_median"] = float(np.median(values))
+            result[key + "_p90"] = float(np.percentile(values, 90))
+            result[key + "_max"] = float(values.max())
+    grouped: dict[tuple[int, int], list[dict[str, float]]] = {}
+    for row in attempts:
+        grouped.setdefault((int(row["env"]), int(row["trial"])), []).append(row)
+    deltas, first_distances, later_best = [], [], []
+    for rows in grouped.values():
+        rows.sort(key=lambda row: row["attempt"])
+        first = rows[0]["distance_m"]
+        later = max((row["distance_m"] for row in rows[1:]), default=first)
+        first_distances.append(first); later_best.append(later); deltas.append(later - first)
+    if deltas:
+        result["first_attempt_distance_mean"] = float(np.mean(first_distances))
+        result["later_best_distance_mean"] = float(np.mean(later_best))
+        result["adaptation_distance_delta_mean"] = float(np.mean(deltas))
     return result
 
 
@@ -210,7 +242,8 @@ def train(config: Config, output: Path):
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate, eps=1e-5)
     rms = RunningMeanStd(runner.env.obs_dim); hidden = model.initial(config.num_envs, device)
     output.mkdir(parents=True, exist_ok=True)
-    frames = updates = 0; episodes: list[dict[str, float]] = []; started = time.perf_counter()
+    frames = updates = 0; attempts: list[dict[str, float]] = []
+    trials: list[dict[str, float]] = []; started = time.perf_counter()
     while frames < config.total_frames:
         keys = ("obs", "pa", "pr", "pd", "ep", "start", "action", "logp", "value",
                 "reward", "discount", "ldiscount", "trial_end")
@@ -218,7 +251,7 @@ def train(config: Config, output: Path):
         for _ in range(config.rollout_steps):
             rms.update(runner.obs); obs = rms.normalize(runner.obs)
             current = (obs, runner.prev_action.copy(), runner.prev_reward.copy(), runner.prev_done.copy(),
-                       runner.episode_fraction.copy(), runner.start.copy())
+                       runner.trial_fraction.copy(), runner.start.copy())
             with torch.no_grad():
                 logits, value, hidden = model.step(tt(obs, device), tt(current[1], device, torch.long),
                     tt(current[2], device), tt(current[3], device), tt(current[4], device),
@@ -231,11 +264,11 @@ def train(config: Config, output: Path):
                               ("discount", np.full(config.num_envs, config.gamma**repeats, np.float32)),
                               ("ldiscount", np.full(config.num_envs, config.gae_lambda**repeats, np.float32)),
                               ("trial_end", trial_end.astype(np.float32))): store[key].append(item)
-            frames += used; episodes.extend(runner.pop())
+            frames += used; attempts.extend(runner.pop()); trials.extend(runner.pop_trials())
         with torch.no_grad():
             _, next_value, _ = model.step(tt(rms.normalize(runner.obs), device),
                 tt(runner.prev_action, device, torch.long), tt(runner.prev_reward, device),
-                tt(runner.prev_done, device), tt(runner.episode_fraction, device),
+                tt(runner.prev_done, device), tt(runner.trial_fraction, device),
                 tt(runner.start, device), hidden)
         batch = {k: np.stack(v) for k, v in store.items()}
         adv = np.zeros_like(batch["reward"]); last = np.zeros(config.num_envs, np.float32)
@@ -265,30 +298,38 @@ def train(config: Config, output: Path):
         hidden = hidden.detach(); updates += 1
         values = np.mean(losses, 0); report = {"update": updates, "frames": frames,
             "fps": int(frames / (time.perf_counter()-started)), "policy_loss": values[0],
-            "value_loss": values[1], "entropy": values[2], "recent": summary(episodes[-200:])}
+            "value_loss": values[1], "entropy": values[2],
+            "recent": summary(trials[-100:], attempts[-1000:])}
         print(json.dumps(report), flush=True)
         with (output / "metrics.jsonl").open("a", encoding="utf-8") as f: f.write(json.dumps(report)+"\n")
         save(output / "checkpoint.pt", model, optimizer, rms, config, frames)
-    final = summary(episodes); (output / "summary.json").write_text(json.dumps(final, indent=2), encoding="utf-8")
+    final = summary(trials, attempts)
+    (output / "summary.json").write_text(json.dumps(final, indent=2), encoding="utf-8")
 
 
 @torch.no_grad()
-def evaluate(path: Path, split: int, trials: int, seed: int, stochastic: bool, device_name: str):
+def evaluate(path: Path, split: int, trials: int, seed: int, stochastic: bool,
+             device_name: str, reset_memory_on_attempt: bool = False):
+    torch.manual_seed(seed); np.random.seed(seed)
     device = device_for(device_name); ckpt = torch.load(path, map_location=device, weights_only=False)
     config = Config(**ckpt["config"]); n = min(64, trials)
     runner = Runner(n, split, seed, config.frame_skip, config.gamma)
     model = Agent(ckpt["obs_dim"], ckpt["action_dim"], config.hidden_size).to(device)
     model.load_state_dict(ckpt["model"]); model.eval(); rms = RunningMeanStd(ckpt["obs_dim"]); rms.load_state_dict(ckpt["rms"])
-    hidden = model.initial(n, device); rows = []; target = trials * runner.env.episodes_per_trial
+    hidden = model.initial(n, device); attempt_rows = []; trial_rows = []
     quotas = np.full(n, trials // n, dtype=np.int64); quotas[: trials % n] += 1
-    while len(rows) < target:
+    while len(trial_rows) < trials:
+        memory_reset = (np.maximum(runner.start, runner.prev_done)
+                        if reset_memory_on_attempt else runner.start)
         logits, _, hidden = model.step(tt(rms.normalize(runner.obs), device), tt(runner.prev_action, device, torch.long),
-            tt(runner.prev_reward, device), tt(runner.prev_done, device), tt(runner.episode_fraction, device), tt(runner.start, device), hidden)
+            tt(runner.prev_reward, device), tt(runner.prev_done, device), tt(runner.trial_fraction, device), tt(memory_reset, device), hidden)
         actions = Categorical(logits=logits).sample() if stochastic else logits.argmax(-1)
         runner.step(actions.cpu().numpy())
-        rows.extend(row for row in runner.pop()
-                    if int(row["trial"]) < quotas[int(row["env"])])
-    return summary(rows)
+        attempt_rows.extend(row for row in runner.pop()
+                            if int(row["trial"]) < quotas[int(row["env"])])
+        trial_rows.extend(row for row in runner.pop_trials()
+                          if int(row["trial"]) < quotas[int(row["env"])])
+    return summary(trial_rows, attempt_rows)
 
 
 def main():
@@ -304,13 +345,15 @@ def main():
     e = sub.add_parser("evaluate"); e.add_argument("--checkpoint", type=Path, required=True)
     e.add_argument("--biome-split", type=int, choices=(1,2), default=2); e.add_argument("--trials", type=int, default=50)
     e.add_argument("--seed", type=int, default=10000); e.add_argument("--stochastic", action="store_true"); e.add_argument("--device", default="auto")
+    e.add_argument("--reset-memory-on-attempt", action="store_true")
     args = parser.parse_args()
     if args.command == "train":
         train(Config(total_frames=args.total_frames, num_envs=args.num_envs, rollout_steps=args.rollout_steps,
             frame_skip=args.frame_skip, hidden_size=args.hidden_size, learning_rate=args.learning_rate,
             gamma=args.gamma, gae_lambda=args.gae_lambda, seed=args.seed, biome_split=args.biome_split, device=args.device), args.output)
     else:
-        print(json.dumps(evaluate(args.checkpoint, args.biome_split, args.trials, args.seed, args.stochastic, args.device), indent=2))
+        print(json.dumps(evaluate(args.checkpoint, args.biome_split, args.trials, args.seed,
+                                  args.stochastic, args.device, args.reset_memory_on_attempt), indent=2))
 
 
 if __name__ == "__main__": main()

@@ -111,7 +111,7 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=3)
     p.add_argument("--minibatches", type=int, default=4, help="разбиение по средам")
     p.add_argument("--lr", type=float, default=3e-4)
-    p.add_argument("--gamma", type=float, default=0.999)
+    p.add_argument("--gamma", type=float, default=0.9995)
     p.add_argument("--lam", type=float, default=0.95)
     p.add_argument("--clip", type=float, default=0.2)
     p.add_argument("--ent", type=float, default=0.01)
@@ -159,9 +159,13 @@ def main() -> None:
     b_done = torch.zeros(T, N, device=device)
     b_ts = torch.zeros(T, N, device=device)
 
-    ret_hist = [deque(maxlen=200) for _ in range(env.episodes_per_trial)]
-    succ_hist = [deque(maxlen=200) for _ in range(env.episodes_per_trial)]
-    prog_hist = [deque(maxlen=200) for _ in range(env.episodes_per_trial)]
+    from meta_env import MAX_ATTEMPT_BUCKETS
+
+    prog_hist = [deque(maxlen=400) for _ in range(MAX_ATTEMPT_BUCKETS)]
+    trial_best = deque(maxlen=200)
+    trial_sum = deque(maxlen=200)
+    trial_ret = deque(maxlen=200)
+    trial_att = deque(maxlen=200)
     n_updates = args.steps // (N * T)
     global_step = start_update * N * T
     t0 = time.time()
@@ -189,10 +193,15 @@ def main() -> None:
                 b_rew[t] = torch.as_tensor(rew, device=device)
                 b_done[t] = torch.as_tensor(done.astype(np.float32), device=device)
                 for info in infos:
-                    e = info["episode_in_trial"]
-                    ret_hist[e].append(info["return"])
-                    succ_hist[e].append(float(info["success"]))
-                    prog_hist[e].append(info["progress"])
+                    prog_hist[min(info["attempt"], MAX_ATTEMPT_BUCKETS - 1)].append(
+                        info["progress"]
+                    )
+                    if "trial" in info:
+                        tr = info["trial"]
+                        trial_best.append(tr["best_progress"])
+                        trial_sum.append(tr["sum_progress"])
+                        trial_ret.append(tr["return"])
+                        trial_att.append(tr["attempts"])
             _, last_val, _ = net(obs_norm(obs).unsqueeze(0), h, trial_start.unsqueeze(0))
             last_val = last_val[0]
 
@@ -237,9 +246,14 @@ def main() -> None:
                 "update": update,
                 "step": global_step,
                 "sps": int(global_step / max(1e-6, time.time() - t0)),
-                "ret_by_ep": [round(float(np.mean(r)), 2) if r else None for r in ret_hist],
-                "succ_by_ep": [round(float(np.mean(r)), 3) if r else None for r in succ_hist],
-                "prog_by_ep": [round(float(np.mean(r)), 3) if r else None for r in prog_hist],
+                # прогресс по номеру попытки внутри трайла: должен расти слева направо
+                "prog_by_attempt": [
+                    round(float(np.mean(r)), 3) if r else None for r in prog_hist
+                ],
+                "trial_best_m": round(float(np.mean(trial_best)) * 800, 1) if trial_best else None,
+                "trial_sum_m": round(float(np.mean(trial_sum)) * 800, 1) if trial_sum else None,
+                "trial_return": round(float(np.mean(trial_ret)), 1) if trial_ret else None,
+                "attempts": round(float(np.mean(trial_att)), 2) if trial_att else None,
                 **{k: round(v, 4) for k, v in stats.items()},
             }
             print(json.dumps(row), flush=True)

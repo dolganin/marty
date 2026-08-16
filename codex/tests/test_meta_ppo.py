@@ -7,7 +7,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "codex" / "src"))
 
-from meta_ppo import Agent, RunningMeanStd
+from meta_ppo import Agent, RunningMeanStd, summary
 
 
 def test_trial_start_clears_recurrent_memory():
@@ -54,3 +54,15 @@ def test_running_statistics_round_trip():
     restored.load_state_dict(rms.state_dict())
     probe = np.asarray([[2, 3, 4]], dtype=np.float32)
     np.testing.assert_array_equal(rms.normalize(probe), restored.normalize(probe))
+
+
+def test_trial_summary_measures_adaptation_after_respawn():
+    attempts = [
+        {"env": 0.0, "trial": 0.0, "attempt": 1.0, "distance_m": 10.0},
+        {"env": 0.0, "trial": 0.0, "attempt": 2.0, "distance_m": 25.0},
+    ]
+    trials = [{"return": 1.0, "best_distance_m": 25.0, "total_distance_m": 35.0,
+               "attempts": 2.0, "success": 0.0}]
+    result = summary(trials, attempts)
+    assert result["adaptation_distance_delta_mean"] == 15.0
+    assert result["best_distance_m_mean"] == 25.0

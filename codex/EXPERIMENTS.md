@@ -40,3 +40,23 @@ The large stochastic/deterministic gap means the learned distribution is still
 multimodal and has not converged to a reliable controller. There is no statistically
 useful improvement across episodes 1–4 on held-out biomes, so this run learned basic
 locomotion but not robust meta-adaptation.
+
+## 2026-08-16 — v11 shared 120-second trial
+
+The environment changed to unlimited attempts under one 7,200-tick clock. The agent
+now retains memory until that clock expires, observes elapsed trial fraction, and is
+evaluated by best attempt plus adaptation after its first attempt.
+
+`v11_trained_5m` completed 5,057,472 physics frames. Reproducible stochastic
+evaluation used 50 fresh trials per split:
+
+| split | mean best | median best | p90 | maximum | attempts | later − first |
+|---|---:|---:|---:|---:|---:|---:|
+| train | 31.82 m | 28.59 m | 65.07 m | 103.42 m | 4.02 | +5.00 m |
+| held-out test | 29.91 m | 23.59 m | 62.76 m | 92.34 m | 4.56 | +6.60 m |
+
+The raw later-minus-first delta is positive, but a matched memory ablation shows it
+is mostly the statistical benefit of taking the best of several attempts. Clearing
+the GRU after every death scores 32.00 m on train and 31.04 m on test, versus 31.82 m
+and 29.91 m with memory. Thus this 5M-frame run learned a better general controller,
+but **did not yet learn useful cross-attempt adaptation**. No 800 m finish occurred.
