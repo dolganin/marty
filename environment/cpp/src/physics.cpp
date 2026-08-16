@@ -555,7 +555,23 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float spring_force_mag =
         -wr.suspension.stiffness * (suspension_travel - wr.suspension.rest_length) -
         wr.suspension.damping * spring_vel;
-    const Vec2 spring_force = suspension_axis * spring_force_mag;
+    // Progressive bump/rebound stops keep a landing compliant through most of the
+    // stroke but resist bottoming-out much more strongly near either travel limit.
+    // This makes the wheel assembly absorb a touchdown before the chassis receives
+    // the corresponding impulse, rather than behaving like a rigid strut.
+    constexpr float kStopTravel = 0.045f;
+    float stop_force_mag = 0.0f;
+    const float compression_stop = (min_len + kStopTravel) - suspension_travel;
+    if (compression_stop > 0.0f) {
+      stop_force_mag += 2400.0f * compression_stop * compression_stop;
+      if (spring_vel < 0.0f) stop_force_mag += -spring_vel * 70.0f;
+    }
+    const float rebound_stop = suspension_travel - (max_len - kStopTravel);
+    if (rebound_stop > 0.0f) {
+      stop_force_mag -= 1200.0f * rebound_stop * rebound_stop;
+      if (spring_vel > 0.0f) stop_force_mag -= spring_vel * 40.0f;
+    }
+    const Vec2 spring_force = suspension_axis * (spring_force_mag + stop_force_mag);
     wheel_force += spring_force;
     body_force -= spring_force;
     body_torque += cross(anchor_world - state.body.position, -spring_force);

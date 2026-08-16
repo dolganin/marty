@@ -274,14 +274,6 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  if (config_.debug_overlay) for (int i = 0; i < state.wheel_count; ++i) {
-    const auto& wheel = state.wheels[static_cast<size_t>(i)];
-    const Vec2 wheel_position = wheel.position;
-    const Vec2 wp = screen(wheel_position);
-    const Vec2 gp = screen({wheel_position.x, terrain.query(wheel_position.x).height});
-    draw_line(rgb, width, height, static_cast<int>(wp.x), static_cast<int>(wp.y),
-              static_cast<int>(gp.x), static_cast<int>(gp.y), {0, 128, 255});
-  }
 }
 
 }  
