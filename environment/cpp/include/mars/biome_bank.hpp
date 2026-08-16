@@ -1059,6 +1059,7 @@ inline void append(std::vector<const Biome*>& out) {
 
 namespace generated_biomes {
 
+// <MARS_GENERATED_BIOMES>
 class TractionBandDustField final : public Biome {
  public:
   std::string_view id() const noexcept override { return "traction_band_dust_field"; }
@@ -3813,6 +3814,7 @@ inline void append(std::vector<const Biome*>& out) {
   static const FathomDraftFlux biome_14; out.push_back(&biome_14);
   static const GripInversionScree biome_15; out.push_back(&biome_15);
 }
+// </MARS_GENERATED_BIOMES>
 
 }  
 
