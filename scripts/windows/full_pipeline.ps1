@@ -10,7 +10,7 @@
 
 
 param(
-    [string]$Tag = "pipeline_$(Get-Date -AsUTC -Format 'yyyyMMddTHHmmssZ')"
+    [string]$Tag = "pipeline_$((Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ'))"
 )
 
 $ErrorActionPreference = "Stop"
