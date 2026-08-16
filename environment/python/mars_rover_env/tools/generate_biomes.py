@@ -363,6 +363,9 @@ int main() {{
               << p.ledge_gap_width << ' ' << p.ledge_spacing << ' '
               << p.ledge_ramp_length << ' ' << p.ledge_ramp_height << ' '
               << p.ledge_start_x << ' ' << biome.friction_scale(p) << ' ';
+    for (float terrain_x : {{0.0f, 1.7f, 4.3f, 9.1f, 17.0f, 31.0f}}) {{
+      std::cout << biome.terrain_height_delta(terrain_x, seed ^ 0x6a09e667ULL) << ' ';
+    }}
     for (int hazard_step = 0; hazard_step <= 1260; hazard_step += 21) {{
       std::cout << biome.hazard_at(hazard_step) << ' ';
     }}

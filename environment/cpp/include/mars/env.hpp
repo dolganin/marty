@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v7-ballistic-survival-progress-loss-macro-shift";
+    "mars-env-v8-biome-shaped-terrain-manual-pause";
 
 struct EnvConfig {
   TerrainConfig terrain{};

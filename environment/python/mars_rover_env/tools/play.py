@@ -29,6 +29,7 @@ class ManualPlayer:
         self.fps_value = 0.0
         self.frame_ms = max(1, int(1000 / args.fps))
         self.restart_notice = ""
+        self.last_reward = 0.0
 
         self.root = tk.Tk()
         self.root.title("Mars Rover Manual Control")
@@ -47,7 +48,7 @@ class ManualPlayer:
             ("solar", "F  SOLAR CHARGE"),
             ("lidar", "G  LIDAR SCAN"),
             ("drive", "V  RWD / FWD / AWD"),
-            ("restart", "R  RESTART EPISODE"),
+            ("restart", "R  RESET SAME WORLD"),
         ):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
                              font=("Consolas", 10, "bold"), padx=7, pady=4)
@@ -70,6 +71,7 @@ class ManualPlayer:
         if key == "r":
             self.restart_notice = "RESTART: MANUAL RESET; SAME TRIAL"
             self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": False})
+            self.last_reward = 0.0
         elif key in {"escape", "q"}:
             self.root.destroy()
 
@@ -126,11 +128,10 @@ class ManualPlayer:
 
         obs, reward, terminated, truncated, _ = self.env.step(self.action())
         self.obs = obs
+        self.last_reward = reward
         if terminated or truncated:
             reason = self.env.debug_info().get("termination_reason", "EPISODE ENDED")
-            self.seed += 1
-            self.restart_notice = f"RESTART: {reason}; NEW EPISODE (seed {self.seed})"
-            self.obs, self.info = self.env.reset(seed=self.seed)
+            self.restart_notice = f"EVENT: {reason}; MANUAL PLAY CONTINUES (R RESETS SAME WORLD)"
 
         rgb = self.env.render()
         self.photo = tk.PhotoImage(data=_ppm_bytes(rgb), format="PPM")
@@ -145,7 +146,7 @@ class ManualPlayer:
         self.status.configure(
             text=(
                 f"gear={debug['gear']} mechanic={debug['mechanic']} x={debug['x']:.2f} vx={debug['vx']:.2f} "
-                f"energy={debug['energy']:.3f} damage={debug['damage']:.3f} reward={reward:.3f}  "
+                f"energy={debug['energy']:.3f} damage={debug['damage']:.3f} reward={self.last_reward:.3f}  "
                 f"{self.restart_notice}"
             )
         )

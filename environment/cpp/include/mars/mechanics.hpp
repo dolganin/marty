@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 
 #include "mars/contacts.hpp"
 #include "mars/math.hpp"
@@ -57,6 +58,7 @@ struct MechanicZone {
   float end_x = 1.0e9f;
   MechanicType type = MechanicType::Normal;
   int biome_id = 0;
+  uint64_t terrain_seed = 0;
   MechanicParams params{};
   float liquid_level = -1.0e9f;
 };

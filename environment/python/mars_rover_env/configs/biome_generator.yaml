@@ -63,6 +63,14 @@ generation:
       is a weak candidate; prefer reshaping the actual geometry (rougher/craterier/steppier or
       calmer/smoother, whichever fits the mechanic) together with the physics coefficients so a
       generic policy trained elsewhere cannot coast through on muscle memory of the same terrain.
+    - You may additionally override
+      `float terrain_height_delta(float local_x, uint64_t seed) const noexcept` to define the
+      deterministic geometry of your zone. Combine bounded sinusoids, smooth steps, terraces,
+      ridges, bowls or seeded phase offsets to make a genuinely different traversal problem.
+      `local_x` starts at zero at the zone boundary. Return only a finite height offset; the engine
+      clamps it to [-2.5, 2.5] metres and then applies physical basins/ledges. Do not encode the
+      hidden hazard phase or the correct action into conspicuous geometry: terrain is a physical
+      challenge and an ambiguous precursor, not a mechanic label.
     - friction_scale and apply_effects control tyre traction, slip, penetration, wheel forces and
       energy. apply_body_effects may add arbitrary finite body force, torque and energy cost based on
       velocity, angular velocity, mass, gravity, dt and step index.

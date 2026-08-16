@@ -5,7 +5,7 @@ env:
 
 
   chain_biomes: true
-  chain_zone_count: 10
+  chain_zone_count: 14
   chain_segment_min_length: 30.0
   chain_segment_max_length: 70.0
 
@@ -46,7 +46,7 @@ physics:
   angular_damping: 0.018
 
 termination:
-  finish_x: 500.0
+  finish_x: 700.0
   max_steps: 0
   flip_angle: 2.45
   min_energy: 0.0

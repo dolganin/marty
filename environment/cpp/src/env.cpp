@@ -249,6 +249,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.type = biome.visual_type();
     zone.biome_id = biome_id;
     zone.params = biome.sample_params(rng_());
+    zone.terrain_seed = rng_();
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[0] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
@@ -325,6 +326,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.type = biome.visual_type();
     zone.biome_id = biome_id;
     zone.params = biome.sample_params(rng_());
+    zone.terrain_seed = rng_();
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[static_cast<size_t>(slot)] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
@@ -339,6 +341,20 @@ void Env::finalize_mechanic_layout() {
   
   for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
     auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
+    const Biome& biome = biome_by_id(zone.biome_id);
+    const int first_sample = std::max(
+        0, static_cast<int>(std::ceil(std::max(0.0f, zone.begin_x) / terrain_.dx())));
+    const int last_sample = std::min(
+        terrain_.sample_count() - 1,
+        static_cast<int>(std::floor(std::min(terrain_.length(), zone.end_x) / terrain_.dx())));
+    for (int sample = first_sample; sample <= last_sample; ++sample) {
+      const float world_x = static_cast<float>(sample) * terrain_.dx();
+      const float local_x = world_x - zone.begin_x;
+      const float delta = biome.terrain_height_delta(local_x, zone.terrain_seed);
+      if (std::isfinite(delta)) {
+        terrain_.add_height_at_index(sample, clamp(delta, -2.5f, 2.5f));
+      }
+    }
     const float depth = pending_basin_depth_[static_cast<size_t>(slot)];
     if (depth >= 0.0f) {
       const float world_end =

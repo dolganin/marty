@@ -134,6 +134,11 @@ void Terrain::deform(float x, float radius, float amount) {
   }
 }
 
+void Terrain::add_height_at_index(int index, float amount) {
+  if (index < 0 || index >= static_cast<int>(heights_.size()) || !std::isfinite(amount)) return;
+  heights_[static_cast<size_t>(index)] += amount;
+}
+
 float Terrain::carve_basin(float begin_x, float end_x, float depth) {
   if (heights_.empty() || end_x <= begin_x || depth <= 0.0f) {
     return base_height_;

@@ -63,6 +63,14 @@ class Biome {
   virtual BiomeSplit split() const noexcept { return BiomeSplit::Builtin; }
   virtual bool is_anchor() const noexcept { return false; }
   virtual MechanicParams sample_params(uint64_t seed) const noexcept = 0;
+  // Optional deterministic geometry layered onto the procedural base terrain.
+  // local_x is measured from the beginning of this biome zone. The engine
+  // clamps the returned height delta before applying it.
+  virtual float terrain_height_delta(float local_x, uint64_t seed) const noexcept {
+    (void)local_x;
+    (void)seed;
+    return 0.0f;
+  }
   
   
   

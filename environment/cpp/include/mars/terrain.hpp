@@ -33,6 +33,7 @@ class Terrain {
   TerrainSample query(float x) const;
   void query_height_slope(float x, float& height, float& slope) const;
   void deform(float x, float radius, float amount);
+  void add_height_at_index(int index, float amount);
   float carve_basin(float begin_x, float end_x, float depth);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
 
