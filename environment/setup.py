@@ -14,7 +14,10 @@ class BuildExt(build_ext):
         build_type = os.environ.get("MARS_ROVER_BUILD_TYPE", "Release").lower()
         debug = build_type in {"debug", "relwithdebinfo"}
         use_openmp = os.environ.get("MARS_ROVER_OPENMP", "1") not in {"0", "false", "False"}
+        bank_include = os.environ.get("MARS_ROVER_BANK_INCLUDE")
         for ext in self.extensions:
+            if bank_include:
+                ext.include_dirs.append(str(Path(bank_include).resolve()))
             ext.include_dirs.append(str(Path("cpp/include").resolve()))
             ext.include_dirs.append(pybind11.get_include())
             if self.compiler.compiler_type == "msvc":

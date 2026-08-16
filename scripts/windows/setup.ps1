@@ -25,6 +25,13 @@ if (-not (Test-Path ".venv")) {
 
 $Python = Join-Path ".venv" "Scripts\python.exe"
 
+$ActiveBank = Join-Path $RepoRoot "artifacts\active_bank.json"
+if (Test-Path $ActiveBank) {
+    $Bank = Get-Content -Raw $ActiveBank | ConvertFrom-Json
+    $env:MARS_ROVER_BANK_MANIFEST = $Bank.manifest
+    $env:MARS_ROVER_BANK_INCLUDE = $Bank.include
+}
+
 & $Python -m pip install --upgrade pip
 & $Python -m pip install --upgrade setuptools wheel pybind11 cmake
 & $Python -m pip install --upgrade numpy gymnasium PyYAML

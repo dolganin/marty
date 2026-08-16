@@ -27,9 +27,10 @@ if ($RefreshBank) {
     }
 
     Write-Host "Refreshing the LLM biome bank (train + test) before manual play..."
-    & $Python -m mars_rover_env.tools.bootstrap_run --count $BiomeCount --split train --skip-rebuild
+    $BankDir = Join-Path $RepoRoot ("artifacts\banks\manual_" + (Get-Date -AsUTC -Format 'yyyyMMddTHHmmssZ'))
+    & $Python -m mars_rover_env.tools.bootstrap_run --count $BiomeCount --split train --skip-rebuild --bank-dir $BankDir
     if ($LASTEXITCODE -ne 0) { throw "Train-bank generation failed (exit code $LASTEXITCODE)." }
-    & $Python -m mars_rover_env.tools.bootstrap_run --count $BiomeCount --split test
+    & $Python -m mars_rover_env.tools.bootstrap_run --count $BiomeCount --split test --bank-dir $BankDir
     if ($LASTEXITCODE -ne 0) { throw "Test-bank generation or rebuild failed (exit code $LASTEXITCODE)." }
 }
 

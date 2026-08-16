@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,22 @@ from typing import Any
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[1]
 REPOSITORY_ROOT = PROJECT_ROOT.parent
-DEFAULT_MANIFEST = PACKAGE_ROOT / "configs" / "biome_bank.json"
+ACTIVE_BANK_POINTER = REPOSITORY_ROOT / "artifacts" / "active_bank.json"
+
+
+def _default_manifest() -> Path:
+    explicit = os.environ.get("MARS_ROVER_BANK_MANIFEST")
+    if explicit:
+        return Path(explicit)
+    if ACTIVE_BANK_POINTER.is_file():
+        pointer = json.loads(ACTIVE_BANK_POINTER.read_text(encoding="utf-8"))
+        candidate = Path(str(pointer.get("manifest", "")))
+        if candidate.is_file():
+            return candidate
+    return PACKAGE_ROOT / "configs" / "biome_bank.json"
+
+
+DEFAULT_MANIFEST = _default_manifest()
 DEFAULT_EQUATING = PACKAGE_ROOT / "configs" / "bank_equating.json"
 
 

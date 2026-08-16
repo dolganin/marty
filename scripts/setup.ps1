@@ -29,6 +29,12 @@ if (-not (Test-Path -LiteralPath $Venv)) {
 $VenvPython = Join-Path $Venv "Scripts\python.exe"
 Invoke-Checked { & $VenvPython -m pip install --upgrade pip setuptools wheel pybind11 cmake numpy gymnasium PyYAML }
 $env:MARS_ROVER_BUILD_TYPE = $BuildType
+$ActiveBank = Join-Path $ProjectRoot "artifacts\active_bank.json"
+if (Test-Path -LiteralPath $ActiveBank) {
+    $Bank = Get-Content -Raw $ActiveBank | ConvertFrom-Json
+    $env:MARS_ROVER_BANK_MANIFEST = $Bank.manifest
+    $env:MARS_ROVER_BANK_INCLUDE = $Bank.include
+}
 
 if ($Toolchain -eq "Auto") {
     $Toolchain = if (Get-Command cl.exe -ErrorAction SilentlyContinue) { "MSVC" } else { "GCC" }

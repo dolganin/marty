@@ -21,8 +21,10 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[3]
-HEADER = ROOT / "cpp" / "include" / "mars" / "biome_bank.hpp"
-MANIFEST = ROOT / "python" / "mars_rover_env" / "configs" / "biome_bank.json"
+SOURCE_HEADER = ROOT / "cpp" / "include" / "mars" / "biome_bank.hpp"
+SOURCE_MANIFEST = ROOT / "python" / "mars_rover_env" / "configs" / "biome_bank.json"
+HEADER = SOURCE_HEADER
+MANIFEST = SOURCE_MANIFEST
 CHECKPOINT = ROOT / "python" / "mars_rover_env" / "configs" / "biome_generation_checkpoint.json"
 START = "// <MARS_GENERATED_BIOMES>"
 END = "// </MARS_GENERATED_BIOMES>"
@@ -39,6 +41,24 @@ SKILL_STRATA = (
     "dynamic_obstacle",
 )
 DEFAULT_STRATUM_QUOTA = 2
+
+
+def _configure_bank_dir(bank_dir: Path | None) -> None:
+    """Route mutable generation state to one run artifact, never to source."""
+    global HEADER, MANIFEST, CHECKPOINT
+    if bank_dir is None:
+        return
+    bank_dir = bank_dir.resolve()
+    header = bank_dir / "include" / "mars" / "biome_bank.hpp"
+    manifest = bank_dir / "biome_bank.json"
+    header.parent.mkdir(parents=True, exist_ok=True)
+    if not header.exists():
+        shutil.copy2(SOURCE_HEADER, header)
+    if not manifest.exists():
+        shutil.copy2(SOURCE_MANIFEST, manifest)
+    HEADER = header
+    MANIFEST = manifest
+    CHECKPOINT = bank_dir / "biome_generation_checkpoint.json"
 
 
 class CandidateRejected(RuntimeError):
@@ -824,7 +844,12 @@ def main() -> None:
     parser.add_argument("--prune-rejected", action="store_true", help="remove difficulty-rejected generated biomes")
     parser.add_argument("--dry-run", action="store_true", help="check config/compiler and print request summary without API calls")
     parser.add_argument("--replace", action="store_true", help="discard the previous generated bank instead of appending")
+    parser.add_argument(
+        "--bank-dir", type=Path,
+        help="artifact directory for this run's mutable C++ bank and manifest",
+    )
     args = parser.parse_args()
+    _configure_bank_dir(args.bank_dir)
     if args.list:
         print("\n".join(_catalog_from_header()))
         return

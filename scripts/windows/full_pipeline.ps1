@@ -24,8 +24,9 @@ $Python = Join-Path $RepoRoot ".venv\Scripts\python.exe"
 & $Python -m pip install -e "$AgentsRoot" --no-build-isolation -q
 
 Write-Host "=== [1/4] refresh LLM-generated biome slice (train + test) ==="
-& $Python -m mars_rover_env.tools.bootstrap_run --count 8 --split train --skip-rebuild
-& $Python -m mars_rover_env.tools.bootstrap_run --count 8 --split test
+$BankDir = Join-Path $RepoRoot ("artifacts\banks\" + $Tag)
+& $Python -m mars_rover_env.tools.bootstrap_run --count 8 --split train --skip-rebuild --bank-dir $BankDir
+& $Python -m mars_rover_env.tools.bootstrap_run --count 8 --split test --bank-dir $BankDir
 
 $RunsRoot = if ($env:MARS_ROVER_RUNS_ROOT) { $env:MARS_ROVER_RUNS_ROOT } else { Join-Path $RepoRoot "runs" }
 New-Item -ItemType Directory -Force -Path $RunsRoot | Out-Null
