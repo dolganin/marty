@@ -17,4 +17,4 @@ runs/
 *.pdb
 environment/python/mars_rover_env/configs/biome_generator.local.yaml
 environment/python/mars_rover_env/configs/biome_generation_checkpoint.json
-/codex
+/codex/artifacts/**/*.pt

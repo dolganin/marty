@@ -17,6 +17,7 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   if (trial_start || !has_trial_mechanic_seed_) {
     trial_mechanic_seed_ = seed;
     has_trial_mechanic_seed_ = true;
+    trial_steps_used_ = 0;
   }
 
 
@@ -97,10 +98,12 @@ StepOutput Env::step(int action, float* obs_out) {
     stuck_counter_ += 1;
   }
   const bool stuck = is_stuck();
+  trial_steps_used_ += 1;
   StepOutput out{};
   out.terminated = finished || fatal || state_.energy <= config_.termination.min_energy || stuck;
-  out.truncated = config_.termination.max_steps > 0 &&
-                  state_.step_index + 1 >= config_.termination.max_steps;
+  out.truncated = (config_.termination.max_steps > 0 &&
+                   state_.step_index + 1 >= config_.termination.max_steps) ||
+                  trial_exhausted();
   state_.termination_reason = 0;
   if (finished) state_.termination_reason = 1;
   else if (state_.landing_fatal) state_.termination_reason = 2;
@@ -463,6 +466,27 @@ void Env::finalize_mechanic_layout() {
   const auto& first = mechanic_layout_.zones[0];
   mechanic_type_ = first.type;
   mechanic_params_ = first.params;
+}
+
+int Env::trial_step_budget() const {
+  if (config_.termination.trial_time_limit <= 0.0f) {
+    return 0;
+  }
+  const float dt = std::max(0.0001f, config_.physics.dt);
+  return std::max(1, static_cast<int>(std::lround(config_.termination.trial_time_limit / dt)));
+}
+
+bool Env::trial_exhausted() const {
+  const int budget = trial_step_budget();
+  return budget > 0 && trial_steps_used_ >= budget;
+}
+
+float Env::trial_time_left() const {
+  const int budget = trial_step_budget();
+  if (budget <= 0) {
+    return -1.0f;
+  }
+  return static_cast<float>(std::max(0, budget - trial_steps_used_)) * config_.physics.dt;
 }
 
 bool Env::is_flipped() const {

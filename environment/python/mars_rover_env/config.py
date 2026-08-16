@@ -113,8 +113,11 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                     "full_power_temperature",
                     "overheat_temperature",
                     "overheat_restart_temperature",
-                    "engine_heat_rate",
-                    "engine_cooling_rate",
+                    "engine_thermal_mass",
+                    "engine_idle_heat",
+                    "engine_heat_per_fuel",
+                    "engine_cooling_conductance",
+                    "engine_cooling_airflow",
                     "initial_energy",
                     "energy_capacity",
                     "panel_deploy_time",
@@ -137,7 +140,15 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             _apply_section(
                 cfg.termination,
                 data["termination"],
-                ("finish_x", "min_energy", "flip_angle", "stuck_steps", "max_steps", "fatal_fall_y"),
+                (
+                    "finish_x",
+                    "min_energy",
+                    "flip_angle",
+                    "stuck_steps",
+                    "max_steps",
+                    "fatal_fall_y",
+                    "trial_time_limit",
+                ),
             )
         if "reward" in data:
             _apply_section(

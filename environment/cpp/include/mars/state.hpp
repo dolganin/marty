@@ -48,6 +48,7 @@ struct RoverState {
   float engine_temperature = 20.0f;
   float ambient_temperature = -45.0f;
   float thermal_transfer = 1.0f;
+  float drive_fuel_rate = 0.0f;
   float cold_power_factor = 1.0f;
   float clutch_engagement = 1.0f;
   float drivetrain_slip = 0.0f;

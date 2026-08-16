@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v10-proprioception-long-lidar-stochastic-terrain";
+    "mars-env-v11-trial-time-budget";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -69,6 +69,11 @@ class Env {
   int obs_dim() const { return kObservationDim; }
   int action_dim() const { return 4096; }
 
+  int trial_steps_used() const { return trial_steps_used_; }
+  int trial_step_budget() const;
+  bool trial_exhausted() const;
+  float trial_time_left() const;
+
  private:
   void select_mechanic_layout(uint64_t seed);
   void finalize_mechanic_layout();
@@ -86,6 +91,7 @@ class Env {
   uint64_t trial_mechanic_seed_ = 0;
   bool has_trial_mechanic_seed_ = false;
   int stuck_counter_ = 0;
+  int trial_steps_used_ = 0;
   float best_progress_x_ = 0.0f;
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
 };

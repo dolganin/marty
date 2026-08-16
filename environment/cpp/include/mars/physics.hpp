@@ -24,8 +24,11 @@ struct PhysicsConfig {
   float full_power_temperature = 65.0f;
   float overheat_temperature = 115.0f;
   float overheat_restart_temperature = 92.0f;
-  float engine_heat_rate = 4.5f;
-  float engine_cooling_rate = 0.012f;
+  float engine_thermal_mass = 1.0f;
+  float engine_idle_heat = 2.2f;
+  float engine_heat_per_fuel = 44.0f;
+  float engine_cooling_conductance = 0.08f;
+  float engine_cooling_airflow = 0.012f;
   float initial_energy = 25.0f;
   float energy_capacity = 25.0f;
   float panel_deploy_time = 4.0f;
@@ -46,6 +49,7 @@ struct PhysicsConfig {
 
 struct PhysicsStepStats {
   float energy_cost = 0.0f;
+  float drive_energy_cost = 0.0f;
   float energy_gain = 0.0f;
   float hard_contact = 0.0f;
   DeformationContactArray deformation_contacts{};

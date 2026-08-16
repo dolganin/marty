@@ -100,8 +100,12 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("overheat_temperature", &mars::PhysicsConfig::overheat_temperature)
       .def_readwrite("overheat_restart_temperature",
                      &mars::PhysicsConfig::overheat_restart_temperature)
-      .def_readwrite("engine_heat_rate", &mars::PhysicsConfig::engine_heat_rate)
-      .def_readwrite("engine_cooling_rate", &mars::PhysicsConfig::engine_cooling_rate)
+      .def_readwrite("engine_thermal_mass", &mars::PhysicsConfig::engine_thermal_mass)
+      .def_readwrite("engine_idle_heat", &mars::PhysicsConfig::engine_idle_heat)
+      .def_readwrite("engine_heat_per_fuel", &mars::PhysicsConfig::engine_heat_per_fuel)
+      .def_readwrite("engine_cooling_conductance",
+                     &mars::PhysicsConfig::engine_cooling_conductance)
+      .def_readwrite("engine_cooling_airflow", &mars::PhysicsConfig::engine_cooling_airflow)
       .def_readwrite("initial_energy", &mars::PhysicsConfig::initial_energy)
       .def_readwrite("energy_capacity", &mars::PhysicsConfig::energy_capacity)
       .def_readwrite("panel_deploy_time", &mars::PhysicsConfig::panel_deploy_time)
@@ -135,7 +139,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("flip_angle", &mars::TerminationConfig::flip_angle)
       .def_readwrite("stuck_steps", &mars::TerminationConfig::stuck_steps)
       .def_readwrite("max_steps", &mars::TerminationConfig::max_steps)
-      .def_readwrite("fatal_fall_y", &mars::TerminationConfig::fatal_fall_y);
+      .def_readwrite("fatal_fall_y", &mars::TerminationConfig::fatal_fall_y)
+      .def_readwrite("trial_time_limit", &mars::TerminationConfig::trial_time_limit);
 
   py::class_<mars::CollisionShapeConfig>(m, "CollisionShapeConfig")
       .def(py::init<>())
@@ -233,6 +238,12 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              auto* rgb_ptr = checked_ptr(rgb, width * height * 3);
              self.render_rgb(env_id, rgb_ptr, width, height, debug_overlay);
            })
+      .def("trial_exhausted",
+           [](mars::BatchEnv& self, int env_id) { return self.env_at(env_id).trial_exhausted(); })
+      .def("trial_steps_used",
+           [](mars::BatchEnv& self, int env_id) { return self.env_at(env_id).trial_steps_used(); })
+      .def("trial_step_budget",
+           [](mars::BatchEnv& self, int env_id) { return self.env_at(env_id).trial_step_budget(); })
       .def("debug_info",
            [](mars::BatchEnv& self, int env_id) {
              const auto& env = self.env_at(env_id);
@@ -248,6 +259,10 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                       ? std::max(0.0f, zone.liquid_level -
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
+             d["trial_steps_used"] = env.trial_steps_used();
+             d["trial_step_budget"] = env.trial_step_budget();
+             d["trial_time_left"] = env.trial_time_left();
+             d["trial_exhausted"] = env.trial_exhausted();
              d["x"] = state.body.position.x;
              d["y"] = state.body.position.y;
              d["vx"] = state.body.velocity.x;

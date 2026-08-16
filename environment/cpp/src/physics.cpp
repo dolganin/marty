@@ -395,17 +395,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   state.ambient_temperature = ambient_temperature;
   state.thermal_transfer = thermal_transfer;
-  const float speed_cooling = 1.0f + std::abs(state.body.velocity.x) * 0.12f;
-  const float cooling_rate =
-      (state.engine_temperature - ambient_temperature) * config_.engine_cooling_rate *
-      thermal_transfer * speed_cooling;
+  const float conductance =
+      (config_.engine_cooling_conductance +
+       config_.engine_cooling_airflow * std::abs(state.body.velocity.x)) *
+      thermal_transfer;
+  const float heat_removed = conductance * (state.engine_temperature - ambient_temperature);
+  const float fuel_power = state.drive_fuel_rate;
   const float combustion_heat =
       state.engine_running
-          ? 0.08f + config_.engine_heat_rate * (0.15f + rpm01 * 0.85f) *
-                         (0.12f + std::abs(control.throttle) * 0.88f) *
-                         (0.80f + drivetrain_load * 0.35f)
+          ? config_.engine_idle_heat * (0.6f + 0.4f * rpm01) +
+                config_.engine_heat_per_fuel * fuel_power
           : 0.0f;
-  state.engine_temperature += (combustion_heat - cooling_rate) * dt;
+  const float thermal_mass = std::max(0.01f, config_.engine_thermal_mass);
+  state.engine_temperature += (combustion_heat - heat_removed) / thermal_mass * dt;
   if (state.engine_temperature >= config_.overheat_temperature) {
     state.engine_temperature = std::min(state.engine_temperature,
                                         config_.overheat_temperature + 15.0f);
@@ -791,11 +793,13 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       next_drivetrain_grounded = next_drivetrain_grounded || wheel.in_contact;
     }
     any_wheel_grounded = any_wheel_grounded || wheel.in_contact;
-    stats.energy_cost += driven_wheel && state.engine_running && !in_neutral
-                             ? std::abs(config_.motor_torque * control.throttle) *
-                                   torque_split * state.clutch_engagement *
-                                   kGearEnergyMul[state.gear_index] * 0.00012f * dt
-                             : 0.0f;
+    const float wheel_fuel = driven_wheel && state.engine_running && !in_neutral
+                                 ? std::abs(config_.motor_torque * control.throttle) *
+                                       torque_split * state.clutch_engagement *
+                                       kGearEnergyMul[state.gear_index] * 0.00012f * dt
+                                 : 0.0f;
+    stats.energy_cost += wheel_fuel;
+    stats.drive_energy_cost += wheel_fuel;
   }
   state.drivetrain_slip = next_drivetrain_slip;
   state.drivetrain_grounded = next_drivetrain_grounded;
@@ -952,6 +956,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.imu_impact = std::max(stats.hard_contact * dt, body_contact_impulse) /
                      std::max(0.1f, state.body.mass);
   stats.energy_cost += lidar_energy_cost;
+  state.drive_fuel_rate = stats.drive_energy_cost / std::max(0.0001f, dt);
   state.energy = clamp(state.energy - stats.energy_cost + stats.energy_gain,
                        0.0f, config_.energy_capacity);
   return stats;

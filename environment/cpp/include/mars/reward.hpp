@@ -20,6 +20,7 @@ struct TerminationConfig {
   int stuck_steps = 600;
   int max_steps = 0;
   float fatal_fall_y = -8.0f;
+  float trial_time_limit = 0.0f;
 };
 
 float compute_reward(const RewardConfig& config, const RoverState& state, float energy_cost,

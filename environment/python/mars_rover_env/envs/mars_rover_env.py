@@ -47,6 +47,7 @@ class MarsRoverEnv(gym.Env):
         if chain_zone_count is not None:
             self._config.chain_zone_count = int(chain_zone_count)
         self._episodes_per_trial = int(self._config.episodes_per_trial)
+        self._trial_time_limit = float(self._config.termination.trial_time_limit)
         self._episodes_seen_in_trial = 0
         self._next_trial_start = True
         self._batch = MarsRoverBatchEnv(1, self._config)
@@ -77,7 +78,13 @@ class MarsRoverEnv(gym.Env):
             self._episodes_seen_in_trial = 1
         else:
             self._episodes_seen_in_trial += 1
-        self._next_trial_start = self._episodes_seen_in_trial >= self._episodes_per_trial
+        if self._trial_time_limit > 0.0:
+            self._next_trial_start = bool(self._batch.trial_exhausted(0))
+        else:
+            self._next_trial_start = (
+                self._episodes_per_trial > 0
+                and self._episodes_seen_in_trial >= self._episodes_per_trial
+            )
         if self._next_trial_start:
             self._episodes_seen_in_trial = 0
         return self._obs[0].copy(), {"trial_start": trial_start}
@@ -87,6 +94,8 @@ class MarsRoverEnv(gym.Env):
         self._batch.step(self._actions, self._obs, self._reward, self._terminated, self._truncated)
         terminated = bool(self._terminated[0])
         truncated = bool(self._truncated[0])
+        if self._trial_time_limit > 0.0 and self._batch.trial_exhausted(0):
+            self._next_trial_start = True
         return self._obs[0].copy(), float(self._reward[0]), terminated, truncated, {}
 
     def render(self):
