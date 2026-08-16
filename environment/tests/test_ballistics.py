@@ -59,12 +59,36 @@ def test_commitment_ledge_has_real_ballistic_phase_and_silent_scanners() -> None
     assert np.allclose(airborne_obs[terrain_start:scanner_end], 0.0)
 
 
-def test_bad_landing_angle_is_a_fatal_rollover() -> None:
+def test_bad_landing_is_fatal_without_teleporting_the_body_angle() -> None:
     landing, _ = _drive_to_first_landing(correct_pitch=False)
     assert landing["landing_angle"] > 0.55
     assert landing["landing_fatal"]
     assert landing["fatal_error"]
-    assert abs(landing["angle"]) >= 2.2
+    assert abs(landing["angle"] - landing["landing_angle"]) < 0.05
+
+
+def test_bad_landing_settles_on_the_terrain_instead_of_tunnelling() -> None:
+    env = MarsRoverEnv(fixed_biome_id=_ledge_index(), biome_split=0)
+    env.reset(seed=7, options={"trial_start": True})
+    landed = False
+    for step in range(700):
+        action = (1 << 3) | (1 << 6) if step in (5, 80, 170, 280) else 1
+        env.step(action)
+        debug = env.debug_info()
+        if debug["landing_event"] and debug["x"] > 10.0:
+            landed = True
+            break
+    assert landed
+
+    minimum_y = float(debug["y"])
+    for _ in range(600):
+        env.step(0)
+        debug = env.debug_info()
+        minimum_y = min(minimum_y, float(debug["y"]))
+    env.close()
+
+    assert minimum_y > -2.0
+    assert abs(float(debug["angle"])) < 0.2
 
 
 def test_excessive_impact_speed_is_fatal_even_with_good_angle(tmp_path) -> None:

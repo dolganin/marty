@@ -22,7 +22,7 @@ terrain:
 physics:
   dt: 0.016666667
   gravity: -3.71
-  wheel_friction: 3.0
+  wheel_friction: 1.2
   motor_torque: 405.0
   final_drive_ratio: 5.5
   engine_inertia: 1.25

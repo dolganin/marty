@@ -658,13 +658,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       
       
       
-      float crawl_grip = 1.8f;
+      // Static/crawl assistance must stay within plausible tyre loads. The old
+      // values could override the Coulomb limit by a large factor and turn one
+      // grounded wheel into an artificial pivot for the whole chassis.
+      float crawl_grip = 0.9f;
       switch (wheel_mechanic) {
-        case MechanicType::Ice: crawl_grip = 0.38f; break;
-        case MechanicType::Liquid: crawl_grip = 0.42f; break;
-        case MechanicType::Mud: crawl_grip = 0.72f; break;
-        case MechanicType::Sand: crawl_grip = 1.05f; break;
-        case MechanicType::Crust: crawl_grip = 2.0f; break;
+        case MechanicType::Ice: crawl_grip = 0.18f; break;
+        case MechanicType::Liquid: crawl_grip = 0.25f; break;
+        case MechanicType::Mud: crawl_grip = 0.50f; break;
+        case MechanicType::Sand: crawl_grip = 0.65f; break;
+        case MechanicType::Crust: crawl_grip = 1.10f; break;
         default: break;
       }
       ctx.minimum_drive_limit =
@@ -785,7 +788,13 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (rig.body.collision.type == CollisionType::Box) {
     const float hw = rig.body.collision.size.x * 0.5f;
     const float hh = rig.body.collision.size.y * 0.5f;
-    const Vec2 samples[3] = {{-hw, -hh}, {0.0f, -hh}, {hw, -hh}};
+    // Sample the complete perimeter. Sampling only the local bottom edge makes
+    // that edge point upward after a rollover and lets the other half of the
+    // chassis tunnel through the height field.
+    const Vec2 samples[8] = {
+        {-hw, -hh}, {0.0f, -hh}, {hw, -hh}, {hw, 0.0f},
+        {hw, hh}, {0.0f, hh}, {-hw, hh}, {-hw, 0.0f},
+    };
     for (const Vec2 local : samples) {
       const Vec2 point = state.body.position + rotate_body(local);
       const auto ground = terrain.query(point.x);
@@ -817,6 +826,76 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.body.angular_velocity *= (1.0f - config_.angular_damping);
   state.body.angle += state.body.angular_velocity * dt;
 
+  // Forces make normal resting contact smooth, while this short sequential
+  // impulse pass prevents high-speed impacts from crossing the terrain in one
+  // frame. It also gives a rolled chassis ordinary Coulomb friction instead of
+  // allowing it to skate indefinitely on a corner.
+  if (rig.body.collision.type == CollisionType::Box) {
+    const float hw = rig.body.collision.size.x * 0.5f;
+    const float hh = rig.body.collision.size.y * 0.5f;
+    const Vec2 samples[8] = {
+        {-hw, -hh}, {0.0f, -hh}, {hw, -hh}, {hw, 0.0f},
+        {hw, hh}, {0.0f, hh}, {-hw, hh}, {-hw, 0.0f},
+    };
+    constexpr float kBodyFriction = 0.72f;
+    constexpr float kRestitution = 0.03f;
+    constexpr float kContactSlop = 0.001f;
+    for (int iteration = 0; iteration < 4; ++iteration) {
+      float deepest = 0.0f;
+      Vec2 deepest_local{};
+      TerrainSample deepest_ground{};
+      bool found = false;
+      for (const Vec2 local : samples) {
+        const Vec2 point = state.body.position + rotate(local, state.body.angle);
+        const auto ground = terrain.query(point.x);
+        if (!ground.solid) continue;
+        const float penetration = ground.height - point.y;
+        if (penetration > deepest) {
+          deepest = penetration;
+          deepest_local = local;
+          deepest_ground = ground;
+          found = true;
+        }
+      }
+      if (!found) break;
+
+      body_ground_contact = true;
+      const Vec2 normal = deepest_ground.normal;
+      state.body.position += normal * (deepest + kContactSlop);
+      const Vec2 r = rotate(deepest_local, state.body.angle);
+      Vec2 point_velocity = state.body.velocity + perp(r) * state.body.angular_velocity;
+      const float normal_speed = dot(point_velocity, normal);
+      float normal_impulse = 0.0f;
+      if (normal_speed < 0.0f) {
+        const float lever = cross(r, normal);
+        const float effective_inv_mass =
+            state.body.inv_mass + lever * lever * state.body.inv_inertia;
+        if (effective_inv_mass > 1.0e-8f) {
+          normal_impulse = -(1.0f + kRestitution) * normal_speed / effective_inv_mass;
+          apply_body_impulse(state.body, normal * normal_impulse,
+                             state.body.position + r);
+        }
+      }
+
+      point_velocity = state.body.velocity + perp(r) * state.body.angular_velocity;
+      const Vec2 tangent = normalized({normal.y, -normal.x});
+      const float tangent_speed = dot(point_velocity, tangent);
+      const float tangent_lever = cross(r, tangent);
+      const float tangent_inv_mass =
+          state.body.inv_mass + tangent_lever * tangent_lever * state.body.inv_inertia;
+      if (tangent_inv_mass > 1.0e-8f) {
+        const float desired_impulse = -tangent_speed / tangent_inv_mass;
+        const float gravity_support = state.body.mass * std::abs(gravity) * dt;
+        const float friction_limit =
+            kBodyFriction * std::max(normal_impulse, gravity_support);
+        const float friction_impulse =
+            clamp(desired_impulse, -friction_limit, friction_limit);
+        apply_body_impulse(state.body, tangent * friction_impulse,
+                           state.body.position + r);
+      }
+    }
+  }
+
   const bool grounded_now = any_wheel_grounded || body_ground_contact;
   if (!grounded_now) {
     
@@ -838,10 +917,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       if (bad_speed || bad_angle || body_ground_contact) {
         state.landing_fatal = true;
         state.fatal_error = true;
-        const float sign = state.body.angle < 0.0f ? -1.0f : 1.0f;
-        state.body.angle = sign * std::max(std::abs(state.body.angle),
-                                           config_.fatal_landing_flip_angle);
-        state.body.angular_velocity += sign * (1.5f + state.last_impact_speed * 0.25f);
       }
     }
   }
