@@ -6,6 +6,18 @@
 
 namespace mars {
 
+namespace {
+
+float seeded_unit(uint64_t seed, uint64_t stream) {
+  uint64_t x = seed + 0x9e3779b97f4a7c15ULL * (stream + 1ULL);
+  x = (x ^ (x >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+  x = (x ^ (x >> 27U)) * 0x94d049bb133111ebULL;
+  x ^= x >> 31U;
+  return static_cast<float>(x >> 40U) * (1.0f / 16777216.0f);
+}
+
+}  // namespace
+
 void Terrain::configure(const TerrainConfig& config) {
   dx_ = config.dx;
   inv_dx_ = 1.0f / config.dx;
@@ -14,6 +26,8 @@ void Terrain::configure(const TerrainConfig& config) {
   roughness_ = config.roughness;
   crater_count_ = config.crater_count;
   step_count_ = config.step_count;
+  safe_start_fraction_ = clamp(config.safe_start_fraction, 0.0f, 0.45f);
+  difficulty_exponent_ = clamp(config.difficulty_exponent, 0.5f, 4.0f);
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
   solid_.assign(static_cast<size_t>(config.sample_count), 1u);
   surfaces_.clear();
@@ -28,18 +42,32 @@ void Terrain::generate(uint64_t seed) {
   const float p2 = phase_dist(rng);
   for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
     const float x = static_cast<float>(i) * dx_;
+    const float difficulty = difficulty_at(x);
+    const float profile_scale = 0.18f + 0.82f * difficulty;
     heights_[static_cast<size_t>(i)] =
         base_height_ +
-        amplitude_ * (0.45f * std::sin(0.13f * x + p0) +
+        amplitude_ * profile_scale * (0.45f * std::sin(0.13f * x + p0) +
                       0.22f * std::sin(0.53f * x + p1) +
                       0.10f * std::sin(1.37f * x + p2));
   }
 
   const float max_x = length();
+  const float safe_end = max_x * safe_start_fraction_;
+  const auto progressive_position = [&]() {
+    const float mixture = unit_dist(rng);
+    const float u = unit_dist(rng);
+    // A mixture keeps a few modest early events, but strongly biases the
+    // obstacle budget toward the late course.
+    const float t = mixture < 0.35f ? u : std::pow(u, 0.58f);
+    return safe_end + 2.0f + t * std::max(1.0f, max_x - safe_end - 6.0f);
+  };
   for (int n = 0; n < step_count_; ++n) {
-    const float x0 = 5.0f + unit_dist(rng) * std::max(1.0f, max_x - 8.0f);
-    const float width = 0.6f + unit_dist(rng) * 2.8f;
-    const float height = (unit_dist(rng) * 2.0f - 1.0f) * amplitude_ * (0.35f + roughness_);
+    const float x0 = progressive_position();
+    const float difficulty = difficulty_at(x0);
+    const float width = 0.45f + (0.35f + 2.7f * difficulty) * unit_dist(rng);
+    const float severity = 0.10f + 0.90f * difficulty;
+    const float height = (unit_dist(rng) * 2.0f - 1.0f) * amplitude_ *
+                         (0.35f + roughness_) * severity;
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float t = clamp((x - x0) / width, 0.0f, 1.0f);
@@ -49,21 +77,17 @@ void Terrain::generate(uint64_t seed) {
   }
 
   for (int n = 0; n < crater_count_; ++n) {
-    // The first crater is deliberately placed after the tutorial-flat spawn
-    // zone. Subsequent ones remain seed-random but are large enough to read as
-    // visible bowls from the rover camera.
-    const float cx = n == 0
-        ? std::min(max_x - 8.0f, 32.0f + unit_dist(rng) * 10.0f)
-        : 12.0f + unit_dist(rng) * std::max(1.0f, max_x - 16.0f);
+    const float cx = progressive_position();
+    const float difficulty = difficulty_at(cx);
     // Very deep traps are deliberately narrow: momentum or a charged spring
     // can clear them, while crawling into one drops both axles into the bowl.
-    const bool deep_pit = unit_dist(rng) < 0.22f;
+    const bool deep_pit = unit_dist(rng) < 0.02f + 0.36f * difficulty * difficulty;
     const float radius = deep_pit
-        ? 0.70f + unit_dist(rng) * 0.35f
-        : 1.4f + unit_dist(rng) * 3.1f;
+        ? 0.65f + unit_dist(rng) * (0.20f + 0.25f * difficulty)
+        : 0.55f + difficulty * (0.85f + unit_dist(rng) * 3.1f);
     const float depth = deep_pit
-        ? 1.75f + unit_dist(rng) * 0.85f
-        : amplitude_ * (0.45f + 0.70f * unit_dist(rng));
+        ? 1.50f + difficulty * (0.55f + unit_dist(rng) * 1.10f)
+        : amplitude_ * (0.08f + difficulty * (0.45f + 0.85f * unit_dist(rng)));
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;
@@ -93,6 +117,18 @@ void Terrain::generate(uint64_t seed) {
     heights_[static_cast<size_t>(i)] =
         base_height_ * (1.0f - t) + heights_[static_cast<size_t>(i)] * t;
   }
+}
+
+float Terrain::difficulty_at(float x) const {
+  const float course_length = std::max(dx_, length());
+  const float progress = clamp(x / course_length, 0.0f, 1.0f);
+  if (progress <= safe_start_fraction_) return 0.0f;
+  const float t = clamp((progress - safe_start_fraction_) /
+                            std::max(0.01f, 1.0f - safe_start_fraction_),
+                        0.0f, 1.0f);
+  const float broad = std::pow(t, difficulty_exponent_);
+  const float endgame = std::pow(t, difficulty_exponent_ * 2.35f);
+  return clamp(0.68f * broad + 0.32f * endgame, 0.0f, 1.0f);
 }
 
 TerrainSample Terrain::query(float x) const {
@@ -175,7 +211,7 @@ void Terrain::add_height_at_index(int index, float amount) {
   heights_[static_cast<size_t>(index)] += amount;
 }
 
-float Terrain::carve_basin(float begin_x, float end_x, float depth) {
+float Terrain::carve_basin(float begin_x, float end_x, float depth, uint64_t seed) {
   if (heights_.empty() || end_x <= begin_x || depth <= 0.0f) {
     return base_height_;
   }
@@ -186,12 +222,38 @@ float Terrain::carve_basin(float begin_x, float end_x, float depth) {
   const int last = std::min(static_cast<int>(heights_.size() - 1),
                             static_cast<int>(std::ceil(end_x * inv_dx_)));
   const float inv_width = 1.0f / (end_x - begin_x);
+  const int profile = static_cast<int>(seeded_unit(seed, 40) * 4.0f) % 4;
+  const float phase_a = seeded_unit(seed, 41) * 6.2831853f;
+  const float phase_b = seeded_unit(seed, 42) * 6.2831853f;
+  const float skew = 0.72f + 0.56f * seeded_unit(seed, 43);
   for (int i = first; i <= last; ++i) {
     const float x = static_cast<float>(i) * dx_;
     const float t = clamp((x - begin_x) * inv_width, 0.0f, 1.0f);
     const float bowl = std::sin(t * 3.14159265f);
     const float bank = left_height * (1.0f - t) + right_height * t;
-    heights_[static_cast<size_t>(i)] = bank - depth * bowl * bowl;
+    const float envelope = bowl * bowl;
+    float floor_shape = 1.0f;
+    switch (profile) {
+      case 0:
+        floor_shape = 0.92f + 0.08f * std::cos((t - 0.5f) * 3.14159265f);
+        break;
+      case 1:
+        floor_shape = 0.78f + 0.28f * std::pow(t, skew);
+        break;
+      case 2:
+        floor_shape = 0.88f + 0.12f * std::sin(t * 6.2831853f + phase_a) +
+                      0.05f * std::sin(t * 18.8495559f + phase_b);
+        break;
+      default: {
+        const float cells = 3.0f + std::floor(seeded_unit(seed, 44) * 3.0f);
+        const float local = t * cells - std::floor(t * cells);
+        const float rounded = local * local * (3.0f - 2.0f * local);
+        floor_shape = 0.78f + 0.18f * rounded + 0.06f * std::sin(t * 3.14159265f);
+        break;
+      }
+    }
+    heights_[static_cast<size_t>(i)] =
+        bank - depth * envelope * clamp(floor_shape, 0.62f, 1.12f);
   }
   return water_level;
 }

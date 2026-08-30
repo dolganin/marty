@@ -16,10 +16,10 @@ constexpr int kObservationDim =
     kMaxWheels * 3 +
     kTerrainSamplesAhead * 2 +
     kBiomeSamplesAhead * 3 +
-    21 +
+    18 +
     kImuObservationDim +
     kBodyContactObservationDim +
-    kWheelEncoderObservationDim + 10;
+    kWheelEncoderObservationDim + 15;
 
 struct ObservationView {
   float* data = nullptr;

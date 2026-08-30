@@ -9,6 +9,8 @@ namespace {
 
 struct Color { uint8_t r, g, b; };
 
+constexpr Color kLiquidPurple{126, 72, 176};
+
 struct SurfaceStyle {
   Color ground;
   Color dust;
@@ -106,6 +108,7 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     const auto& zone = env.mechanic_at(wx);
     const float ground_height = terrain.query_near(wx, 1.0e6f).height;
     SurfaceStyle style = surface_style(zone.biome_id);
+    if (zone.type == MechanicType::Liquid) style.liquid_color = kLiquidPurple;
     if (zone.type == MechanicType::Liquid && zone.liquid_level - ground_height < 0.08f) {
       style = surface_style(builtin_biome_id(MechanicType::Sand));
     }
@@ -207,6 +210,18 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
                    -state.body.angle, rig.body.size.x * 0.5f * ppm,
                    rig.body.size.y * 0.5f * ppm, {210, 105, 25});
 
+  if (state.ballast_blowing && env.mechanic_at(state.body.position.x).type == MechanicType::Liquid) {
+    for (int bubble = 0; bubble < 7; ++bubble) {
+      const float phase = static_cast<float>(state.step_index) * 0.045f + bubble * 0.83f;
+      const Vec2 bubble_world = state.body.position +
+          Vec2{-0.45f + 0.15f * bubble + 0.06f * std::sin(phase * 1.7f),
+               0.18f + std::fmod(phase, 1.1f)};
+      const Vec2 bubble_screen = screen(bubble_world);
+      draw_circle(rgb, width, height, static_cast<int>(bubble_screen.x),
+                  static_cast<int>(bubble_screen.y), 2, {155, 220, 245});
+    }
+  }
+
   if (state.roof_piston_extension > 0.001f) {
     const Vec2 axis = rotate({0.0f, 1.0f}, state.body.angle);
     for (int piston = 0; piston < 2; ++piston) {
@@ -275,7 +290,7 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     const float wx = camera_x + static_cast<float>(x) / ppm;
     const auto& zone = env.mechanic_at(wx);
     if (zone.type != MechanicType::Liquid) continue;
-    const Color liquid_tint = surface_style(zone.biome_id).liquid_color;
+    const Color liquid_tint = kLiquidPurple;
     const int surface_y = std::max(
         0, height - 1 - static_cast<int>((zone.liquid_level - camera_y) * ppm));
     const int ground_y = std::min(
@@ -300,14 +315,14 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
   }
 
   if (state.lidar_active_steps > 0 && state.lidar_range > 0.0f) {
-    const Vec2 local_dir = state.lidar_direction == 1 ? Vec2{-1.0f, 0.0f} :
-                           state.lidar_direction == 2 ? Vec2{0.0f, 1.0f} :
-                           state.lidar_direction == 3 ? Vec2{0.0f, -1.0f} : Vec2{1.0f, 0.0f};
+    const Vec2 local_dir{1.0f, 0.0f};
     const Vec2 world_dir = rotate(local_dir, state.body.angle);
     const Vec2 origin = screen(state.body.position + world_dir * (rig.body.size.x * 0.45f));
     constexpr int kRays = 18;
+    const float near_range = std::max(0.0f, env.config().physics.near_sense_range);
+    const float far_span = std::max(0.0f, state.lidar_range - near_range);
     for (int ray = 1; ray <= kRays; ++ray) {
-      const float distance = state.lidar_range * static_cast<float>(ray) / kRays;
+      const float distance = near_range + far_span * static_cast<float>(ray) / kRays;
       const Vec2 sample = state.body.position + world_dir * distance;
       const float x = sample.x;
       const Vec2 hit = screen({x, terrain.query(x).height});

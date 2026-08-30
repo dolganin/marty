@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v13-layered-120s-rover";
+    "mars-env-v15-correlated-zones-profile-curriculum";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -43,6 +43,10 @@ struct EnvConfig {
   float chain_segment_max_length = 250.0f;
   float terrain_surprise_probability = 0.22f;
   float terrain_surprise_strength = 1.0f;
+  float difficulty_safe_fraction_min = 0.02f;
+  float difficulty_safe_fraction_max = 0.02f;
+  float difficulty_exponent = 0.7125f;
+  float terrain_profile_frequency_growth = 0.75f;
 };
 
 struct StepOutput {
@@ -68,7 +72,7 @@ class Env {
   const MechanicLayout& mechanic_layout() const { return mechanic_layout_; }
 
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 1 << 25; }
+  int action_dim() const { return 1 << 23; }
 
   int trial_steps_used() const { return trial_steps_used_; }
   int trial_step_budget() const;
@@ -82,6 +86,7 @@ class Env {
   bool is_flipped() const;
   bool is_stuck() const;
   void update_world_latents();
+  float course_difficulty(float x) const;
 
   EnvConfig config_{};
   Terrain terrain_{};
@@ -97,6 +102,7 @@ class Env {
   int trial_steps_used_ = 0;
   float best_progress_x_ = 0.0f;
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
+  float difficulty_safe_fraction_ = 0.02f;
 };
 
 }

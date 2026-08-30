@@ -2,6 +2,7 @@
 #include "mars/biome_bank.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <vector>
 
@@ -37,6 +38,8 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   scaled_terrain.step_count = static_cast<int>(std::lround(
       static_cast<float>(scaled_terrain.step_count) *
       clamp(picked_params.terrain_step_mul, 0.3f, 3.0f)));
+  scaled_terrain.safe_start_fraction = difficulty_safe_fraction_;
+  scaled_terrain.difficulty_exponent = config_.difficulty_exponent;
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
   finalize_mechanic_layout();
@@ -76,7 +79,15 @@ StepOutput Env::step(int action, float* obs_out) {
       if (zone.type == MechanicType::Crust) {
         deform_scale = c.penetration > 0.008f ? 0.025f + zone.params.crust_deform * 2.0f : 0.0f;
       } else if (zone.type == MechanicType::Sand) {
-        deform_scale = zone.params.sink_rate * 1.5f;
+        const auto& wheel = state_.wheels[static_cast<size_t>(i)];
+        const float travel_speed = std::abs(state_.body.velocity.x);
+        const float tread_speed = std::abs(wheel.angular_velocity) * wheel.radius;
+        const float speed_relief = 1.0f / (1.0f + 0.42f * travel_speed);
+        const float digging = 1.0f + 1.8f * clamp(wheel.slip, 0.0f, 2.0f) +
+                              0.08f * tread_speed;
+        const float difficulty = terrain_.difficulty_at(c.x);
+        deform_scale = zone.params.sink_rate * (0.45f + 1.35f * difficulty) *
+                       speed_relief * digging;
       } else if (zone.type == MechanicType::Mud) {
         deform_scale = 0.012f + zone.params.viscosity * 0.003f;
       }
@@ -146,8 +157,8 @@ void Env::build_observation(float* obs_out) const {
     obs_out[k++] = i < state_.wheel_count ? w.slip : 0.0f;
     obs_out[k++] = i < state_.wheel_count ? w.normal_force / 200.0f : 0.0f;
   }
-  const bool contact_scanners_available = !state_.airborne;
-  const bool lidar_active = state_.lidar_active_steps > 0 && contact_scanners_available;
+  const bool lidar_active = state_.lidar_active_steps > 0 && !state_.airborne;
+  const float near_range = std::max(0.0f, config_.physics.near_sense_range);
   const int height_base = k;
   const int slope_base = k + kTerrainSamplesAhead;
   for (int i = 0; i < kTerrainSamplesAhead; ++i) {
@@ -155,7 +166,10 @@ void Env::build_observation(float* obs_out) const {
     const float distance = i < 12 ? 0.5f * static_cast<float>(i + 1)
                                   : 6.0f + 1.5f * static_cast<float>(i - 11);
     const auto sample = terrain_.query_near(state_.body.position.x + distance, 1.0e6f);
-    const bool visible = lidar_active && distance <= state_.lidar_range;
+    const bool near_visible = distance <= near_range;
+    const bool far_visible = lidar_active && distance > near_range &&
+                             distance <= state_.lidar_range;
+    const bool visible = near_visible || far_visible;
     obs_out[height_base + i] = visible && sample.solid
                                    ? sample.height - state_.body.position.y
                                    : 0.0f;
@@ -165,7 +179,10 @@ void Env::build_observation(float* obs_out) const {
   for (int i = 0; i < kBiomeSamplesAhead; ++i) {
     const float distance = 3.0f * static_cast<float>(i + 1);
     const float sample_x = state_.body.position.x + distance;
-    const bool visible = lidar_active && distance <= state_.lidar_range;
+    const bool near_visible = distance <= near_range;
+    const bool far_visible = lidar_active && distance > near_range &&
+                             distance <= state_.lidar_range;
+    const bool visible = near_visible || far_visible;
     const auto sample = terrain_.query_near(sample_x, 1.0e6f);
     const auto behind = terrain_.query_near(sample_x - 0.25f, 1.0e6f);
     const auto ahead = terrain_.query_near(sample_x + 0.25f, 1.0e6f);
@@ -201,7 +218,6 @@ void Env::build_observation(float* obs_out) const {
 
 
 
-  obs_out[k++] = state_.ambient_temperature / 120.0f;
   obs_out[k++] = state_.engine_overheated ? 1.0f : 0.0f;
   obs_out[k++] = state_.engine_cold_locked ? 1.0f : 0.0f;
   obs_out[k++] = state_.solar_panel_deployment;
@@ -211,11 +227,8 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.lidar_cooldown_steps > 0
                      ? static_cast<float>(state_.lidar_cooldown_steps) * config_.physics.dt
                      : 0.0f;
-  obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
-  obs_out[k++] = static_cast<float>(state_.previous_action) / 33554431.0f;
+  obs_out[k++] = static_cast<float>(state_.previous_action) / 8388607.0f;
   obs_out[k++] = state_.last_reward;
-
-  obs_out[k++] = state_.solar_irradiance / 3.0f;
 
 
   obs_out[k++] = clamp(state_.imu_acceleration.x / 20.0f, -4.0f, 4.0f);
@@ -261,6 +274,12 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.body_contact_front ? 1.0f : 0.0f;
   obs_out[k++] = state_.body_contact_belly ? 1.0f : 0.0f;
   obs_out[k++] = state_.body_contact_rear ? 1.0f : 0.0f;
+  obs_out[k++] = state_.propeller_deployment;
+  obs_out[k++] = state_.suspension_jump_charge;
+  obs_out[k++] = state_.roof_piston_extension;
+  obs_out[k++] = clamp(state_.energy_cost_rate, 0.0f, 32.0f) / 32.0f;
+  obs_out[k++] = state_.ballast_air;
+  assert(k == kObservationDim);
 }
 
 void Env::update_world_latents() {
@@ -268,11 +287,16 @@ void Env::update_world_latents() {
   const int n = mechanic_layout_.active_layers(state_.body.position.x, active);
   state_.active_layer_count = n;
   float weight_sum = 0.0f;
-  // Resetting to a bounded baseline each tick makes the order-dependent chain
-  // deterministic and prevents state drift from escaping its safety envelope.
-  float moisture = 0.22f, heat = 0.25f, viscosity = 0.0f, sink = 0.0f;
-  float gravity = 1.0f, wind = 0.0f, ambient = -21.0f, thermal = 1.0f;
-  float solar = 1.0f, lidar_cost = 1.0f, lidar_range = 1.0f;
+  // Blend sampled sources and uncoupled target bases first. The influence graph
+  // is then evaluated once, so overlapping layers contribute to one summed,
+  // logarithmically saturated adjustment rather than being coupled separately.
+  MechanicParams mixed{};
+  mixed.moisture = 0.22f;
+  mixed.ambient_temperature = -21.0f;
+  mixed.base_friction_mul = 1.0f;
+  mixed.base_viscosity = 0.0f;
+  mixed.base_energy_drain_mul = 1.0f;
+  mixed.base_thermal_transfer = 1.0f;
   for (int i = 0; i < n; ++i) {
     const auto& z = *active[static_cast<size_t>(i)];
     const float feather = std::min(25.0f, std::max(15.0f, (z.end_x - z.begin_x) * 0.16f));
@@ -281,59 +305,51 @@ void Env::update_world_latents() {
     const float w = enter * enter * (3.0f - 2.0f * enter) * leave * leave * (3.0f - 2.0f * leave);
     weight_sum += w;
     const auto& p = z.params;
-    moisture = clamp(moisture + w * (z.type == MechanicType::Mud ? 0.34f : z.type == MechanicType::Liquid ? 0.55f : -0.06f), 0.0f, 1.0f);
-    heat = clamp(heat + w * (p.ambient_temperature > 10.0f ? 0.15f : -0.04f), 0.0f, 1.0f);
-    viscosity = clamp(viscosity + w * p.viscosity, 0.0f, 2.5f);
-    sink = clamp(sink + w * p.sink_rate, 0.0f, 1.0f);
-    gravity = clamp(gravity + w * (p.gravity_mul - 1.0f), 0.45f, 1.35f);
-    wind = clamp(wind + w * p.wind_force, -80.0f, 80.0f);
-    // Keep Mars-like variation without allowing a generated layer to collapse
-    // the entire temperature distribution into implausible −120°C extremes.
-    const float zone_ambient = clamp(p.ambient_temperature, -82.0f, 48.0f) + 24.0f;
-    ambient = clamp(ambient + w * (zone_ambient - ambient), -58.0f, 72.0f);
-    thermal = clamp(thermal + w * (p.thermal_transfer - thermal), 0.25f, 3.0f);
-    solar = clamp(solar + w * (p.solar_charge_rate - solar), 0.0f, 3.0f);
-    lidar_cost = clamp(lidar_cost + w * (p.lidar_energy_mul - lidar_cost), 0.4f, 3.0f);
-    lidar_range = clamp(lidar_range + w * (p.lidar_range_mul - lidar_range), 0.35f, 1.5f);
+    mixed.moisture += w * (p.moisture - 0.22f);
+    mixed.sink_rate += w * p.sink_rate;
+    mixed.ambient_temperature += w * (p.ambient_temperature + 21.0f);
+    mixed.base_friction_mul += w * (p.base_friction_mul - 1.0f);
+    mixed.base_viscosity += w * p.base_viscosity;
+    mixed.base_energy_drain_mul += w * (p.base_energy_drain_mul - 1.0f);
+    mixed.base_thermal_transfer += w * (p.base_thermal_transfer - 1.0f);
+    mixed.gravity_mul += w * (p.gravity_mul - 1.0f);
+    mixed.wind_force += w * p.wind_force;
+    mixed.solar_charge_rate += w * (p.solar_charge_rate - 1.0f);
+    mixed.lidar_energy_mul += w * (p.lidar_energy_mul - 1.0f);
+    mixed.lidar_range_mul += w * (p.lidar_range_mul - 1.0f);
   }
-  const auto rule_input = [&](CouplingInput input) {
-    switch (input) {
-      case CouplingInput::Moisture: return moisture;
-      case CouplingInput::Viscosity: return viscosity;
-      case CouplingInput::Heat: return heat;
-      case CouplingInput::Slip: return state_.drivetrain_slip;
-      case CouplingInput::Speed: return std::abs(state_.body.velocity.x);
-    }
-    return 0.0f;
-  };
-  float traction = 1.0f;
-  // Ordered formulas are data in the compiled bank.  Each reads the current
-  // shared values, writes one bounded target, then the next rule observes it.
-  for (const auto& rule : kFrozenCouplingRules) {
-    float value = rule.bias;
-    for (int i = 0; i < rule.input_count; ++i) {
-      value += rule.coefficients[static_cast<size_t>(i)] *
-               rule_input(rule.inputs[static_cast<size_t>(i)]);
-    }
-    value = clamp(value, rule.lower, rule.upper);
-    switch (rule.target) {
-      case CouplingTarget::Traction: traction = value; break;
-      case CouplingTarget::Heat: heat = value; break;
-    }
-  }
-  state_.latent_moisture = moisture; state_.latent_heat = heat;
-  state_.latent_viscosity = viscosity; state_.latent_sink = sink;
+  apply_generation_influences(mixed);
+  state_.latent_moisture = mixed.moisture;
+  state_.latent_heat = clamp((mixed.ambient_temperature + 58.0f) / 130.0f, 0.0f, 1.0f);
+  state_.latent_viscosity = mixed.viscosity;
+  state_.latent_sink = mixed.sink_rate;
   state_.latent_charge_reserve = clamp(state_.energy / std::max(1.0f, config_.physics.energy_capacity), 0.0f, 1.0f);
-  state_.latent_suspension = clamp(1.0f - sink * 0.25f + (state_.climb_mode ? 0.12f : 0.0f), 0.65f, 1.25f);
-  state_.latent_traction = traction;
-  state_.latent_gravity_multiplier = gravity;
-  state_.latent_wind_force = wind;
-  state_.latent_ambient_temperature = ambient;
-  state_.latent_thermal_transfer = thermal;
-  state_.latent_solar_rate = solar;
-  state_.latent_lidar_energy_multiplier = lidar_cost;
-  state_.latent_lidar_range_multiplier = lidar_range;
+  state_.latent_suspension = clamp(1.0f - mixed.sink_rate * 0.25f +
+                                           (state_.climb_mode ? 0.12f : 0.0f),
+                                   0.65f, 1.25f);
+  state_.latent_traction = mixed.friction_mul;
+  state_.latent_energy_resistance = mixed.energy_drain_mul;
+  state_.latent_gravity_multiplier = mixed.gravity_mul;
+  state_.latent_wind_force = mixed.wind_force;
+  state_.latent_ambient_temperature = mixed.ambient_temperature;
+  state_.latent_thermal_transfer = mixed.thermal_transfer;
+  state_.latent_solar_rate = mixed.solar_charge_rate;
+  state_.latent_lidar_energy_multiplier = mixed.lidar_energy_mul;
+  state_.latent_lidar_range_multiplier = mixed.lidar_range_mul;
   state_.active_layer_weight = weight_sum;
+}
+
+float Env::course_difficulty(float x) const {
+  const float course_length = std::max(1.0f, config_.terrain.length);
+  const float progress = clamp(x / course_length, 0.0f, 1.0f);
+  if (progress <= difficulty_safe_fraction_) return 0.0f;
+  const float t = clamp((progress - difficulty_safe_fraction_) /
+                            std::max(0.01f, 1.0f - difficulty_safe_fraction_),
+                        0.0f, 1.0f);
+  const float exponent = clamp(config_.difficulty_exponent, 0.5f, 4.0f);
+  return clamp(0.68f * std::pow(t, exponent) +
+                   0.32f * std::pow(t, exponent * 2.35f),
+               0.0f, 1.0f);
 }
 
 void Env::select_mechanic_layout(uint64_t seed) {
@@ -360,15 +376,24 @@ void Env::select_mechanic_layout(uint64_t seed) {
     eligible_biomes.push_back(builtin_biome_id(MechanicType::Normal));
   }
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
+  const float safe_min = clamp(std::min(config_.difficulty_safe_fraction_min,
+                                        config_.difficulty_safe_fraction_max), 0.0f, 0.40f);
+  const float safe_max = clamp(std::max(config_.difficulty_safe_fraction_min,
+                                        config_.difficulty_safe_fraction_max), safe_min, 0.45f);
+  difficulty_safe_fraction_ = safe_min + (safe_max - safe_min) * u(rng_);
   const auto build_layers = [&]() {
     mechanic_layout_.layer_count = 0;
-    // Physical regions are long (120–250m), with 1–4 rules simultaneously
+    // Physical regions span 55–120m, with 1–4 rules simultaneously
     // active.  They are independent from the contiguous terrain carrier zones.
-    std::uniform_real_distribution<float> region_length(120.0f, 250.0f);
+    std::uniform_real_distribution<float> region_length(55.0f, 120.0f);
     float begin = -20.0f;
     const auto id_for_type = [&](MechanicType type) {
       for (int id : eligible_biomes) {
         if (bank[static_cast<size_t>(id)]->visual_type() == type) return id;
+      }
+      for (int id = 0; id < static_cast<int>(bank.size()); ++id) {
+        if (bank[static_cast<size_t>(id)]->is_anchor() &&
+            bank[static_cast<size_t>(id)]->visual_type() == type) return id;
       }
       return eligible_biomes[static_cast<size_t>(rng_() % eligible_biomes.size())];
     };
@@ -391,15 +416,21 @@ void Env::select_mechanic_layout(uint64_t seed) {
     while (begin < terrain_.length() + 250.0f &&
            mechanic_layout_.layer_count < kMaxMechanicZones - kMaxActiveMechanisms) {
       const float end = begin + region_length(rng_);
+      const float difficulty = course_difficulty((begin + end) * 0.5f);
       const int stack_id = allowed[static_cast<size_t>(rng_() % static_cast<uint64_t>(allowed_count))];
       const auto& approved = kFrozenMechanismStacks[static_cast<size_t>(stack_id)];
-      const int stack = approved.count;
+      const bool calm_region = u(rng_) > difficulty;
+      const int stack = calm_region ? 1 : approved.count;
       for (int j = 0; j < stack && mechanic_layout_.layer_count < kMaxMechanicZones; ++j) {
-        const int id = id_for_type(approved.types[static_cast<size_t>(j)]);
+        const MechanicType type = calm_region ? MechanicType::Normal
+                                               : approved.types[static_cast<size_t>(j)];
+        const int id = id_for_type(type);
         const Biome& b = *bank[static_cast<size_t>(id)];
         auto& layer = mechanic_layout_.layers[static_cast<size_t>(mechanic_layout_.layer_count++)];
         layer.begin_x = begin; layer.end_x = end; layer.type = b.visual_type();
-        layer.biome_id = id; layer.params = b.sample_params(rng_());
+        const uint64_t parameter_seed = rng_();
+        layer.biome_id = id; layer.params = b.sample_params(parameter_seed);
+        prepare_generation_params(layer.params, layer.type, parameter_seed);
         layer.terrain_seed = rng_(); layer.liquid_level = -1.0e9f;
       }
       begin = end; ++region;
@@ -419,19 +450,26 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.end_x = 1000000.0f;
     zone.type = biome.visual_type();
     zone.biome_id = biome_id;
-    zone.params = biome.sample_params(rng_());
+    const uint64_t parameter_seed = rng_();
+    zone.params = biome.sample_params(parameter_seed);
+    prepare_generation_params(zone.params, zone.type, parameter_seed);
     zone.terrain_seed = rng_();
     zone.terrain_surprise_mode = 0;
     zone.terrain_surprise_strength = 0.0f;
+    const float zone_difficulty = course_difficulty(config_.terrain.length * 0.5f);
     if (config_.fixed_biome_id < 0 &&
-        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f)) {
+        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
+                      (0.03f + 0.97f * zone_difficulty)) {
       zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
       zone.terrain_surprise_strength =
-          std::max(0.0f, config_.terrain_surprise_strength) * (0.75f + 0.5f * u(rng_));
+          std::max(0.0f, config_.terrain_surprise_strength) *
+          (0.08f + 0.92f * zone_difficulty) * (0.75f + 0.5f * u(rng_));
     }
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[0] =
-        biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
+        biome.visual_type() == MechanicType::Liquid
+            ? 2.5f + zone_difficulty * 4.5f + u(rng_) * (1.0f + 2.0f * zone_difficulty)
+            : -1.0f;
     build_layers();
     return;
   }
@@ -471,11 +509,19 @@ void Env::select_mechanic_layout(uint64_t seed) {
   for (int slot = 0; slot < zone_count; ++slot) {
 
 
-    const bool take_anchor = !anchors.empty() && (slot % 3 == 0);
+    const float slot_progress = (static_cast<float>(slot) + 0.5f) /
+                                static_cast<float>(std::max(1, zone_count));
+    const float slot_x = slot_progress * config_.terrain.length;
+    const float difficulty = course_difficulty(slot_x);
+    const bool take_anchor = !anchors.empty() && (slot == 0 || u(rng_) > difficulty);
     int candidate;
     if (take_anchor) {
-      candidate = anchors[anchor_cursor % anchors.size()];
-      ++anchor_cursor;
+      if (difficulty < 0.18f) {
+        candidate = builtin_biome_id(MechanicType::Normal);
+      } else {
+        candidate = anchors[anchor_cursor % anchors.size()];
+        ++anchor_cursor;
+      }
     } else {
       candidate = pool[pool_cursor % pool.size()];
       ++pool_cursor;
@@ -483,6 +529,17 @@ void Env::select_mechanic_layout(uint64_t seed) {
         pool_cursor += 1;
         candidate = pool[pool_cursor % pool.size()];
       }
+    }
+    // Water is a progressive mixture component rather than merely one of the
+    // shuffled anchors. Keep the opening readable and avoid adjacent basins.
+    const int liquid_id = builtin_biome_id(MechanicType::Liquid);
+    const bool previous_was_liquid =
+        previous_id >= 0 && bank[static_cast<size_t>(previous_id)]->visual_type() ==
+                                MechanicType::Liquid;
+    const float liquid_probability = 0.10f + 0.16f * difficulty;
+    if (slot > 0 && difficulty >= 0.10f && !previous_was_liquid &&
+        u(rng_) < liquid_probability) {
+      candidate = liquid_id;
     }
     order.push_back(candidate);
     previous_id = candidate;
@@ -505,19 +562,28 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.end_x = cursor;
     zone.type = biome.visual_type();
     zone.biome_id = biome_id;
-    zone.params = biome.sample_params(rng_());
+    const uint64_t parameter_seed = rng_();
+    zone.params = biome.sample_params(parameter_seed);
+    prepare_generation_params(zone.params, zone.type, parameter_seed);
     zone.terrain_seed = rng_();
     zone.terrain_surprise_mode = 0;
     zone.terrain_surprise_strength = 0.0f;
+    const float zone_probe = last ? std::min(config_.terrain.length, zone.begin_x + 35.0f)
+                                  : (zone.begin_x + zone.end_x) * 0.5f;
+    const float zone_difficulty = course_difficulty(zone_probe);
     if (config_.fixed_biome_id < 0 &&
-        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f)) {
+        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
+                      (0.03f + 0.97f * zone_difficulty)) {
       zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
       zone.terrain_surprise_strength =
-          std::max(0.0f, config_.terrain_surprise_strength) * (0.75f + 0.5f * u(rng_));
+          std::max(0.0f, config_.terrain_surprise_strength) *
+          (0.08f + 0.92f * zone_difficulty) * (0.75f + 0.5f * u(rng_));
     }
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[static_cast<size_t>(slot)] =
-        biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
+        biome.visual_type() == MechanicType::Liquid
+            ? 2.5f + zone_difficulty * 4.5f + u(rng_) * (1.0f + 2.0f * zone_difficulty)
+            : -1.0f;
   }
   build_layers();
 }
@@ -531,6 +597,25 @@ void Env::finalize_mechanic_layout() {
   for (int slot = 0; slot < mechanic_layout_.count; ++slot) {
     auto& zone = mechanic_layout_.zones[static_cast<size_t>(slot)];
     const Biome& biome = biome_by_id(zone.biome_id);
+    const float finite_end = std::min(terrain_.length(), zone.end_x);
+    const float profile_x = clamp((std::max(0.0f, zone.begin_x) + finite_end) * 0.5f,
+                                  0.0f, terrain_.length());
+    const float zone_difficulty = terrain_.difficulty_at(profile_x);
+    const float simple_weight = 1.0f - zone_difficulty;
+    constexpr float medium_weight = 0.4f;
+    const float complex_weight = zone_difficulty;
+    const float profile_draw = biome_random01(zone.terrain_seed, 18) *
+                               (simple_weight + medium_weight + complex_weight);
+    int profile = 1;
+    if (profile_draw < simple_weight) {
+      profile = biome_random01(zone.terrain_seed, 19) < 0.5f ? 0 : 4;
+    } else if (profile_draw >= simple_weight + medium_weight) {
+      profile = biome_random01(zone.terrain_seed, 19) < 0.5f ? 2 : 3;
+    }
+    const float frequency_scale =
+        1.0f + std::max(0.0f, config_.terrain_profile_frequency_growth) * zone_difficulty;
+    zone.terrain_profile = profile;
+    zone.terrain_frequency_scale = frequency_scale;
     const int first_sample = std::max(
         0, static_cast<int>(std::ceil(std::max(0.0f, zone.begin_x) / terrain_.dx())));
     const int last_sample = std::min(
@@ -539,53 +624,55 @@ void Env::finalize_mechanic_layout() {
     for (int sample = first_sample; sample <= last_sample; ++sample) {
       const float world_x = static_cast<float>(sample) * terrain_.dx();
       const float local_x = world_x - zone.begin_x;
-      // A seeded palette of incompatible-looking profiles prevents one global
-      // sinusoid signature: harmonics, value noise, terraces, saw/triangle,
-      // and a two-scale combination.  Later distance shifts probability toward
-      // sharper and taller shapes.
-      const float difficulty = clamp(world_x / 850.0f, 0.0f, 1.0f);
+      // Profile category is sampled once per zone. Distance shifts mass from
+      // predictable waves toward terraces/ridges; frequency increases
+      // independently, while amplitude retains the central difficulty scale.
+      const float difficulty = terrain_.difficulty_at(world_x);
       const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 17);
-      const int profile = (slot + static_cast<int>(biome_random01(zone.terrain_seed, 18) * 5.0f)) % 5;
       float palette_delta = 0.0f;
       switch (profile) {
         case 0:
-          palette_delta = 0.22f * std::sin(local_x * (0.07f + difficulty * 0.04f) + phase) +
-                          0.08f * std::sin(local_x * 0.71f + phase * 0.37f);
+          palette_delta = 0.22f * std::sin(local_x * 0.07f * frequency_scale + phase) +
+                          0.08f * std::sin(local_x * 0.71f * frequency_scale + phase * 0.37f);
           break;
         case 1: { // deterministic value-noise interpolation, no global period
-          const float cell = 3.8f - difficulty * 1.6f;
+          const float cell = 3.8f / frequency_scale;
           const int a = static_cast<int>(std::floor(local_x / cell));
           const float t = local_x / cell - static_cast<float>(a);
           const float va = biome_random01(zone.terrain_seed, 300 + a) * 2.0f - 1.0f;
           const float vb = biome_random01(zone.terrain_seed, 301 + a) * 2.0f - 1.0f;
           const float smooth = t * t * (3.0f - 2.0f * t);
-          palette_delta = (va + (vb - va) * smooth) * (0.16f + difficulty * 0.20f);
+          palette_delta = (va + (vb - va) * smooth) * 0.28f;
           break;
         }
         case 2: {
-          const float step = std::floor(local_x / (3.0f - difficulty));
+          const float step = std::floor(local_x / (3.0f / frequency_scale));
           palette_delta = (biome_random01(zone.terrain_seed, 500 + static_cast<uint64_t>(step)) - 0.5f) *
-                          (0.32f + difficulty * 0.42f);
+                          0.48f;
           break;
         }
         case 3: {
-          const float period = 7.0f - difficulty * 3.0f;
+          const float period = 7.0f / frequency_scale;
           const float f = local_x / period - std::floor(local_x / period);
-          palette_delta = (1.0f - 4.0f * std::abs(f - 0.5f)) * (0.25f + difficulty * 0.25f);
+          palette_delta = (1.0f - 4.0f * std::abs(f - 0.5f)) * 0.38f;
           break;
         }
         default:
-          palette_delta = 0.32f * std::sin(local_x * 0.045f + phase) +
-                          (biome_random01(zone.terrain_seed, 800 + static_cast<uint64_t>(local_x / 2.0f)) - 0.5f) *
-                          (0.10f + difficulty * 0.18f);
+          palette_delta = 0.32f * std::sin(local_x * 0.045f * frequency_scale + phase) +
+                          (biome_random01(
+                               zone.terrain_seed,
+                               800 + static_cast<uint64_t>(local_x / (2.0f / frequency_scale))) -
+                           0.5f) * 0.16f;
           break;
       }
       const float region_edge = clamp(local_x / 18.0f, 0.0f, 1.0f) *
                                 clamp((zone.end_x - world_x) / 18.0f, 0.0f, 1.0f);
-      terrain_.add_height_at_index(sample, palette_delta * region_edge);
+      terrain_.add_height_at_index(sample, palette_delta * region_edge *
+                                           (0.18f + 0.82f * difficulty));
       const float delta = biome.terrain_height_delta(local_x, zone.terrain_seed);
       if (std::isfinite(delta)) {
-        terrain_.add_height_at_index(sample, clamp(delta, -2.5f, 2.5f));
+        terrain_.add_height_at_index(
+            sample, clamp(delta, -2.5f, 2.5f) * (0.10f + 0.90f * difficulty));
       }
       if (zone.terrain_surprise_mode > 0) {
         const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 91);
@@ -626,7 +713,8 @@ void Env::finalize_mechanic_layout() {
     if (depth >= 0.0f) {
       const float world_end =
           std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x);
-      zone.liquid_level = terrain_.carve_basin(std::max(0.0f, zone.begin_x), world_end, depth);
+      zone.liquid_level = terrain_.carve_basin(
+          std::max(0.0f, zone.begin_x), world_end, depth, zone.terrain_seed);
       // A raised, dry crossing is a separate collision surface; missing the
       // ramp leaves the rover on the lower water route, where the propeller is
       // useful but expensive.
@@ -643,6 +731,8 @@ void Env::finalize_mechanic_layout() {
       const float last_ledge = std::min({config_.termination.finish_x - 4.0f,
                                          terrain_.length() - 4.0f, zone.end_x - 4.0f});
       for (float begin = zone_start; begin < last_ledge; begin += zone.params.ledge_spacing) {
+        const float difficulty = terrain_.difficulty_at(begin);
+        if (difficulty < 0.08f) continue;
         const uint64_t ledge_index = static_cast<uint64_t>(std::max(0.0f, std::floor(begin)));
         const bool heavy_ledge = biome_random01(zone.terrain_seed, 700 + ledge_index) > 0.66f;
         const float gap_scale = heavy_ledge
@@ -651,10 +741,12 @@ void Env::finalize_mechanic_layout() {
         const float ramp_scale = heavy_ledge
                                      ? 0.70f
                                      : 1.0f + 0.20f * biome_random01(zone.terrain_seed, 1100 + ledge_index);
-        const float gap_width = zone.params.ledge_gap_width * gap_scale;
+        const float gap_width = zone.params.ledge_gap_width * gap_scale *
+                                (0.25f + 0.75f * difficulty);
         terrain_.carve_ledge(begin, begin + gap_width,
                              zone.params.ledge_ramp_length * ramp_scale,
-                             zone.params.ledge_ramp_height * (heavy_ledge ? 1.20f : 1.0f));
+                             zone.params.ledge_ramp_height * (heavy_ledge ? 1.20f : 1.0f) *
+                                 (0.35f + 0.65f * difficulty));
       }
     }
   }

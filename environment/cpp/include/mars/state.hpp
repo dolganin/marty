@@ -61,12 +61,14 @@ struct RoverState {
   float solar_charge_rate = 0.0f;
   float passive_charge_rate = 0.0f;
   float solar_irradiance = 0.0f;
+  float ballast_air = 0.55f;
+  bool ballast_blowing = false;
+  bool ballast_flooding = false;
   bool solar_panel_stationary = false;
   int lidar_active_steps = 0;
   int lidar_cooldown_steps = 0;
   float lidar_last_energy_cost = 0.0f;
   float lidar_range = 0.0f;
-  int lidar_direction = 0;  // 0 front, 1 rear, 2 left, 3 right.
   Vec2 imu_acceleration{};
   float imu_angular_acceleration = 0.0f;
   float imu_impact = 0.0f;
@@ -118,6 +120,7 @@ struct RoverState {
   float latent_charge_reserve = 1.0f;
   float latent_viscosity = 0.0f;
   float latent_sink = 0.0f;
+  float latent_energy_resistance = 1.0f;
   float latent_suspension = 1.0f;
   float latent_gravity_multiplier = 1.0f;
   float latent_wind_force = 0.0f;

@@ -47,28 +47,6 @@ inline constexpr std::array<FrozenMechanismStack, 6> kFrozenMechanismStacks{{
     {{MechanicType::Sand, MechanicType::Mud, MechanicType::Wind, MechanicType::Crust}, 4, BiomeSplit::Test},
 }};
 
-enum class CouplingInput : int { Moisture, Viscosity, Heat, Slip, Speed };
-enum class CouplingTarget : int { Traction, Heat };
-
-struct FrozenCouplingRule {
-  std::array<CouplingInput, 2> inputs{};
-  std::array<float, 2> coefficients{};
-  int input_count = 0;
-  CouplingTarget target = CouplingTarget::Traction;
-  float bias = 0.0f;
-  float lower = 0.0f;
-  float upper = 1.0f;
-};
-
-// Mirror of coupling_rules in biome_bank.json.  Bounds are part of the frozen
-// binary contract, so a manifest cannot introduce an unbounded formula.
-inline constexpr std::array<FrozenCouplingRule, 2> kFrozenCouplingRules{{
-    {{CouplingInput::Moisture, CouplingInput::Viscosity}, {-0.62f, -0.16f}, 2,
-      CouplingTarget::Traction, 1.18f, 0.12f, 1.45f},
-    {{CouplingInput::Slip, CouplingInput::Speed}, {0.14f, 0.02f}, 2,
-      CouplingTarget::Heat, 0.18f, 0.0f, 1.0f},
-}};
-
 struct BiomeColor { uint8_t r = 42, g = 35, b = 30; };
 
 struct BiomeVisuals {
@@ -3552,7 +3530,7 @@ inline constexpr int kGeneratedBiomeBankEnd = 0;
 
 }
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:6108f82bc055f011540c0219838ddb557a2f632bf0c0b97eba1f3b0ab77a57b7";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;

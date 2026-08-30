@@ -10,6 +10,10 @@ env:
   chain_segment_max_length: 70.0
   terrain_surprise_probability: 0.28
   terrain_surprise_strength: 1.15
+  difficulty_safe_fraction_min: 0.02
+  difficulty_safe_fraction_max: 0.02
+  difficulty_exponent: 0.7125
+  terrain_profile_frequency_growth: 0.75
 
 terrain:
   sample_count: 4096

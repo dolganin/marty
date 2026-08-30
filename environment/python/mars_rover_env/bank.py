@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from mars_rover_env.rules import validate_rule
+from mars_rover_env.rules import validate_graph
 
 
 # This data is mirrored by kFrozenMechanismStacks in biome_bank.hpp.  It is
@@ -20,10 +20,11 @@ FROZEN_STACKS = (
 )
 
 DEFAULT_COUPLING_RULES = (
-    {"inputs": ("moisture", "viscosity"), "target": "traction",
-     "coefficients": (-0.62, -0.16), "bias": 1.18},
-    {"inputs": ("slip", "speed"), "target": "heat",
-     "coefficients": (0.14, 0.02), "bias": 0.18},
+    {"source": "moisture", "target": "traction", "weight": -0.72},
+    {"source": "sink", "target": "traction", "weight": -0.58},
+    {"source": "temperature", "target": "viscosity", "weight": -0.78},
+    {"source": "viscosity", "target": "energy_resistance", "weight": 0.88},
+    {"source": "temperature", "target": "thermal_transfer", "weight": -0.72},
 )
 
 
@@ -55,8 +56,7 @@ def load_manifest(path: str | Path = DEFAULT_MANIFEST) -> dict[str, Any]:
     manifest = json.loads(path.read_text(encoding="utf-8"))
     # Optional v13 formulas are checked before a frozen bank is used. Runtime
     # never evaluates arbitrary model output.
-    for rule in manifest.get("coupling_rules", []):
-        validate_rule(rule)
+    validate_graph(manifest.get("coupling_rules", []))
     known = set(manifest.get("anchors", [])) | {str(item.get("id", ""))
                                                    for item in manifest.get("biomes", [])}
     for stack in manifest.get("frozen_stacks", []):

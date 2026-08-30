@@ -19,8 +19,35 @@ enum class MechanicType : int {
   Liquid = 7,
 };
 
+enum class GenerationParameter : int {
+  Moisture,
+  Sink,
+  Temperature,
+  Traction,
+  Viscosity,
+  EnergyResistance,
+  ThermalTransfer,
+};
+
+struct GenerationInfluence {
+  GenerationParameter source;
+  GenerationParameter target;
+  float weight;
+};
+
+// Frozen defaults mirror coupling_rules in biome_bank.json. Future reviewed
+// LLM rules use this same source -> target -> weight representation.
+inline constexpr std::array<GenerationInfluence, 5> kGenerationInfluences{{
+    {GenerationParameter::Moisture, GenerationParameter::Traction, -0.72f},
+    {GenerationParameter::Sink, GenerationParameter::Traction, -0.58f},
+    {GenerationParameter::Temperature, GenerationParameter::Viscosity, -0.78f},
+    {GenerationParameter::Viscosity, GenerationParameter::EnergyResistance, 0.88f},
+    {GenerationParameter::Temperature, GenerationParameter::ThermalTransfer, -0.72f},
+}};
+
 struct MechanicParams {
   float friction_mul = 1.0f;
+  float moisture = 0.22f;
   float sink_rate = 0.0f;
   float viscosity = 0.0f;
   float wind_force = 0.0f;
@@ -32,6 +59,13 @@ struct MechanicParams {
   float solar_charge_rate = 1.0f;
   float lidar_energy_mul = 1.0f;
   float lidar_range_mul = 1.0f;
+
+  // Sampled values retained so overlapping layers can be combined first and
+  // passed through the influence graph exactly once.
+  float base_friction_mul = 1.0f;
+  float base_viscosity = 0.0f;
+  float base_energy_drain_mul = 1.0f;
+  float base_thermal_transfer = 1.0f;
 
 
 
@@ -62,6 +96,8 @@ struct MechanicZone {
   uint64_t terrain_seed = 0;
   int terrain_surprise_mode = 0;
   float terrain_surprise_strength = 0.0f;
+  int terrain_profile = 0;
+  float terrain_frequency_scale = 1.0f;
   MechanicParams params{};
   float liquid_level = -1.0e9f;
 };
@@ -111,5 +147,7 @@ void apply_mechanic(int biome_id, const MechanicParams& params, MechanicContext&
 float mechanic_friction_scale(int biome_id, const MechanicParams& params);
 void apply_body_mechanic(int biome_id, const MechanicParams& params, MechanicBodyContext& ctx);
 int builtin_biome_id(MechanicType type);
+void prepare_generation_params(MechanicParams& params, MechanicType type, uint64_t seed);
+void apply_generation_influences(MechanicParams& params);
 
 }

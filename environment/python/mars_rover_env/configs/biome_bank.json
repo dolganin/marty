@@ -1,8 +1,8 @@
 {
-  "schema_version": 3,
-  "bank_version": "sha256:6108f82bc055f011540c0219838ddb557a2f632bf0c0b97eba1f3b0ab77a57b7",
-  "train_version": "sha256:ed0774396a326f8690d09aadb619d8104e37c008563f1897c7db03da7feadfb7",
-  "test_version": "sha256:b7243f3fd169a9b3376e17751787ff5987d1f250a2452cbbfb980d99f604d6d3",
+  "schema_version": 4,
+  "bank_version": "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83",
+  "train_version": "sha256:e30dc0089549e28a40ce50c4ae466a8e0ddd1e5ca6d41da8c02dd588b07ec80f",
+  "test_version": "sha256:c78421a6bece4867513f3d1801a3977ad63b7d8c89d47374af9be5ee8db32c40",
   "anchors": [
     "normal",
     "sand",
@@ -13,7 +13,7 @@
     "crust",
     "liquid"
   ],
-  "anchor_source_sha256": "a8cb44e5c7ec67562d6ad5533930d2170ca415894a3df67fab6fb68788ac6eae",
+  "anchor_source_sha256": "286ecd26a7a9ff0066c460e4b35dda4f17d592d29c5f97e06c24c7f0f5b5b11e",
   "quota_per_stratum": 2,
   "behavioral_dedup_epsilon": 0.0971,
   "biomes": [
@@ -132,28 +132,29 @@
   ],
   "coupling_rules": [
     {
-      "inputs": [
-        "moisture",
-        "viscosity"
-      ],
+      "source": "moisture",
       "target": "traction",
-      "coefficients": [
-        -0.62,
-        -0.16
-      ],
-      "bias": 1.18
+      "weight": -0.72
     },
     {
-      "inputs": [
-        "slip",
-        "speed"
-      ],
-      "target": "heat",
-      "coefficients": [
-        0.14,
-        0.02
-      ],
-      "bias": 0.18
+      "source": "sink",
+      "target": "traction",
+      "weight": -0.58
+    },
+    {
+      "source": "temperature",
+      "target": "viscosity",
+      "weight": -0.78
+    },
+    {
+      "source": "viscosity",
+      "target": "energy_resistance",
+      "weight": 0.88
+    },
+    {
+      "source": "temperature",
+      "target": "thermal_transfer",
+      "weight": -0.72
     }
   ],
   "frozen_stacks": [

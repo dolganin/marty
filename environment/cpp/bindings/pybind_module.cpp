@@ -79,7 +79,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("roughness", &mars::TerrainConfig::roughness)
       .def_readwrite("crater_count", &mars::TerrainConfig::crater_count)
       .def_readwrite("step_count", &mars::TerrainConfig::step_count)
-      .def_readwrite("length", &mars::TerrainConfig::length);
+      .def_readwrite("length", &mars::TerrainConfig::length)
+      .def_readwrite("safe_start_fraction", &mars::TerrainConfig::safe_start_fraction)
+      .def_readwrite("difficulty_exponent", &mars::TerrainConfig::difficulty_exponent);
 
   py::class_<mars::PhysicsConfig>(m, "PhysicsConfig")
       .def(py::init<>())
@@ -116,6 +118,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("lidar_scan_duration", &mars::PhysicsConfig::lidar_scan_duration)
       .def_readwrite("lidar_cooldown", &mars::PhysicsConfig::lidar_cooldown)
       .def_readwrite("lidar_base_range", &mars::PhysicsConfig::lidar_base_range)
+      .def_readwrite("near_sense_range", &mars::PhysicsConfig::near_sense_range)
       .def_readwrite("brake_strength", &mars::PhysicsConfig::brake_strength)
       .def_readwrite("body_tilt_torque", &mars::PhysicsConfig::body_tilt_torque)
       .def_readwrite("linear_damping", &mars::PhysicsConfig::linear_damping)
@@ -197,6 +200,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("terrain_surprise_probability",
                      &mars::EnvConfig::terrain_surprise_probability)
       .def_readwrite("terrain_surprise_strength", &mars::EnvConfig::terrain_surprise_strength)
+      .def_readwrite("difficulty_safe_fraction_min", &mars::EnvConfig::difficulty_safe_fraction_min)
+      .def_readwrite("difficulty_safe_fraction_max", &mars::EnvConfig::difficulty_safe_fraction_max)
+      .def_readwrite("difficulty_exponent", &mars::EnvConfig::difficulty_exponent)
+      .def_readwrite("terrain_profile_frequency_growth",
+                     &mars::EnvConfig::terrain_profile_frequency_growth)
       .def_readwrite("debug", &mars::EnvConfig::debug);
 
   py::class_<mars::BatchEnv>(m, "MarsRoverBatchEnv")
@@ -271,6 +279,10 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["x"] = state.body.position.x;
              d["distance_m"] = std::max(0.0f, state.body.position.x - 1.0f);
              d["best_distance_m"] = std::max(0.0f, env.best_progress() - 1.0f);
+             d["course_difficulty"] = env.terrain().difficulty_at(state.body.position.x);
+             d["safe_start_m"] = env.terrain().safe_start_fraction() * env.terrain().length();
+             d["terrain_profile"] = zone.terrain_profile;
+             d["terrain_frequency_scale"] = zone.terrain_frequency_scale;
              d["y"] = state.body.position.y;
              d["vx"] = state.body.velocity.x;
              d["vy"] = state.body.velocity.y;
@@ -326,6 +338,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["solar_panel_deployment"] = state.solar_panel_deployment;
              d["charging_active"] = state.charging_active;
              d["solar_charge_rate"] = state.solar_charge_rate;
+             d["ballast_air"] = state.ballast_air;
+             d["ballast_blowing"] = state.ballast_blowing;
+             d["ballast_flooding"] = state.ballast_flooding;
              d["solar_panel_stationary"] = state.solar_panel_stationary;
              d["propeller_deployment"] = state.propeller_deployment;
              d["passive_charge_rate"] = state.passive_charge_rate;
@@ -334,7 +349,6 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["lidar_cooldown"] = static_cast<float>(state.lidar_cooldown_steps) *
                                      env.config().physics.dt;
              d["lidar_range"] = state.lidar_range;
-             d["lidar_direction"] = state.lidar_direction;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
              d["imu_acceleration_x"] = state.imu_acceleration.x;
              d["imu_acceleration_y"] = state.imu_acceleration.y;
@@ -391,6 +405,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["latent_charge_reserve"] = state.latent_charge_reserve;
              d["latent_viscosity"] = state.latent_viscosity;
              d["latent_sink"] = state.latent_sink;
+             d["latent_energy_resistance"] = state.latent_energy_resistance;
              d["latent_suspension"] = state.latent_suspension;
              d["climb_mode"] = state.climb_mode;
              d["propeller_mode"] = state.propeller_mode;

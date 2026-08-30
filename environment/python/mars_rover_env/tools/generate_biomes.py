@@ -644,7 +644,7 @@ def _write_manifest(
             "sha256:" + hashlib.sha256(split_canonical.encode()).hexdigest()
         )
     payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "bank_version": "sha256:" + hashlib.sha256(canonical.encode()).hexdigest(),
         **split_versions,
         "anchors": anchors,
@@ -887,7 +887,7 @@ def _catalog_from_header() -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Legacy C++ biome-source generator (v13 uses structured coupling-rule review instead)"
+        description="C++ biome-source generator with v15 influence-graph review"
     )
     parser.add_argument("--config", type=Path, default=ROOT / "python" / "mars_rover_env" / "configs" / "biome_generator.yaml")
     parser.add_argument("--count", type=int)

@@ -87,6 +87,21 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             cfg.terrain_surprise_strength = float(
                 env.get("terrain_surprise_strength", cfg.terrain_surprise_strength)
             )
+            cfg.difficulty_safe_fraction_min = float(
+                env.get("difficulty_safe_fraction_min", cfg.difficulty_safe_fraction_min)
+            )
+            cfg.difficulty_safe_fraction_max = float(
+                env.get("difficulty_safe_fraction_max", cfg.difficulty_safe_fraction_max)
+            )
+            cfg.difficulty_exponent = float(
+                env.get("difficulty_exponent", cfg.difficulty_exponent)
+            )
+            cfg.terrain_profile_frequency_growth = float(
+                env.get(
+                    "terrain_profile_frequency_growth",
+                    cfg.terrain_profile_frequency_growth,
+                )
+            )
             cfg.debug = bool(env.get("debug", cfg.debug))
         if "terrain" in data:
             _apply_section(
@@ -128,6 +143,7 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                     "lidar_scan_duration",
                     "lidar_cooldown",
                     "lidar_base_range",
+                    "near_sense_range",
                     "brake_strength",
                     "body_tilt_torque",
                     "linear_damping",

@@ -24,8 +24,7 @@ from mars_rover_env.envs.mars_rover_vec_env import MarsRoverVecEnv  # noqa: E402
 
 # Toggle and shift controls are edge-triggered. The suspension and roof piston
 # deliberately stay held over a macro so the policy can modulate their force.
-EVENT_MASK = (sum(1 << bit for bit in range(6, 13)) | (1 << 14) | (1 << 15)
-              | sum(1 << bit for bit in range(21, 25)))
+EVENT_MASK = sum(1 << bit for bit in range(6, 13)) | (1 << 14) | (1 << 15)
 HEATER = 1 << 12
 ACTION_MACROS = tuple(BASE_ACTION_MACROS) + (
     HEATER,

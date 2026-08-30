@@ -30,6 +30,8 @@ struct TerrainConfig {
   int crater_count = 18;
   int step_count = 16;
   float length = 512.0f;
+  float safe_start_fraction = 0.02f;
+  float difficulty_exponent = 0.7125f;
 };
 
 class Terrain {
@@ -44,13 +46,15 @@ class Terrain {
   void query_height_slope(float x, float& height, float& slope) const;
   void deform(float x, float radius, float amount);
   void add_height_at_index(int index, float amount);
-  float carve_basin(float begin_x, float end_x, float depth);
+  float carve_basin(float begin_x, float end_x, float depth, uint64_t seed);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
   void add_surface(float begin_x, float end_x, float begin_height, float end_height);
 
   int sample_count() const { return static_cast<int>(heights_.size()); }
   float dx() const { return dx_; }
   float length() const { return dx_ * static_cast<float>(heights_.size() - 1); }
+  float difficulty_at(float x) const;
+  float safe_start_fraction() const { return safe_start_fraction_; }
 
  private:
   float height_at_index(int i) const;
@@ -65,6 +69,8 @@ class Terrain {
   float roughness_ = 0.35f;
   int crater_count_ = 18;
   int step_count_ = 16;
+  float safe_start_fraction_ = 0.02f;
+  float difficulty_exponent_ = 0.7125f;
 };
 
 }

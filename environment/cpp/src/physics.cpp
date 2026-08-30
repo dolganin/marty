@@ -114,14 +114,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (state.lidar_active_steps == 0) state.lidar_range = 0.0f;
   state.lidar_last_energy_cost = 0.0f;
   float lidar_energy_cost = 0.0f;
-  const bool lidar_any = control.lidar || control.lidar_front || control.lidar_rear ||
-                         control.lidar_left || control.lidar_right;
-  const int lidar_action_mask = ControlLidar | ControlLidarFront | ControlLidarRear |
-                                ControlLidarLeft | ControlLidarRight;
-  const bool lidar_pressed = lidar_any && (state.previous_action & lidar_action_mask) == 0;
+  const bool lidar_pressed = control.lidar && (state.previous_action & ControlLidar) == 0;
   if (lidar_pressed && state.lidar_cooldown_steps == 0) {
-    state.lidar_direction = control.lidar || control.lidar_front ? 0 :
-        (control.lidar_rear ? 1 : (control.lidar_left ? 2 : 3));
     const float requested_cost =
         config_.lidar_energy_cost * state.latent_lidar_energy_multiplier;
     if (state.energy >= requested_cost) {
@@ -152,12 +146,21 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     control.body_torque = 0.0f;
     control.jump = control.jump_front = control.jump_rear = false;
     control.roof_piston = control.roof_piston_front = control.roof_piston_rear = false;
+    control.ballast_blow = control.ballast_flood = false;
     jump_active = false;
     jump_released = false;
     piston_active = false;
     state.suspension_jump_phase = 0;
     state.suspension_jump_charge = 0.0f;
     state.propeller_mode = false;
+  }
+  state.ballast_blowing = control.ballast_blow && !control.ballast_flood;
+  state.ballast_flooding = control.ballast_flood && !control.ballast_blow;
+  if (state.ballast_blowing) {
+    state.ballast_air = clamp(state.ballast_air + 0.55f * dt, 0.0f, 1.0f);
+    stats.energy_cost += 0.35f * dt;
+  } else if (state.ballast_flooding) {
+    state.ballast_air = clamp(state.ballast_air - 0.75f * dt, 0.0f, 1.0f);
   }
   const bool rover_stationary = length(state.body.velocity) < 0.06f &&
                                 std::abs(state.body.angular_velocity) < 0.08f;
@@ -404,9 +407,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float lug_factor = state.gear_index <= 0
                                ? 1.0f
                                : clamp((state.engine_rpm - 650.0f) / 1550.0f, 0.0f, 1.0f);
-  // A flat battery leaves only limp mechanical creep. The motor is never
-  // allowed to retain a meaningful fraction of nominal torque at zero charge.
-  const float reserve_power = 0.025f + 0.975f * state.latent_charge_reserve;
+  // A flat battery leaves only a genuinely limp mechanical creep. Read the
+  // battery directly here rather than the previous tick's latent snapshot.
+  const float battery_fraction = clamp(
+      state.energy / std::max(1.0f, config_.energy_capacity), 0.0f, 1.0f);
+  const float reserve_power = 0.006f + 0.994f * std::sqrt(battery_fraction);
   const float climb_torque = state.climb_mode ? 1.75f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
@@ -479,6 +484,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float gravity = config_.gravity * state.latent_gravity_multiplier;
   Vec2 body_force{0.0f, state.body.mass * gravity};
   body_force.x += state.latent_wind_force;
+  // Without stored energy the drivetrain cannot keep a rover planing forever
+  // on an old impulse. Excess speed is bled away into the stalled drivetrain;
+  // the remaining cap is deliberately only a slow crawl.
+  const float limp_speed_limit = 0.35f + 1.50f * std::sqrt(battery_fraction);
+  const float excess_speed = std::max(0.0f, std::abs(state.body.velocity.x) - limp_speed_limit);
+  if (excess_speed > 0.0f) {
+    body_force.x -= std::copysign(state.body.mass * 0.80f * excess_speed,
+                                  state.body.velocity.x);
+  }
   float body_torque = control.body_torque;
   if (!charging_lockout && state.solar_panel_deployment > 0.01f &&
       std::abs(state.body.velocity.x) > 0.3f) {
@@ -600,7 +614,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       if (submerged <= 0.0f) continue;
       const Vec2 point_velocity = state.body.velocity + perp(r) * state.body.angular_velocity;
       const float point_speed = length(point_velocity);
-      const Vec2 buoyancy{0.0f, sample_mass * -gravity * 0.74f * submerged};
+      const float ballast_buoyancy = 0.45f + 1.10f * state.ballast_air;
+      const Vec2 buoyancy{0.0f, sample_mass * -gravity * ballast_buoyancy * submerged};
       const Vec2 water_drag =
           point_velocity * (-sample_mass * submerged * (0.32f + point_speed * 0.52f));
       const Vec2 water_force = buoyancy + water_drag;
@@ -610,16 +625,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     }
   }
   if (state.propeller_deployment >= 0.99f && std::abs(control.throttle) > 0.0f) {
-    // The propeller works in every medium. Dense mud/water reduce efficiency
-    // through the world viscosity instead of turning the system fully off.
-    const float medium_efficiency = 1.0f / (1.0f + state.latent_viscosity * 0.65f);
     const bool in_liquid = body_zone.type == MechanicType::Liquid;
+    // Water needs less RPM than air, but reaches comparable thrust once the
+    // blades bite. It must not be weakened by wheel-medium viscosity.
+    const float medium_efficiency = in_liquid
+                                        ? 1.0f
+                                        : 1.0f / (1.0f + state.latent_viscosity * 0.65f);
     const float rpm_threshold = in_liquid ? 1800.0f : 7600.0f;
+    const float rpm_span = in_liquid ? 2200.0f : kRedlineRpm - rpm_threshold;
     const float propeller_ready = clamp((state.engine_rpm - rpm_threshold) /
-                                            std::max(1.0f, kRedlineRpm - rpm_threshold),
+                                            std::max(1.0f, rpm_span),
                                         0.0f, 1.0f);
-    const float thrust = 26.0f * medium_efficiency * control.throttle * reserve_power *
-                         propeller_ready;
+    const float thrust = (in_liquid ? 108.0f : 52.0f) * medium_efficiency *
+                         control.throttle * reserve_power * propeller_ready;
     body_force += rotate_body({thrust, 0.0f});
     stats.energy_cost += (0.16f + 0.72f * std::abs(control.throttle)) *
                          medium_efficiency * dt;
@@ -789,12 +807,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
 
+      const float submerged_drive_coupling = 1.0f - 0.94f * liquid_immersion;
       const float drive_torque =
           (state.engine_running ? config_.motor_torque : 0.0f) * state.cold_power_factor *
           torque_curve * driveline_load_factor *
           lug_factor * reserve_power * climb_torque * gear_ratio *
           config_.final_drive_ratio *
-          torque_split * speed_fade * control.throttle * state.clutch_engagement;
+          torque_split * speed_fade * control.throttle * state.clutch_engagement *
+          submerged_drive_coupling;
       const float drive_force = drive_torque / std::max(0.05f, wheel.radius);
       Vec2 traction_force{0.0f, 0.0f};
       MechanicContext ctx{};
@@ -900,6 +920,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float target_angular_velocity = -rolling_speed / std::max(0.05f, wheel.radius);
       if (control.brake > 0.0f) {
         wheel.angular_velocity = 0.0f;
+      } else if (liquid_immersion > 0.35f) {
+        // A submerged wheel freewheels: animation follows actual rover motion
+        // instead of displaying engine-speed spin while the body is stuck.
+        wheel.angular_velocity =
+            std::abs(rolling_speed) <= 0.12f ? 0.0f : target_angular_velocity;
       } else if (driven_wheel && state.engine_running && !in_neutral &&
                  std::abs(control.throttle) > 0.0f) {
         const float powered_speed =
@@ -940,7 +965,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                        torque_split * state.clutch_engagement *
                                        kGearEnergyMul[state.gear_index] *
                                        (1.0f + 0.06f * speed * speed + state.latent_viscosity * 0.8f +
-                                        (state.climb_mode ? 0.65f : 0.0f)) * 0.00025f * dt
+                                        (state.climb_mode ? 0.65f : 0.0f)) *
+                                       state.latent_energy_resistance *
+                                       (1.0f - 0.94f * liquid_immersion) * 0.00025f * dt
                                  : 0.0f;
     stats.energy_cost += wheel_fuel;
     stats.drive_energy_cost += wheel_fuel;

@@ -79,12 +79,14 @@ class ManualPlayer:
             ("ignition", "E  IGNITION"),
             ("heater", "H  ENGINE HEAT"),
             ("solar", "F  SOLAR PANEL"),
-            ("lidar", "G  LIDAR (+CTRL REAR, +ALT LEFT, +CTRL+ALT RIGHT)"),
+            ("lidar", "G  FORWARD LONG-RANGE LIDAR"),
             ("drive", "V  RWD / FWD / AWD"),
             ("jump", "K  SPRING JUMP (+CTRL FRONT, +ALT REAR)"),
             ("piston", "I  ROOF PISTON (+CTRL FRONT, +ALT REAR)"),
             ("climb", "B  CLIMB MODE"),
             ("propeller", "P  PROPELLER"),
+            ("ballast_up", "Y  BLOW BALLAST / FLOAT"),
+            ("ballast_down", "U  FLOOD BALLAST / SINK"),
             ("restart", "R  RESET SAME WORLD"),
             ("randomize", "T  RANDOM NEW WORLD"),
         )):
@@ -146,19 +148,15 @@ class ManualPlayer:
         toggle_charge = "f" in self.keys
         climb = "b" in self.keys
         propeller = "p" in self.keys
+        ballast_up = "y" in self.keys
+        ballast_down = "u" in self.keys
 
-        # Directional variants of lidar/jump/piston no longer get dedicated
-        # keys: one button plus the Ctrl/Alt modifiers picks the side, so the
-        # sidebar doesn't need a whole row per direction.
+        # Jump and piston use modifiers to select an edge. Lidar deliberately
+        # has one direction only: forward along the course.
         ctrl_held = "control_l" in self.keys or "control_r" in self.keys
         alt_held = "alt_l" in self.keys or "alt_r" in self.keys
 
-        lidar_held = "g" in self.keys
-        lidar = lidar_held and not ctrl_held and not alt_held
-        lidar_rear = lidar_held and ctrl_held and not alt_held
-        lidar_left = lidar_held and alt_held and not ctrl_held
-        lidar_right = lidar_held and ctrl_held and alt_held
-        lidar_front = False
+        lidar = "g" in self.keys
 
         jump_held = "k" in self.keys
         jump = jump_held and not ctrl_held and not alt_held
@@ -194,10 +192,6 @@ class ManualPlayer:
             action |= 1024
         if lidar:
             action |= 2048
-        if lidar_front: action |= 2097152
-        if lidar_rear: action |= 4194304
-        if lidar_left: action |= 8388608
-        if lidar_right: action |= 16777216
         if heater:
             action |= 4096
         if jump:
@@ -216,6 +210,10 @@ class ManualPlayer:
             action |= 16384
         if propeller:
             action |= 32768
+        if ballast_up:
+            action |= 2097152
+        if ballast_down:
+            action |= 4194304
         return action
 
     def update(self) -> None:
@@ -357,7 +355,9 @@ class ManualPlayer:
              f"{piston_text} "
              f"B CLIMB {'ON' if debug.get('climb_mode') else 'OFF'}  "
              f"P PROP {debug.get('propeller_deployment', 0.0) * 100:.0f}%", "#52e06f"),
-            (f"BRANCH {debug.get('route_branch', 'terrain').upper()}", "#6fd3ff"),
+            (f"BRANCH {debug.get('route_branch', 'terrain').upper()}  "
+             f"BALLAST {debug.get('ballast_air', 0.55) * 100:.0f}%  "
+             f"DIFF {debug.get('course_difficulty', 0.0) * 100:.0f}%", "#6fd3ff"),
             (regen_text, regen_color),
             (panel_text, "#52e06f" if debug.get("charging_active", False) else "#9fd8ff"),
             ((f"LIDAR ACTIVE {debug.get('lidar_range', 0.0):.1f} m  "
@@ -436,6 +436,12 @@ class ManualPlayer:
         )
         self.control_labels["propeller"].configure(
             bg=active if debug.get("propeller_mode", False) else idle
+        )
+        self.control_labels["ballast_up"].configure(
+            bg=active if debug.get("ballast_blowing", False) else idle
+        )
+        self.control_labels["ballast_down"].configure(
+            bg=active if debug.get("ballast_flooding", False) else idle
         )
 
     def run(self) -> None:

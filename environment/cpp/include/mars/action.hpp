@@ -25,10 +25,8 @@ enum ControlBits : int {
   ControlJumpRear = 1 << 18,
   ControlRoofPistonFront = 1 << 19,
   ControlRoofPistonRear = 1 << 20,
-  ControlLidarFront = 1 << 21,
-  ControlLidarRear = 1 << 22,
-  ControlLidarLeft = 1 << 23,
-  ControlLidarRight = 1 << 24,
+  ControlBallastBlow = 1 << 21,
+  ControlBallastFlood = 1 << 22,
 };
 
 struct ControlInput {
@@ -49,10 +47,8 @@ struct ControlInput {
   bool jump_rear = false;
   bool roof_piston_front = false;
   bool roof_piston_rear = false;
-  bool lidar_front = false;
-  bool lidar_rear = false;
-  bool lidar_left = false;
-  bool lidar_right = false;
+  bool ballast_blow = false;
+  bool ballast_flood = false;
   bool toggle_climb = false;
   bool toggle_propeller = false;
 };
@@ -83,10 +79,8 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   out.jump_rear = (action & ControlJumpRear) != 0;
   out.roof_piston_front = (action & ControlRoofPistonFront) != 0;
   out.roof_piston_rear = (action & ControlRoofPistonRear) != 0;
-  out.lidar_front = (action & ControlLidarFront) != 0;
-  out.lidar_rear = (action & ControlLidarRear) != 0;
-  out.lidar_left = (action & ControlLidarLeft) != 0;
-  out.lidar_right = (action & ControlLidarRight) != 0;
+  out.ballast_blow = (action & ControlBallastBlow) != 0;
+  out.ballast_flood = (action & ControlBallastFlood) != 0;
   out.toggle_climb = (action & ControlToggleClimb) != 0;
   out.toggle_propeller = (action & ControlTogglePropeller) != 0;
   return out;

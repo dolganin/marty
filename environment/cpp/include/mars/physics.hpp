@@ -39,6 +39,7 @@ struct PhysicsConfig {
   float lidar_scan_duration = 2.0f;
   float lidar_cooldown = 1.25f;
   float lidar_base_range = 24.0f;
+  float near_sense_range = 3.0f;
   float brake_strength = 20.0f;
   float body_tilt_torque = 8.0f;
   float linear_damping = 0.01f;

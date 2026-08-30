@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mars_rover_env.rules import validate_rule
+from mars_rover_env.rules import validate_graph, validate_rule
 
 
 def _rule_id(rule: dict[str, Any]) -> str:
@@ -42,7 +42,8 @@ def main() -> None:
             rejected.append({**record, "reason": "manual rejection"})
         else:
             pending.append(record)
-    output = {"schema_version": 1, "approved_rules": approved,
+    validate_graph(record["rule"] for record in (*approved, *pending))
+    output = {"schema_version": 2, "approved_rules": approved,
               "pending_rules": pending, "rejected_rules": rejected}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8")

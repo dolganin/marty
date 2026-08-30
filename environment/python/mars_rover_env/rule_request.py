@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from mars_rover_env.rules import validate_rule
+from mars_rover_env.rules import validate_graph
 
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "configs" / "biome_generator.yaml"
@@ -89,14 +89,11 @@ def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[
                 "items": {
                     "type": "object",
                     "properties": {
-                        "inputs": {"type": "array", "minItems": 1, "maxItems": 2,
-                                   "items": {"type": "string"}},
+                        "source": {"type": "string"},
                         "target": {"type": "string"},
-                        "coefficients": {"type": "array", "minItems": 1, "maxItems": 2,
-                                         "items": {"type": "number"}},
-                        "bias": {"type": "number"},
+                        "weight": {"type": "number"},
                     },
-                    "required": ["inputs", "target", "coefficients", "bias"],
+                    "required": ["source", "target", "weight"],
                     "additionalProperties": False,
                 },
             },
@@ -105,10 +102,11 @@ def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[
     }
     instruction = (
         "Propose distinct bounded coupling rules for a Mars rover. Return only the JSON schema. "
-        "Inputs allowed: moisture, viscosity, heat, slip, speed, slope, immersion, throttle. "
-        "Targets allowed: traction, moisture, heat, charge_reserve, viscosity, sink, suspension. "
-        "Use one or two inputs, matching coefficient count, coefficients and bias within [-2.5, 2.5]. "
-        "Rules must be deterministic affine formulas and mechanically plausible."
+        "Parameters allowed: traction, moisture, viscosity, sink, gravity, wind, temperature, "
+        "thermal_transfer, solar_efficiency, lidar_cost, lidar_range, energy_resistance. "
+        "Targets currently allowed: traction, viscosity, energy_resistance, thermal_transfer. "
+        "Each rule is one source-to-target edge with weight in [-2.5, 2.5]. The full graph must "
+        "be acyclic, contain no duplicate edges, and be mechanically plausible."
     )
     mode = str(api.get("api_mode", "responses"))
     address = str(api.get("address", "https://api.openai.com/v1")).rstrip("/")
@@ -173,4 +171,4 @@ def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[
     rules = json.loads(response_text).get("rules", [])
     if len(rules) != count:
         raise RuntimeError("LLM did not return the requested number of rules")
-    return [validate_rule(rule).to_dict() for rule in rules]
+    return [rule.to_dict() for rule in validate_graph(rules)]
