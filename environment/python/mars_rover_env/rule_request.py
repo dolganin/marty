@@ -35,14 +35,42 @@ def load_openai_config(path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
 def _output_text(response: dict[str, Any]) -> str:
     if isinstance(response.get("output_text"), str):
         return response["output_text"]
+    def text_from(value: Any) -> str | None:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            # OpenAI-compatible gateways variously wrap text as text, value,
+            # or a content-part list; accept each without assuming item order.
+            for key in ("text", "value", "content"):
+                found = text_from(value.get(key))
+                if found:
+                    return found
+        if isinstance(value, list):
+            for item in value:
+                found = text_from(item)
+                if found:
+                    return found
+        return None
+
     for item in response.get("output", []):
-        for content in item.get("content", []):
-            if content.get("type") == "output_text" and isinstance(content.get("text"), str):
-                return content["text"]
+        found = text_from(item.get("content"))
+        if found:
+            return found
     choices = response.get("choices", [])
-    if choices and isinstance(choices[0].get("message", {}).get("content"), str):
-        return choices[0]["message"]["content"]
-    raise RuntimeError("LLM response contains no text")
+    if choices:
+        found = text_from(choices[0].get("message", {}).get("content"))
+        if found:
+            return found
+    nested = response.get("response")
+    if isinstance(nested, dict):
+        return _output_text(nested)
+    status = response.get("status", "unknown")
+    error = response.get("error")
+    output_types = [item.get("type", "unknown") for item in response.get("output", [])
+                    if isinstance(item, dict)]
+    raise RuntimeError(
+        f"LLM response contains no text (status={status!r}, output_types={output_types}, error={error!r})"
+    )
 
 
 def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[dict[str, Any]]:
