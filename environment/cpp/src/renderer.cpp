@@ -104,7 +104,7 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
   for (int x = 0; x < width; ++x) {
     const float wx = camera_x + static_cast<float>(x) / ppm;
     const auto& zone = env.mechanic_at(wx);
-    const float ground_height = terrain.query(wx).height;
+    const float ground_height = terrain.query_near(wx, 1.0e6f).height;
     SurfaceStyle style = surface_style(zone.biome_id);
     if (zone.type == MechanicType::Liquid && zone.liquid_level - ground_height < 0.08f) {
       style = surface_style(builtin_biome_id(MechanicType::Sand));

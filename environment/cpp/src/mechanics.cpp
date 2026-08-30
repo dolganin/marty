@@ -28,6 +28,18 @@ MechanicParams MechanicLayout::thermal_at(float x, const MechanicZone& current) 
   return result;
 }
 
+int MechanicLayout::active_layers(
+    float x, std::array<const MechanicZone*, kMaxActiveMechanisms>& out) const {
+  int n = 0;
+  // The order is part of the seeded region and is deliberately not exposed in
+  // observations.  A 20 m feather keeps the mode change physical, not binary.
+  for (int i = 0; i < layer_count && n < kMaxActiveMechanisms; ++i) {
+    const auto& layer = layers[static_cast<size_t>(i)];
+    if (x >= layer.begin_x && x <= layer.end_x) out[static_cast<size_t>(n++)] = &layer;
+  }
+  return n;
+}
+
 int builtin_biome_id(MechanicType type) { return static_cast<int>(type); }
 float mechanic_friction_scale(int biome_id, const MechanicParams& params) { return biome_by_id(biome_id).friction_scale(params); }
 void apply_mechanic(int biome_id, const MechanicParams& params, MechanicContext& ctx) { biome_by_id(biome_id).apply(params, ctx); }

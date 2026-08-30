@@ -105,6 +105,31 @@ struct RoverState {
   int termination_reason = 0;
   float last_impact_speed = 0.0f;
   float last_landing_angle = 0.0f;
+  // Hidden world state. Mechanisms only modify these values; contact forces consume
+  // their clamped final values on the next physics step.
+  float latent_traction = 1.0f;
+  float latent_moisture = 0.25f;
+  float latent_heat = 0.25f;
+  float latent_charge_reserve = 1.0f;
+  float latent_tire_pressure = 1.0f;
+  float latent_viscosity = 0.0f;
+  float latent_sink = 0.0f;
+  float latent_suspension = 1.0f;
+  float latent_gravity_multiplier = 1.0f;
+  float latent_wind_force = 0.0f;
+  float latent_ambient_temperature = -45.0f;
+  float latent_thermal_transfer = 1.0f;
+  float latent_solar_rate = 1.0f;
+  float latent_lidar_energy_multiplier = 1.0f;
+  float latent_lidar_range_multiplier = 1.0f;
+  int active_layer_count = 0;
+  float active_layer_weight = 0.0f;
+  bool climb_mode = false;
+  bool propeller_mode = false;
+  int jump_cooldown_steps = 0;
+  float recovery_state = 0.0f;
+  uint64_t world_seed = 0;
+  int route_branch = 0;  // 0 terrain, 1 lower water, 2 upper dry surface
 };
 
 struct EpisodeResult {

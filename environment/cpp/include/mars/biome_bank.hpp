@@ -16,6 +16,7 @@
 
 
 #include <cmath>
+#include <array>
 #include <chrono>
 #include <ctime>
 #include <cstdint>
@@ -27,6 +28,48 @@
 namespace mars {
 
 enum class BiomeSplit : int { Builtin = 0, Train = 1, Test = 2 };
+
+// Frozen, reviewed combinations.  The split denotes the combination, rather
+// than hiding individual mechanisms: held-out evaluation sees familiar pieces
+// in an unseen ordered stack.
+struct FrozenMechanismStack {
+  std::array<MechanicType, 4> types{};
+  int count = 0;
+  BiomeSplit split = BiomeSplit::Builtin;
+};
+
+inline constexpr std::array<FrozenMechanismStack, 6> kFrozenMechanismStacks{{
+    {{MechanicType::Normal, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Builtin},
+    {{MechanicType::Sand, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Mud, MechanicType::Crust, MechanicType::Wind, MechanicType::Normal}, 3, BiomeSplit::Train},
+    {{MechanicType::Ice, MechanicType::LowGravity, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Liquid, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Test},
+    {{MechanicType::Sand, MechanicType::Mud, MechanicType::Wind, MechanicType::Crust}, 4, BiomeSplit::Test},
+}};
+
+enum class CouplingInput : int { Moisture, Viscosity, Heat, TirePressure, Slip, Speed };
+enum class CouplingTarget : int { Traction, Heat, TirePressure };
+
+struct FrozenCouplingRule {
+  std::array<CouplingInput, 2> inputs{};
+  std::array<float, 2> coefficients{};
+  int input_count = 0;
+  CouplingTarget target = CouplingTarget::Traction;
+  float bias = 0.0f;
+  float lower = 0.0f;
+  float upper = 1.0f;
+};
+
+// Mirror of coupling_rules in biome_bank.json.  Bounds are part of the frozen
+// binary contract, so a manifest cannot introduce an unbounded formula.
+inline constexpr std::array<FrozenCouplingRule, 3> kFrozenCouplingRules{{
+    {{CouplingInput::Moisture, CouplingInput::Viscosity}, {-0.62f, -0.16f}, 2,
+      CouplingTarget::Traction, 1.18f, 0.12f, 1.45f},
+    {{CouplingInput::Slip, CouplingInput::Speed}, {0.14f, 0.02f}, 2,
+      CouplingTarget::Heat, 0.18f, 0.0f, 1.0f},
+    {{CouplingInput::Moisture, CouplingInput::Heat}, {-0.035f, 0.02f}, 2,
+      CouplingTarget::TirePressure, 1.0f, 0.65f, 1.25f},
+}};
 
 struct BiomeColor { uint8_t r = 42, g = 35, b = 30; };
 
@@ -3511,7 +3554,7 @@ inline constexpr int kGeneratedBiomeBankEnd = 0;
 
 }
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:ff09c0f4965cc460a927cf1ade1978681c21f6fc0538185b562394576431f5d9";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:6108f82bc055f011540c0219838ddb557a2f632bf0c0b97eba1f3b0ab77a57b7";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
-import tkinter as tk
 from pathlib import Path
 
 from mars_rover_env import MarsRoverEnv
@@ -15,6 +15,10 @@ def _ppm_bytes(rgb) -> bytes:
 
 class ManualPlayer:
     def __init__(self, args: argparse.Namespace):
+        import tkinter as tk
+
+        self._tk = tk
+
         self.env = MarsRoverEnv(
             config_path=args.config,
             rig_path=args.rig,
@@ -49,6 +53,9 @@ class ManualPlayer:
             ("solar", "F  SOLAR CHARGE"),
             ("lidar", "G  LIDAR SCAN"),
             ("drive", "V  RWD / FWD / AWD"),
+            ("jump", "K  SUSPENSION JUMP"),
+            ("climb", "B  CLIMB MODE"),
+            ("propeller", "P  PROPELLER"),
             ("restart", "R  RESET SAME WORLD"),
         ):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
@@ -93,6 +100,9 @@ class ManualPlayer:
         toggle_charge = "f" in self.keys
         lidar = "g" in self.keys
         heater = "h" in self.keys
+        jump = "k" in self.keys
+        climb = "b" in self.keys
+        propeller = "p" in self.keys
         action = 0
         if gas or reverse:
             action |= 1
@@ -120,6 +130,12 @@ class ManualPlayer:
             action |= 2048
         if heater:
             action |= 4096
+        if jump:
+            action |= 8192
+        if climb:
+            action |= 16384
+        if propeller:
+            action |= 32768
         return action
 
     def update(self) -> None:
@@ -138,7 +154,7 @@ class ManualPlayer:
             self.restart_notice = f"EVENT: {reason}; MANUAL PLAY CONTINUES (R RESETS SAME WORLD)"
 
         rgb = self.env.render()
-        self.photo = tk.PhotoImage(data=_ppm_bytes(rgb), format="PPM")
+        self.photo = self._tk.PhotoImage(data=_ppm_bytes(rgb), format="PPM")
         if self.image_id is None:
             self.image_id = self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
         else:
@@ -236,6 +252,7 @@ class ManualPlayer:
 
         lines = [
             (f"FPS {self.fps_value:5.1f}", "#f4f4f4"),
+            (f"SEED {debug.get('seed', 0)}  TIME {debug.get('trial_time_left', 0.0):5.1f}s", "#f4f4f4"),
             (f"SPD {debug['speed_kmh']:5.1f} km/h", "#f4f4f4"),
             (engine_text, engine_color),
             (f"TEMP {debug['engine_temperature']:5.1f} C  "
@@ -245,6 +262,14 @@ class ManualPlayer:
              f"x{debug.get('gravity_multiplier', 1.0):.2f}", "#d5c6ff"),
             (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}  "
              f"HEATER {'ON' if debug.get('heater_active', False) else 'OFF'}", "#f4f4f4"),
+            (f"LAYERS {' + '.join(debug.get('active_layer_names', [])) or 'NONE'}  W {debug.get('layer_weight', 0.0):.2f}  "
+             f"TRAC {debug.get('latent_traction', 1.0):.2f}  VISC {debug.get('latent_viscosity', 0.0):.2f}", "#d5c6ff"),
+            (f"MOIST {debug.get('latent_moisture', 0.0):.2f}  PRESS {debug.get('latent_tire_pressure', 1.0):.2f}  "
+             f"RESERVE {debug.get('latent_charge_reserve', 0.0) * 100:.0f}%", "#d5c6ff"),
+            (f"K JUMP {debug.get('jump_cooldown', 0.0):.1f}s  "
+             f"B CLIMB {'ON' if debug.get('climb_mode') else 'OFF'}  "
+             f"P PROP {'ON' if debug.get('propeller_mode') else 'OFF'}", "#52e06f"),
+            (f"BRANCH {debug.get('route_branch', 'terrain').upper()}", "#6fd3ff"),
             (solar_text, solar_color),
             ((f"LIDAR ACTIVE {debug.get('lidar_range', 0.0):.1f} m  "
               f"COST {debug.get('lidar_energy_cost', 0.0):.2f}")
@@ -334,6 +359,15 @@ class ManualPlayer:
             bg=("#315d83" if debug["drive_layout"] == "AWD" else
                 ("#6a4d86" if debug["drive_layout"] == "FWD" else idle)),
         )
+        self.control_labels["jump"].configure(
+            bg=active if debug.get("jump_cooldown", 0.0) > 0.0 else idle
+        )
+        self.control_labels["climb"].configure(
+            bg=active if debug.get("climb_mode", False) else idle
+        )
+        self.control_labels["propeller"].configure(
+            bg=active if debug.get("propeller_mode", False) else idle
+        )
 
     def run(self) -> None:
         self.update()
@@ -350,7 +384,23 @@ def main() -> None:
     parser.add_argument("--height", type=int, default=540)
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--request-rules", type=int, default=0, metavar="N",
+        help="request N structured rule candidates through the configured OpenAI endpoint before opening HUD",
+    )
+    parser.add_argument(
+        "--rules-output", default="artifacts/candidates.json",
+        help="path for candidates requested by --request-rules",
+    )
     args = parser.parse_args()
+    if args.request_rules:
+        from mars_rover_env.rule_request import request_rules
+
+        candidates = request_rules(args.request_rules)
+        output = Path(args.rules_output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(candidates, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote {len(candidates)} rule candidates to {output}")
     _print_biome_catalog()
     ManualPlayer(args).run()
 

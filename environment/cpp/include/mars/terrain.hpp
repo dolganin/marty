@@ -14,6 +14,13 @@ struct TerrainSample {
   bool solid = true;
 };
 
+struct TerrainSurface {
+  float begin_x = 0.0f;
+  float end_x = 0.0f;
+  float begin_height = 0.0f;
+  float end_height = 0.0f;
+};
+
 struct TerrainConfig {
   int sample_count = 2048;
   float dx = 0.25f;
@@ -31,11 +38,15 @@ class Terrain {
   void generate(uint64_t seed);
 
   TerrainSample query(float x) const;
+  // Finds the highest collision surface reachable from a reference point.
+  // This permits an upper dry route and a lower water/floor route at one X.
+  TerrainSample query_near(float x, float reference_y) const;
   void query_height_slope(float x, float& height, float& slope) const;
   void deform(float x, float radius, float amount);
   void add_height_at_index(int index, float amount);
   float carve_basin(float begin_x, float end_x, float depth);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
+  void add_surface(float begin_x, float end_x, float begin_height, float end_height);
 
   int sample_count() const { return static_cast<int>(heights_.size()); }
   float dx() const { return dx_; }
@@ -46,6 +57,7 @@ class Terrain {
 
   std::vector<float> heights_;
   std::vector<uint8_t> solid_;
+  std::vector<TerrainSurface> surfaces_;
   float dx_ = 0.25f;
   float inv_dx_ = 4.0f;
   float base_height_ = 0.0f;

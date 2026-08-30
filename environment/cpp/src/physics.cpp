@@ -67,6 +67,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const int previous_airborne_steps = state.airborne_steps;
   const float pre_contact_vertical_speed = state.body.velocity.y;
   ControlInput control = decode_discrete_action(discrete_action, config_.body_tilt_torque);
+  const bool jump_pressed = control.jump && (state.previous_action & ControlJump) == 0;
+  const bool climb_pressed = control.toggle_climb &&
+      (state.previous_action & ControlToggleClimb) == 0;
+  const bool propeller_pressed = control.toggle_propeller &&
+      (state.previous_action & ControlTogglePropeller) == 0;
+  if (climb_pressed) state.climb_mode = !state.climb_mode;
+  if (propeller_pressed) state.propeller_mode = !state.propeller_mode;
+  if (state.jump_cooldown_steps > 0) --state.jump_cooldown_steps;
 
 
 
@@ -83,9 +91,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const bool lidar_pressed =
       control.lidar && (state.previous_action & ControlLidar) == 0;
   if (lidar_pressed && state.lidar_cooldown_steps == 0) {
-    const auto& lidar_zone = mechanics.at(state.body.position.x);
     const float requested_cost =
-        config_.lidar_energy_cost * clamp(lidar_zone.params.lidar_energy_mul, 0.4f, 3.0f);
+        config_.lidar_energy_cost * state.latent_lidar_energy_multiplier;
     if (state.energy >= requested_cost) {
       lidar_energy_cost = requested_cost;
       state.lidar_last_energy_cost = requested_cost;
@@ -94,8 +101,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       state.lidar_cooldown_steps =
           std::max(state.lidar_active_steps,
                    static_cast<int>(config_.lidar_cooldown / std::max(0.0001f, dt)));
-      state.lidar_range = config_.lidar_base_range *
-                          clamp(lidar_zone.params.lidar_range_mul, 0.35f, 1.5f);
+      state.lidar_range = config_.lidar_base_range * state.latent_lidar_range_multiplier;
     }
   }
   const bool toggle_charge_pressed =
@@ -374,15 +380,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float lug_factor = state.gear_index <= 0
                                ? 1.0f
                                : clamp((state.engine_rpm - 650.0f) / 1550.0f, 0.0f, 1.0f);
+  const float reserve_power = 0.16f + 0.84f * state.latent_charge_reserve;
+  const float climb_torque = state.climb_mode ? 1.75f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
-  state.solar_charge_rate =
-      state.charging_active ? body_zone.params.solar_charge_rate : 0.0f;
-  state.solar_irradiance = std::max(0.0f, body_zone.params.solar_charge_rate);
+  state.solar_charge_rate = state.charging_active ? state.latent_solar_rate : 0.0f;
+  state.solar_irradiance = state.latent_solar_rate;
   stats.energy_gain = state.solar_charge_rate * dt;
-  const auto thermal = mechanics.thermal_at(state.body.position.x, body_zone);
-  float ambient_temperature = thermal.ambient_temperature;
-  float thermal_transfer = std::max(0.0f, thermal.thermal_transfer);
+  float ambient_temperature = state.latent_ambient_temperature;
+  float thermal_transfer = state.latent_thermal_transfer;
   if (body_zone.type == MechanicType::Liquid) {
     const float engine_immersion =
         clamp((body_zone.liquid_level -
@@ -444,10 +450,24 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.engine_stalled = !state.engine_running;
 
 
-  const float gravity = config_.gravity * body_zone.params.gravity_mul;
+  const float gravity = config_.gravity * state.latent_gravity_multiplier;
   Vec2 body_force{0.0f, state.body.mass * gravity};
-  body_force.x += body_zone.params.wind_force;
+  body_force.x += state.latent_wind_force;
   float body_torque = control.body_torque;
+  if (jump_pressed && state.jump_cooldown_steps == 0 && !state.airborne) {
+    body_force.y += state.body.mass * 8.5f * state.latent_suspension;
+    body_torque += (state.body.angle >= 0.0f ? -1.0f : 1.0f) * 4.0f;
+    stats.energy_cost += 0.55f;
+    state.jump_cooldown_steps = std::max(1, static_cast<int>(0.65f / dt));
+  }
+  if (std::abs(state.body.angle) > 1.35f) {
+    state.recovery_state = clamp((std::abs(state.body.angle) - 1.35f) / 1.6f, 0.0f, 1.0f);
+    // A suspension kick is a physical recovery aid, not a teleport: it only
+    // creates a bounded moment and still needs ground contact/traction.
+    if (jump_pressed) body_torque += state.body.angle > 0.0f ? -16.0f : 16.0f;
+  } else {
+    state.recovery_state = 0.0f;
+  }
   MechanicBodyContext body_context{};
   body_context.body_force = &body_force;
   body_context.body_torque = &body_torque;
@@ -458,7 +478,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   body_context.gravity = gravity;
   body_context.dt = dt;
   body_context.step_index = state.step_index;
-  apply_body_mechanic(body_zone.biome_id, body_zone.params, body_context);
+  // Layer effects have already been folded into WorldLatents by Env.  Keep the
+  // old biome hook out of runtime force accumulation: otherwise overlapping
+  // mechanics would secretly add independent forces instead of composing.
+  (void)body_context;
   const float body_cos = std::cos(state.body.angle);
   const float body_sin = std::sin(state.body.angle);
   const auto rotate_body = [body_cos, body_sin](Vec2 v) {
@@ -499,6 +522,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       stats.energy_cost += submerged * point_speed * point_speed * 0.006f * dt;
     }
   }
+  if (state.propeller_mode && body_zone.type == MechanicType::Liquid) {
+    const float immersion = clamp((body_zone.liquid_level - state.body.position.y) /
+                                      std::max(0.1f, rig.body.size.y) + 0.5f,
+                                  0.0f, 1.0f);
+    if (immersion > 0.08f && std::abs(control.throttle) > 0.0f) {
+      const float thrust = 38.0f * immersion * control.throttle * reserve_power;
+      body_force.x += thrust;
+      stats.energy_cost += (0.025f + 0.075f * std::abs(control.throttle)) * immersion * dt;
+    }
+  }
 
   float next_drivetrain_slip = 0.0f;
   bool next_drivetrain_grounded = false;
@@ -507,7 +540,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     auto& wheel = state.wheels[static_cast<size_t>(i)];
     const auto& wr = rig.wheels[static_cast<size_t>(i)];
     const auto& wheel_zone = mechanics.at(wheel.position.x);
-    const auto wheel_ground_sample = terrain.query(wheel.position.x);
+    const auto wheel_ground_sample = terrain.query_near(wheel.position.x, wheel.position.y);
     const float liquid_depth =
         wheel_zone.type == MechanicType::Liquid && wheel_ground_sample.solid
             ? std::max(0.0f, wheel_zone.liquid_level - wheel_ground_sample.height)
@@ -518,18 +551,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                                    std::max(0.05f, wheel.radius * 2.0f),
                                                0.0f, 1.0f)
                                        : 0.0f;
-    const MechanicType wheel_mechanic =
-        wheel_zone.type == MechanicType::Liquid && liquid_depth < 0.08f
-            ? MechanicType::Sand
-            : wheel_zone.type;
-    const int wheel_biome_id =
-        wheel_zone.type == MechanicType::Liquid && liquid_depth < 0.08f
-            ? builtin_biome_id(MechanicType::Sand)
-            : wheel_zone.biome_id;
-    MechanicParams wheel_params = wheel_zone.params;
-    if (wheel_mechanic == MechanicType::Sand && wheel_zone.type == MechanicType::Liquid) {
-      wheel_params = MechanicParams{};
-    }
     Vec2 wheel_force{0.0f, wheel.mass * gravity};
     if (liquid_immersion > 0.0f) {
       const float water_speed = length(wheel.velocity);
@@ -614,7 +635,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     body_force -= spring_force;
     body_torque += cross(anchor_world - state.body.position, -spring_force);
 
-    auto terrain_sample = terrain.query(wheel.position.x);
+    auto terrain_sample = terrain.query_near(wheel.position.x, wheel.position.y);
     float contact_x = wheel.position.x;
     float penetration = terrain_sample.height + wheel.radius - wheel.position.y;
 
@@ -626,7 +647,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                   ? (control.throttle > 0.0f ? 1.0f : -1.0f)
                                   : (anchor_velocity.x >= 0.0f ? 1.0f : -1.0f);
     const float probe_dx = motion_sign * wheel.radius * 0.72f;
-    const auto leading_sample = terrain.query(wheel.position.x + probe_dx);
+    const auto leading_sample = terrain.query_near(wheel.position.x + probe_dx, wheel.position.y);
     const float tyre_half_height = wheel.radius * 0.693974f;
     const float leading_penetration =
         leading_sample.height + tyre_half_height - wheel.position.y;
@@ -659,17 +680,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
       const float axle_speed = dot(anchor_velocity, contact.tangent);
       const float driven_speed = axle_speed * control.throttle;
-      const float speed_fade = driven_speed > 0.0f
-                                   ? clamp(1.0f - driven_speed / std::max(0.1f, gear_max_speed),
-                                           0.0f, 1.0f)
-                                   : 1.0f;
+      const float speed_fade = 1.0f / (1.0f + std::max(0.0f, driven_speed) /
+                                               std::max(3.0f, gear_max_speed * 3.5f));
 
 
 
       const float drive_torque =
           (state.engine_running ? config_.motor_torque : 0.0f) * state.cold_power_factor *
           torque_curve * driveline_load_factor *
-          lug_factor * gear_ratio *
+          lug_factor * reserve_power * climb_torque * gear_ratio *
           config_.final_drive_ratio *
           torque_split * speed_fade * control.throttle * state.clutch_engagement;
       const float drive_force = drive_torque / std::max(0.05f, wheel.radius);
@@ -688,7 +707,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       ctx.energy_cost = &stats.energy_cost;
       ctx.dt = dt;
       ctx.wheel_radius = wheel.radius;
-      ctx.base_friction = config_.wheel_friction;
+      ctx.base_friction = config_.wheel_friction * state.latent_traction *
+                          (state.climb_mode ? 1.18f : 1.0f);
       ctx.drive_force = drive_force;
       ctx.immersion = liquid_immersion;
 
@@ -697,32 +717,31 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
 
-      float crawl_grip = 0.9f;
-      switch (wheel_mechanic) {
-        case MechanicType::Ice: crawl_grip = 0.18f; break;
-        case MechanicType::Liquid: crawl_grip = 0.25f; break;
-        case MechanicType::Mud: crawl_grip = 0.50f; break;
-        case MechanicType::Sand: crawl_grip = 0.65f; break;
-        case MechanicType::Crust: crawl_grip = 1.10f; break;
-        default: break;
-      }
       ctx.minimum_drive_limit =
           state.engine_running && driven_wheel && !in_neutral && state.gear_index == 0 &&
                   shift_speed < 1.5f &&
                   state.clutch_engagement > 0.5f
-              ? supported_mass * -gravity * crawl_grip
+              ? supported_mass * -gravity * state.latent_traction
               : 0.0f;
       ctx.wheel_speed = dot(wheel.velocity, contact.tangent);
       ctx.step_index = state.step_index;
-      apply_mechanic(wheel_biome_id, wheel_params, ctx);
+      const float limit = std::max(ctx.minimum_drive_limit,
+                                   contact.normal_force * ctx.base_friction);
+      const float applied_drive = clamp(ctx.drive_force, -limit, limit);
+      traction_force += contact.tangent * applied_drive;
+      contact.slip = std::abs(ctx.drive_force - applied_drive) /
+                     (std::abs(ctx.drive_force) + 1.0f);
+      // Viscosity and sink are outputs of the entire latent chain, not a
+      // contribution from this zone alone.
+      traction_force += contact.tangent *
+                        (-state.latent_viscosity * 2.2f * ctx.wheel_speed);
+      stats.energy_cost += (state.latent_sink * 0.025f +
+                            state.latent_viscosity * 0.008f * std::abs(ctx.wheel_speed)) * dt;
       body_force += traction_force;
       body_torque += cross(anchor_world - state.body.position, traction_force);
 
       if (control.brake > 0.0f) {
-        float brake_surface_scale = mechanic_friction_scale(wheel_biome_id, wheel_params);
-        if (wheel_mechanic == MechanicType::Liquid) {
-          brake_surface_scale = 1.0f + (brake_surface_scale - 1.0f) * liquid_immersion;
-        }
+        float brake_surface_scale = state.latent_traction;
         const float max_brake = contact.normal_force * config_.wheel_friction *
                                 brake_surface_scale * 1.5f;
         const float brake_force = -clamp(axle_speed * config_.brake_strength * control.brake,
@@ -746,7 +765,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     wheel.position += wheel.velocity * dt;
     constrain_to_suspension();
 
-    auto post_ground = terrain.query(wheel.position.x);
+    auto post_ground = terrain.query_near(wheel.position.x, wheel.position.y);
     const float post_penetration = post_ground.height + wheel.radius - wheel.position.y;
     if (post_ground.solid && post_penetration > 0.0f) {
       const float correction = std::min(post_penetration, 0.08f);
@@ -769,7 +788,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
         -clamp(wheel.angular_velocity * config_.brake_strength * control.brake,
                -config_.brake_strength, config_.brake_strength);
     if (wheel.in_contact) {
-      const auto rolling_ground = terrain.query(wheel.position.x);
+      const auto rolling_ground = terrain.query_near(wheel.position.x, wheel.position.y);
       const Vec2 rolling_tangent = normalized({rolling_ground.normal.y, -rolling_ground.normal.x});
       const float rolling_speed = dot(state.body.velocity, rolling_tangent);
 
@@ -815,7 +834,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float wheel_fuel = driven_wheel && state.engine_running && !in_neutral
                                  ? std::abs(config_.motor_torque * control.throttle) *
                                        torque_split * state.clutch_engagement *
-                                       kGearEnergyMul[state.gear_index] * 0.0020f * dt
+                                       kGearEnergyMul[state.gear_index] *
+                                       (1.0f + 0.06f * speed * speed + state.latent_viscosity * 0.8f +
+                                        (state.climb_mode ? 0.65f : 0.0f)) * 0.0020f * dt
                                  : 0.0f;
     stats.energy_cost += wheel_fuel;
     stats.drive_energy_cost += wheel_fuel;
@@ -836,7 +857,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     };
     for (const Vec2 local : samples) {
       const Vec2 point = state.body.position + rotate_body(local);
-      const auto ground = terrain.query(point.x);
+      const auto ground = terrain.query_near(point.x, point.y);
       if (!ground.solid) continue;
       const float penetration = ground.height - point.y;
       if (penetration > 0.0f) {
@@ -888,7 +909,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       bool found = false;
       for (const Vec2 local : samples) {
         const Vec2 point = state.body.position + rotate(local, state.body.angle);
-        const auto ground = terrain.query(point.x);
+        const auto ground = terrain.query_near(point.x, point.y);
         if (!ground.solid) continue;
         const float penetration = ground.height - point.y;
         if (penetration > deepest) {

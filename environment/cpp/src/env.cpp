@@ -42,10 +42,10 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   finalize_mechanic_layout();
   const float spawn_y = terrain_.query(1.0f).height + 1.0f;
   physics_.initialize_state(config_.rig, state_, {1.0f, spawn_y});
-  const auto& spawn_zone = mechanic_layout_.at(1.0f);
-  const auto spawn_thermal = mechanic_layout_.thermal_at(1.0f, spawn_zone);
-  state_.ambient_temperature = spawn_thermal.ambient_temperature;
-  state_.solar_irradiance = std::max(0.0f, spawn_zone.params.solar_charge_rate);
+  state_.world_seed = seed;
+  update_world_latents();
+  state_.ambient_temperature = state_.latent_ambient_temperature;
+  state_.solar_irradiance = state_.latent_solar_rate;
   state_.trial_start = trial_start;
   state_.episode_in_trial = next_episode_in_trial;
   stuck_counter_ = 0;
@@ -55,11 +55,18 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
 
 StepOutput Env::step(int action, float* obs_out) {
   state_.previous_x = state_.body.position.x;
+  update_world_latents();
   const auto stats = physics_.step(config_.rig, terrain_, state_, action, mechanic_layout_);
 
   const auto& current_zone = mechanic_layout_.at(state_.body.position.x);
   mechanic_type_ = current_zone.type;
   mechanic_params_ = current_zone.params;
+  state_.route_branch = 0;
+  if (current_zone.type == MechanicType::Liquid) {
+    const float lower = terrain_.query(state_.body.position.x).height;
+    const float contacted = terrain_.query_near(state_.body.position.x, state_.body.position.y).height;
+    state_.route_branch = contacted > lower + 0.30f ? 2 : 1;
+  }
 
   for (int i = 0; i < state_.wheel_count; ++i) {
     const auto& c = stats.deformation_contacts[static_cast<size_t>(i)];
@@ -81,11 +88,11 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   state_.damage += stats.hard_contact > 1500.0f ? (stats.hard_contact - 1500.0f) * 0.000001f : 0.0f;
 
-  const bool finished = state_.body.position.x >= config_.termination.finish_x;
-  const bool fallen = state_.body.position.y <= config_.termination.fatal_fall_y;
-  if (fallen) state_.fatal_error = true;
+  // A run ends only on the fixed two-minute timer.  Falls, flips and empty
+  // batteries are costly states to recover from, never terminal shortcuts.
+  const bool finished = false;
   const bool flipped = is_flipped();
-  const bool fatal = flipped || state_.fatal_error;
+  const bool fatal = false;
 
 
 
@@ -97,21 +104,13 @@ StepOutput Env::step(int action, float* obs_out) {
   } else {
     stuck_counter_ += 1;
   }
-  const bool stuck = is_stuck();
+  const bool stuck = false;
   trial_steps_used_ += 1;
   StepOutput out{};
-  out.terminated = finished || fatal || state_.energy <= config_.termination.min_energy || stuck;
-  out.truncated = (config_.termination.max_steps > 0 &&
-                   state_.step_index + 1 >= config_.termination.max_steps) ||
-                  trial_exhausted();
+  out.terminated = false;
+  out.truncated = trial_exhausted();
   state_.termination_reason = 0;
-  if (finished) state_.termination_reason = 1;
-  else if (state_.landing_fatal) state_.termination_reason = 2;
-  else if (flipped) state_.termination_reason = 3;
-  else if (fallen) state_.termination_reason = 4;
-  else if (state_.energy <= config_.termination.min_energy) state_.termination_reason = 5;
-  else if (stuck) state_.termination_reason = 6;
-  else if (out.truncated) state_.termination_reason = 7;
+  if (out.truncated) state_.termination_reason = 7;
   out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, fatal, stuck);
   state_.last_reward = out.reward;
   state_.previous_action = action;
@@ -125,7 +124,7 @@ void Env::build_observation(float* obs_out) const {
     return;
   }
   int k = 0;
-  const float finish_scale = std::max(1.0f, config_.termination.finish_x);
+  const float finish_scale = 1000.0f;
   const float energy_scale = std::max(1.0f, config_.physics.energy_capacity);
   obs_out[k++] = state_.body.position.x / finish_scale;
   obs_out[k++] = state_.body.position.y / 10.0f;
@@ -155,7 +154,7 @@ void Env::build_observation(float* obs_out) const {
 
     const float distance = i < 12 ? 0.5f * static_cast<float>(i + 1)
                                   : 6.0f + 1.5f * static_cast<float>(i - 11);
-    const auto sample = terrain_.query(state_.body.position.x + distance);
+    const auto sample = terrain_.query_near(state_.body.position.x + distance, 1.0e6f);
     const bool visible = lidar_active && distance <= state_.lidar_range;
     obs_out[height_base + i] = visible && sample.solid
                                    ? sample.height - state_.body.position.y
@@ -167,9 +166,9 @@ void Env::build_observation(float* obs_out) const {
     const float distance = 3.0f * static_cast<float>(i + 1);
     const float sample_x = state_.body.position.x + distance;
     const bool visible = lidar_active && distance <= state_.lidar_range;
-    const auto sample = terrain_.query(sample_x);
-    const auto behind = terrain_.query(sample_x - 0.25f);
-    const auto ahead = terrain_.query(sample_x + 0.25f);
+    const auto sample = terrain_.query_near(sample_x, 1.0e6f);
+    const auto behind = terrain_.query_near(sample_x - 0.25f, 1.0e6f);
+    const auto ahead = terrain_.query_near(sample_x + 0.25f, 1.0e6f);
 
 
     obs_out[k++] = visible && sample.solid
@@ -213,8 +212,8 @@ void Env::build_observation(float* obs_out) const {
                      ? static_cast<float>(state_.lidar_cooldown_steps) * config_.physics.dt
                      : 0.0f;
   obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
-  obs_out[k++] = static_cast<float>(state_.previous_action) / 8191.0f;
-  obs_out[k++] = state_.last_reward / std::max(1.0f, config_.reward.finish_bonus);
+  obs_out[k++] = static_cast<float>(state_.previous_action) / 65535.0f;
+  obs_out[k++] = state_.last_reward;
 
   obs_out[k++] = state_.solar_irradiance / 3.0f;
 
@@ -250,6 +249,92 @@ void Env::build_observation(float* obs_out) const {
                                            wheel_rig.suspension.min_length);
     obs_out[k++] = clamp((wheel_rig.suspension.max_length - travel) / span, 0.0f, 1.0f);
   }
+  // Observable organs and contact history; hidden layer IDs/order and latent
+  // values intentionally do not appear here.
+  obs_out[k++] = state_.climb_mode ? 1.0f : 0.0f;
+  obs_out[k++] = state_.propeller_mode ? 1.0f : 0.0f;
+  obs_out[k++] = state_.jump_cooldown_steps * config_.physics.dt;
+  obs_out[k++] = state_.recovery_state;
+  obs_out[k++] = state_.energy / energy_scale;
+  obs_out[k++] = clamp(state_.drive_fuel_rate, 0.0f, 4.0f) / 4.0f;
+  obs_out[k++] = state_.airborne ? 1.0f : 0.0f;
+  obs_out[k++] = state_.body_contact_front ? 1.0f : 0.0f;
+  obs_out[k++] = state_.body_contact_belly ? 1.0f : 0.0f;
+  obs_out[k++] = state_.body_contact_rear ? 1.0f : 0.0f;
+}
+
+void Env::update_world_latents() {
+  std::array<const MechanicZone*, kMaxActiveMechanisms> active{};
+  const int n = mechanic_layout_.active_layers(state_.body.position.x, active);
+  state_.active_layer_count = n;
+  float weight_sum = 0.0f;
+  // Resetting to a bounded baseline each tick makes the order-dependent chain
+  // deterministic and prevents state drift from escaping its safety envelope.
+  float moisture = 0.22f, heat = 0.25f, pressure = 1.0f, viscosity = 0.0f, sink = 0.0f;
+  float gravity = 1.0f, wind = 0.0f, ambient = -45.0f, thermal = 1.0f;
+  float solar = 1.0f, lidar_cost = 1.0f, lidar_range = 1.0f;
+  for (int i = 0; i < n; ++i) {
+    const auto& z = *active[static_cast<size_t>(i)];
+    const float feather = std::min(25.0f, std::max(15.0f, (z.end_x - z.begin_x) * 0.16f));
+    const float enter = clamp((state_.body.position.x - z.begin_x) / feather, 0.0f, 1.0f);
+    const float leave = clamp((z.end_x - state_.body.position.x) / feather, 0.0f, 1.0f);
+    const float w = enter * enter * (3.0f - 2.0f * enter) * leave * leave * (3.0f - 2.0f * leave);
+    weight_sum += w;
+    const auto& p = z.params;
+    moisture = clamp(moisture + w * (z.type == MechanicType::Mud ? 0.34f : z.type == MechanicType::Liquid ? 0.55f : -0.06f), 0.0f, 1.0f);
+    heat = clamp(heat + w * (p.ambient_temperature > 10.0f ? 0.15f : -0.04f), 0.0f, 1.0f);
+    viscosity = clamp(viscosity + w * p.viscosity, 0.0f, 2.5f);
+    sink = clamp(sink + w * p.sink_rate, 0.0f, 1.0f);
+    pressure = clamp(pressure + w * (z.type == MechanicType::Crust ? 0.10f : -0.035f), 0.65f, 1.25f);
+    gravity = clamp(gravity + w * (p.gravity_mul - 1.0f), 0.45f, 1.35f);
+    wind = clamp(wind + w * p.wind_force, -80.0f, 80.0f);
+    ambient = clamp(ambient + w * (p.ambient_temperature - ambient), -130.0f, 55.0f);
+    thermal = clamp(thermal + w * (p.thermal_transfer - thermal), 0.25f, 3.0f);
+    solar = clamp(solar + w * (p.solar_charge_rate - solar), 0.0f, 3.0f);
+    lidar_cost = clamp(lidar_cost + w * (p.lidar_energy_mul - lidar_cost), 0.4f, 3.0f);
+    lidar_range = clamp(lidar_range + w * (p.lidar_range_mul - lidar_range), 0.35f, 1.5f);
+  }
+  const auto rule_input = [&](CouplingInput input) {
+    switch (input) {
+      case CouplingInput::Moisture: return moisture;
+      case CouplingInput::Viscosity: return viscosity;
+      case CouplingInput::Heat: return heat;
+      case CouplingInput::TirePressure: return pressure;
+      case CouplingInput::Slip: return state_.drivetrain_slip;
+      case CouplingInput::Speed: return std::abs(state_.body.velocity.x);
+    }
+    return 0.0f;
+  };
+  float traction = 1.0f;
+  // Ordered formulas are data in the compiled bank.  Each reads the current
+  // shared values, writes one bounded target, then the next rule observes it.
+  for (const auto& rule : kFrozenCouplingRules) {
+    float value = rule.bias;
+    for (int i = 0; i < rule.input_count; ++i) {
+      value += rule.coefficients[static_cast<size_t>(i)] *
+               rule_input(rule.inputs[static_cast<size_t>(i)]);
+    }
+    value = clamp(value, rule.lower, rule.upper);
+    switch (rule.target) {
+      case CouplingTarget::Traction: traction = value; break;
+      case CouplingTarget::Heat: heat = value; break;
+      case CouplingTarget::TirePressure: pressure = value; break;
+    }
+  }
+  state_.latent_moisture = moisture; state_.latent_heat = heat;
+  state_.latent_viscosity = viscosity; state_.latent_sink = sink;
+  state_.latent_tire_pressure = pressure;
+  state_.latent_charge_reserve = clamp(state_.energy / std::max(1.0f, config_.physics.energy_capacity), 0.0f, 1.0f);
+  state_.latent_suspension = clamp(1.0f - sink * 0.25f + (state_.climb_mode ? 0.12f : 0.0f), 0.65f, 1.25f);
+  state_.latent_traction = traction;
+  state_.latent_gravity_multiplier = gravity;
+  state_.latent_wind_force = wind;
+  state_.latent_ambient_temperature = ambient;
+  state_.latent_thermal_transfer = thermal;
+  state_.latent_solar_rate = solar;
+  state_.latent_lidar_energy_multiplier = lidar_cost;
+  state_.latent_lidar_range_multiplier = lidar_range;
+  state_.active_layer_weight = weight_sum;
 }
 
 void Env::select_mechanic_layout(uint64_t seed) {
@@ -276,6 +361,51 @@ void Env::select_mechanic_layout(uint64_t seed) {
     eligible_biomes.push_back(builtin_biome_id(MechanicType::Normal));
   }
   std::uniform_real_distribution<float> u(0.0f, 1.0f);
+  const auto build_layers = [&]() {
+    mechanic_layout_.layer_count = 0;
+    // Physical regions are long (120–250m), with 1–4 rules simultaneously
+    // active.  They are independent from the contiguous terrain carrier zones.
+    std::uniform_real_distribution<float> region_length(120.0f, 250.0f);
+    float begin = -20.0f;
+    const auto id_for_type = [&](MechanicType type) {
+      for (int id : eligible_biomes) {
+        if (bank[static_cast<size_t>(id)]->visual_type() == type) return id;
+      }
+      return eligible_biomes[static_cast<size_t>(rng_() % eligible_biomes.size())];
+    };
+    std::array<int, kFrozenMechanismStacks.size()> allowed{};
+    int allowed_count = 0;
+    for (int i = 0; i < static_cast<int>(kFrozenMechanismStacks.size()); ++i) {
+      const auto split = kFrozenMechanismStacks[static_cast<size_t>(i)].split;
+      const bool matches = config_.biome_split == 0 ||
+          (config_.biome_split == 1 && split == BiomeSplit::Train) ||
+          (config_.biome_split == 2 && split == BiomeSplit::Test) ||
+          (config_.biome_split == 3 && split == BiomeSplit::Builtin);
+      if (matches) allowed[static_cast<size_t>(allowed_count++)] = i;
+    }
+    if (allowed_count == 0) {
+      for (int i = 0; i < static_cast<int>(kFrozenMechanismStacks.size()); ++i) {
+        allowed[static_cast<size_t>(allowed_count++)] = i;
+      }
+    }
+    int region = 0;
+    while (begin < terrain_.length() + 250.0f &&
+           mechanic_layout_.layer_count < kMaxMechanicZones - kMaxActiveMechanisms) {
+      const float end = begin + region_length(rng_);
+      const int stack_id = allowed[static_cast<size_t>(rng_() % static_cast<uint64_t>(allowed_count))];
+      const auto& approved = kFrozenMechanismStacks[static_cast<size_t>(stack_id)];
+      const int stack = approved.count;
+      for (int j = 0; j < stack && mechanic_layout_.layer_count < kMaxMechanicZones; ++j) {
+        const int id = id_for_type(approved.types[static_cast<size_t>(j)]);
+        const Biome& b = *bank[static_cast<size_t>(id)];
+        auto& layer = mechanic_layout_.layers[static_cast<size_t>(mechanic_layout_.layer_count++)];
+        layer.begin_x = begin; layer.end_x = end; layer.type = b.visual_type();
+        layer.biome_id = id; layer.params = b.sample_params(rng_());
+        layer.terrain_seed = rng_(); layer.liquid_level = -1.0e9f;
+      }
+      begin = end; ++region;
+    }
+  };
 
   if (config_.fixed_biome_id >= 0 || !config_.chain_biomes) {
 
@@ -303,6 +433,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.liquid_level = -1.0e9f;
     pending_basin_depth_[0] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
+    build_layers();
     return;
   }
 
@@ -389,6 +520,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
     pending_basin_depth_[static_cast<size_t>(slot)] =
         biome.visual_type() == MechanicType::Liquid ? 0.65f + u(rng_) * 0.85f : -1.0f;
   }
+  build_layers();
 }
 
 void Env::finalize_mechanic_layout() {
@@ -408,6 +540,50 @@ void Env::finalize_mechanic_layout() {
     for (int sample = first_sample; sample <= last_sample; ++sample) {
       const float world_x = static_cast<float>(sample) * terrain_.dx();
       const float local_x = world_x - zone.begin_x;
+      // A seeded palette of incompatible-looking profiles prevents one global
+      // sinusoid signature: harmonics, value noise, terraces, saw/triangle,
+      // and a two-scale combination.  Later distance shifts probability toward
+      // sharper and taller shapes.
+      const float difficulty = clamp(world_x / 850.0f, 0.0f, 1.0f);
+      const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 17);
+      const int profile = (slot + static_cast<int>(biome_random01(zone.terrain_seed, 18) * 5.0f)) % 5;
+      float palette_delta = 0.0f;
+      switch (profile) {
+        case 0:
+          palette_delta = 0.22f * std::sin(local_x * (0.07f + difficulty * 0.04f) + phase) +
+                          0.08f * std::sin(local_x * 0.71f + phase * 0.37f);
+          break;
+        case 1: { // deterministic value-noise interpolation, no global period
+          const float cell = 3.8f - difficulty * 1.6f;
+          const int a = static_cast<int>(std::floor(local_x / cell));
+          const float t = local_x / cell - static_cast<float>(a);
+          const float va = biome_random01(zone.terrain_seed, 300 + a) * 2.0f - 1.0f;
+          const float vb = biome_random01(zone.terrain_seed, 301 + a) * 2.0f - 1.0f;
+          const float smooth = t * t * (3.0f - 2.0f * t);
+          palette_delta = (va + (vb - va) * smooth) * (0.16f + difficulty * 0.20f);
+          break;
+        }
+        case 2: {
+          const float step = std::floor(local_x / (3.0f - difficulty));
+          palette_delta = (biome_random01(zone.terrain_seed, 500 + static_cast<uint64_t>(step)) - 0.5f) *
+                          (0.32f + difficulty * 0.42f);
+          break;
+        }
+        case 3: {
+          const float period = 7.0f - difficulty * 3.0f;
+          const float f = local_x / period - std::floor(local_x / period);
+          palette_delta = (1.0f - 4.0f * std::abs(f - 0.5f)) * (0.25f + difficulty * 0.25f);
+          break;
+        }
+        default:
+          palette_delta = 0.32f * std::sin(local_x * 0.045f + phase) +
+                          (biome_random01(zone.terrain_seed, 800 + static_cast<uint64_t>(local_x / 2.0f)) - 0.5f) *
+                          (0.10f + difficulty * 0.18f);
+          break;
+      }
+      const float region_edge = clamp(local_x / 18.0f, 0.0f, 1.0f) *
+                                clamp((zone.end_x - world_x) / 18.0f, 0.0f, 1.0f);
+      terrain_.add_height_at_index(sample, palette_delta * region_edge);
       const float delta = biome.terrain_height_delta(local_x, zone.terrain_seed);
       if (std::isfinite(delta)) {
         terrain_.add_height_at_index(sample, clamp(delta, -2.5f, 2.5f));
@@ -452,6 +628,16 @@ void Env::finalize_mechanic_layout() {
       const float world_end =
           std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x);
       zone.liquid_level = terrain_.carve_basin(std::max(0.0f, zone.begin_x), world_end, depth);
+      // A raised, dry crossing is a separate collision surface; missing the
+      // ramp leaves the rover on the lower water route, where the propeller is
+      // useful but expensive.
+      const float left = std::max(0.0f, zone.begin_x) + 9.0f;
+      const float right = world_end - 9.0f;
+      if (right - left > 24.0f) {
+        const float h0 = terrain_.query(left).height + 0.85f;
+        const float h1 = terrain_.query(right).height + 0.85f;
+        terrain_.add_surface(left, right, h0, h1);
+      }
     }
     if (zone.params.ledge_gap_width > 0.0f && zone.params.ledge_spacing > 0.0f) {
       const float zone_start = std::max(zone.begin_x, zone.params.ledge_start_x);

@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v12-thermal-heater-launch-terrain";
+    "mars-env-v13-layered-120s-rover";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -20,7 +20,7 @@ struct EnvConfig {
   RewardConfig reward{};
   TerminationConfig termination{};
   RoverRig rig = RoverRig::default_two_wheel();
-  int episodes_per_trial = 4;
+  int episodes_per_trial = 0;
 
   int biome_split = 1;
   int fixed_biome_id = -1;
@@ -38,9 +38,9 @@ struct EnvConfig {
 
 
   bool chain_biomes = false;
-  int chain_zone_count = 14;
-  float chain_segment_min_length = 30.0f;
-  float chain_segment_max_length = 70.0f;
+  int chain_zone_count = 8;
+  float chain_segment_min_length = 120.0f;
+  float chain_segment_max_length = 250.0f;
   float terrain_surprise_probability = 0.22f;
   float terrain_surprise_strength = 1.0f;
 };
@@ -65,9 +65,10 @@ class Env {
   MechanicType mechanic_type() const { return mechanic_type_; }
   const MechanicParams& mechanic_params() const { return mechanic_params_; }
   const MechanicZone& mechanic_at(float x) const { return mechanic_layout_.at(x); }
+  const MechanicLayout& mechanic_layout() const { return mechanic_layout_; }
 
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 8192; }
+  int action_dim() const { return 65536; }
 
   int trial_steps_used() const { return trial_steps_used_; }
   int trial_step_budget() const;
@@ -79,6 +80,7 @@ class Env {
   void finalize_mechanic_layout();
   bool is_flipped() const;
   bool is_stuck() const;
+  void update_world_latents();
 
   EnvConfig config_{};
   Terrain terrain_{};

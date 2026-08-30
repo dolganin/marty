@@ -16,6 +16,7 @@ void Terrain::configure(const TerrainConfig& config) {
   step_count_ = config.step_count;
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
   solid_.assign(static_cast<size_t>(config.sample_count), 1u);
+  surfaces_.clear();
 }
 
 void Terrain::generate(uint64_t seed) {
@@ -99,6 +100,29 @@ TerrainSample Terrain::query(float x) const {
   return {h, slope, {-slope * inv_len, inv_len}, true};
 }
 
+TerrainSample Terrain::query_near(float x, float reference_y) const {
+  TerrainSample result = query(x);
+  float selected_height = result.solid ? result.height : -1.0e9f;
+  // A surface is selected only when it is not materially above the reference
+  // point.  Falling beneath a bridge therefore lands on the lower branch.
+  for (const auto& surface : surfaces_) {
+    if (x < surface.begin_x || x > surface.end_x) continue;
+    const float t = (x - surface.begin_x) /
+                    std::max(0.0001f, surface.end_x - surface.begin_x);
+    const float h = surface.begin_height + (surface.end_height - surface.begin_height) * t;
+    if (h <= reference_y + 0.08f && h > selected_height) {
+      selected_height = h;
+      result.height = h;
+      result.slope = (surface.end_height - surface.begin_height) /
+                     std::max(0.0001f, surface.end_x - surface.begin_x);
+      const float inv_len = 1.0f / std::sqrt(1.0f + result.slope * result.slope);
+      result.normal = {-result.slope * inv_len, inv_len};
+      result.solid = true;
+    }
+  }
+  return result;
+}
+
 void Terrain::query_height_slope(float x, float& h, float& slope) const {
   if (heights_.empty()) {
     h = 0.0f;
@@ -178,6 +202,11 @@ void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
   const int last = std::min(static_cast<int>(heights_.size() - 1),
                             static_cast<int>(std::floor(end_x * inv_dx_)));
   for (int i = first; i <= last; ++i) solid_[static_cast<size_t>(i)] = 0u;
+}
+
+void Terrain::add_surface(float begin_x, float end_x, float begin_height, float end_height) {
+  if (end_x - begin_x < dx_ || !std::isfinite(begin_height) || !std::isfinite(end_height)) return;
+  surfaces_.push_back({begin_x, end_x, begin_height, end_height});
 }
 
 float Terrain::height_at_index(int i) const {

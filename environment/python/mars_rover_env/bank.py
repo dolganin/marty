@@ -5,6 +5,29 @@ import os
 from pathlib import Path
 from typing import Any
 
+from mars_rover_env.rules import validate_rule
+
+
+# This data is mirrored by kFrozenMechanismStacks in biome_bank.hpp.  It is
+# part of the versioned release contract, not a runtime source of randomness.
+FROZEN_STACKS = (
+    {"split": "anchor", "mechanisms": ("normal", "wind")},
+    {"split": "train", "mechanisms": ("sand", "wind")},
+    {"split": "train", "mechanisms": ("mud", "crust", "wind")},
+    {"split": "train", "mechanisms": ("ice", "low_gravity")},
+    {"split": "held_out", "mechanisms": ("liquid", "wind")},
+    {"split": "held_out", "mechanisms": ("sand", "mud", "wind", "crust")},
+)
+
+DEFAULT_COUPLING_RULES = (
+    {"inputs": ("moisture", "viscosity"), "target": "traction",
+     "coefficients": (-0.62, -0.16), "bias": 1.18},
+    {"inputs": ("slip", "speed"), "target": "heat",
+     "coefficients": (0.14, 0.02), "bias": 0.18},
+    {"inputs": ("moisture", "heat"), "target": "tire_pressure",
+     "coefficients": (-0.035, 0.02), "bias": 1.0},
+)
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parents[1]
@@ -31,7 +54,20 @@ def load_manifest(path: str | Path = DEFAULT_MANIFEST) -> dict[str, Any]:
         raise FileNotFoundError(
             f"Biome manifest does not exist: {path}. Generate or refresh the bank first."
         )
-    return json.loads(path.read_text(encoding="utf-8"))
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    # Optional v13 formulas are checked before a frozen bank is used. Runtime
+    # never evaluates arbitrary model output.
+    for rule in manifest.get("coupling_rules", []):
+        validate_rule(rule)
+    known = set(manifest.get("anchors", [])) | {str(item.get("id", ""))
+                                                   for item in manifest.get("biomes", [])}
+    for stack in manifest.get("frozen_stacks", []):
+        mechanisms = stack.get("mechanisms", [])
+        if stack.get("split") not in {"anchor", "train", "held_out"}:
+            raise ValueError("frozen stack has an invalid split")
+        if not 1 <= len(mechanisms) <= 4 or any(name not in known for name in mechanisms):
+            raise ValueError("frozen stack contains unknown or unsafe mechanisms")
+    return manifest
 
 
 def require_compiled_bank(manifest: dict[str, Any]) -> str:

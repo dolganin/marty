@@ -52,6 +52,7 @@ struct MechanicParams {
 };
 
 constexpr int kMaxMechanicZones = 96;
+constexpr int kMaxActiveMechanisms = 4;
 
 struct MechanicZone {
   float begin_x = 0.0f;
@@ -68,10 +69,15 @@ struct MechanicZone {
 struct MechanicLayout {
   std::array<MechanicZone, kMaxMechanicZones> zones{};
   int count = 1;
+  // Terrain zones remain contiguous in zones. Layers are independent, overlapping
+  // physical mechanisms and intentionally have a deterministic order.
+  std::array<MechanicZone, kMaxMechanicZones> layers{};
+  int layer_count = 0;
 
   const MechanicZone& at(float x) const;
   MechanicParams thermal_at(float x) const;
   MechanicParams thermal_at(float x, const MechanicZone& current) const;
+  int active_layers(float x, std::array<const MechanicZone*, kMaxActiveMechanisms>& out) const;
 };
 
 struct MechanicContext {

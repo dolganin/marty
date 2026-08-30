@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from mars_rover_env.bank import DEFAULT_COUPLING_RULES, FROZEN_STACKS
+
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCE_HEADER = ROOT / "cpp" / "include" / "mars" / "biome_bank.hpp"
@@ -618,6 +620,8 @@ def _write_manifest(
             "anchor_source_sha256": anchor_source_sha256,
             "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
             "generated": version_entries,
+            "coupling_rules": DEFAULT_COUPLING_RULES,
+            "frozen_stacks": FROZEN_STACKS,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -630,6 +634,8 @@ def _write_manifest(
                 "anchor_source_sha256": anchor_source_sha256,
                 "quota_per_stratum": DEFAULT_STRATUM_QUOTA,
                 "generated": [item for item in version_entries if item["split"] == split],
+                "coupling_rules": DEFAULT_COUPLING_RULES,
+                "frozen_stacks": FROZEN_STACKS,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -638,7 +644,7 @@ def _write_manifest(
             "sha256:" + hashlib.sha256(split_canonical.encode()).hexdigest()
         )
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "bank_version": "sha256:" + hashlib.sha256(canonical.encode()).hexdigest(),
         **split_versions,
         "anchors": anchors,
@@ -650,6 +656,8 @@ def _write_manifest(
             else float(old_manifest.get("behavioral_dedup_epsilon", 0.035))
         ),
         "biomes": entries,
+        "coupling_rules": list(DEFAULT_COUPLING_RULES),
+        "frozen_stacks": list(FROZEN_STACKS),
     }
     MANIFEST.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     header = HEADER.read_text(encoding="utf-8")
@@ -878,7 +886,9 @@ def _catalog_from_header() -> list[str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate and compile-check an immutable C++ biome bank")
+    parser = argparse.ArgumentParser(
+        description="Legacy C++ biome-source generator (v13 uses structured coupling-rule review instead)"
+    )
     parser.add_argument("--config", type=Path, default=ROOT / "python" / "mars_rover_env" / "configs" / "biome_generator.yaml")
     parser.add_argument("--count", type=int)
     parser.add_argument("--split", choices=("train", "test"))
@@ -891,6 +901,10 @@ def main() -> None:
     )
     parser.add_argument("--list", action="store_true", help="list biome ids already present in the C++ bank")
     parser.add_argument("--refresh-manifest", action="store_true", help="rebuild bank metadata without API calls")
+    parser.add_argument(
+        "--legacy-source-biomes", action="store_true",
+        help="explicitly opt into archived LLM-generated C++ biome source workflow",
+    )
     parser.add_argument("--dry-run", action="store_true", help="check config/compiler and print request summary without API calls")
     parser.add_argument("--replace", action="store_true", help="discard the previous generated bank instead of appending")
     parser.add_argument(
@@ -927,6 +941,11 @@ def main() -> None:
         print(f"api_mode={api_mode}")
         print(f"model={config['openai']['model']} split={split} count={count} compiler={compiler}")
         return
+    if not args.legacy_source_biomes:
+        raise SystemExit(
+            "v13 does not accept LLM-generated C++ biomes. Submit structured JSON rules to "
+            "mars_rover_env.tools.review_rules; pass --legacy-source-biomes only for archived banks."
+        )
     header = HEADER.read_text(encoding="utf-8")
     _, existing_names = _generated_sources_and_names(header)
     existing_candidates = _generated_candidates(header)

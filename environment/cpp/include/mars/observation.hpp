@@ -19,7 +19,7 @@ constexpr int kObservationDim =
     21 +
     kImuObservationDim +
     kBodyContactObservationDim +
-    kWheelEncoderObservationDim;
+    kWheelEncoderObservationDim + 10;
 
 struct ObservationView {
   float* data = nullptr;

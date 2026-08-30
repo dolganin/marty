@@ -289,8 +289,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              const float speed = std::abs(state.body.velocity.x);
              d["speed"] = speed;
              d["speed_kmh"] = speed * 3.6f;
-             d["gravity"] = env.config().physics.gravity * zone.params.gravity_mul;
-             d["gravity_multiplier"] = zone.params.gravity_mul;
+             d["gravity"] = env.config().physics.gravity * state.latent_gravity_multiplier;
+             d["gravity_multiplier"] = state.latent_gravity_multiplier;
              d["engine_rpm"] = state.engine_rpm;
              d["engine_temperature"] = state.engine_temperature;
              d["ambient_temperature"] = state.ambient_temperature;
@@ -338,7 +338,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["terrain_surprise_mode"] = zone.terrain_surprise_mode;
              constexpr const char* kTerminationReasons[] = {
                  "RUNNING", "FINISH REACHED", "FATAL LANDING", "ROVER ROLLOVER",
-                 "FELL OUT OF COURSE", "BATTERY DEPLETED", "NO PROGRESS", "STEP LIMIT",
+                 "FELL OUT OF COURSE", "BATTERY DEPLETED", "NO PROGRESS", "120 SECOND TIMER",
              };
              d["termination_reason"] = kTerminationReasons[
                  std::clamp(state.termination_reason, 0, 7)];
@@ -366,6 +366,31 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["viscosity"] = params.viscosity;
              d["wind_force"] = params.wind_force;
              d["gravity_mul"] = params.gravity_mul;
+             d["active_layers"] = state.active_layer_count;
+             py::list active_layer_names;
+             std::array<const mars::MechanicZone*, mars::kMaxActiveMechanisms> active_layers{};
+             const int active_count = env.mechanic_layout().active_layers(
+                 state.body.position.x, active_layers);
+             for (int i = 0; i < active_count; ++i) {
+               active_layer_names.append(mechanic_name(active_layers[static_cast<size_t>(i)]->type));
+             }
+             d["active_layer_names"] = active_layer_names;
+             d["seed"] = state.world_seed;
+             d["layer_weight"] = state.active_layer_weight;
+             d["latent_traction"] = state.latent_traction;
+             d["latent_moisture"] = state.latent_moisture;
+             d["latent_heat"] = state.latent_heat;
+             d["latent_charge_reserve"] = state.latent_charge_reserve;
+             d["latent_tire_pressure"] = state.latent_tire_pressure;
+             d["latent_viscosity"] = state.latent_viscosity;
+             d["latent_sink"] = state.latent_sink;
+             d["latent_suspension"] = state.latent_suspension;
+             d["climb_mode"] = state.climb_mode;
+             d["propeller_mode"] = state.propeller_mode;
+             d["jump_cooldown"] = state.jump_cooldown_steps * env.config().physics.dt;
+             d["recovery_state"] = state.recovery_state;
+             d["route_branch"] = state.route_branch == 2 ? py::cast("upper_dry") :
+                                 state.route_branch == 1 ? py::cast("lower_water") : py::cast("terrain");
              py::list wheels;
              for (int i = 0; i < state.wheel_count; ++i) {
                const auto& wheel = state.wheels[static_cast<size_t>(i)];
