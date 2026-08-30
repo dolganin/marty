@@ -262,6 +262,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
              d["drive_fuel_rate"] = state.drive_fuel_rate;
+             d["energy_cost_rate"] = state.energy_cost_rate;
+             d["energy_gain_rate"] = state.energy_gain_rate;
              d["trial_steps_used"] = env.trial_steps_used();
              d["trial_step_budget"] = env.trial_step_budget();
              d["trial_time_left"] = env.trial_time_left();
@@ -324,6 +326,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["solar_panel_deployment"] = state.solar_panel_deployment;
              d["charging_active"] = state.charging_active;
              d["solar_charge_rate"] = state.solar_charge_rate;
+             d["solar_panel_stationary"] = state.solar_panel_stationary;
+             d["propeller_deployment"] = state.propeller_deployment;
              d["passive_charge_rate"] = state.passive_charge_rate;
              d["solar_irradiance"] = state.solar_irradiance;
              d["lidar_active"] = state.lidar_active_steps > 0;
@@ -385,7 +389,6 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["latent_moisture"] = state.latent_moisture;
              d["latent_heat"] = state.latent_heat;
              d["latent_charge_reserve"] = state.latent_charge_reserve;
-             d["latent_tire_pressure"] = state.latent_tire_pressure;
              d["latent_viscosity"] = state.latent_viscosity;
              d["latent_sink"] = state.latent_sink;
              d["latent_suspension"] = state.latent_suspension;

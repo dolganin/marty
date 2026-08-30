@@ -105,8 +105,8 @@ def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[
     }
     instruction = (
         "Propose distinct bounded coupling rules for a Mars rover. Return only the JSON schema. "
-        "Inputs allowed: moisture, viscosity, heat, tire_pressure, slip, speed, slope, immersion, throttle. "
-        "Targets allowed: traction, moisture, heat, charge_reserve, tire_pressure, viscosity, sink, suspension. "
+        "Inputs allowed: moisture, viscosity, heat, slip, speed, slope, immersion, throttle. "
+        "Targets allowed: traction, moisture, heat, charge_reserve, viscosity, sink, suspension. "
         "Use one or two inputs, matching coefficient count, coefficients and bias within [-2.5, 2.5]. "
         "Rules must be deterministic affine formulas and mechanically plausible."
     )

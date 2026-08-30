@@ -24,8 +24,6 @@ DEFAULT_COUPLING_RULES = (
      "coefficients": (-0.62, -0.16), "bias": 1.18},
     {"inputs": ("slip", "speed"), "target": "heat",
      "coefficients": (0.14, 0.02), "bias": 0.18},
-    {"inputs": ("moisture", "heat"), "target": "tire_pressure",
-     "coefficients": (-0.035, 0.02), "bias": 1.0},
 )
 
 

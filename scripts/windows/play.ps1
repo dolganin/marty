@@ -4,7 +4,7 @@
 
 
 param(
-    [int]$Seed = 1,
+    [Nullable[int]]$Seed = $null,
     [switch]$Debug,
     [switch]$Fullscreen,
     [switch]$RefreshBank,
@@ -47,7 +47,8 @@ if ($RefreshBank) {
     if ($LASTEXITCODE -ne 0) { throw "Run-bank rebuild failed (exit code $LASTEXITCODE)." }
 }
 
-$PlayArgs = @("-m", "mars_rover_env.tools.play", "--seed", $Seed)
+$PlayArgs = @("-m", "mars_rover_env.tools.play")
+if ($null -ne $Seed) { $PlayArgs += @("--seed", $Seed) }
 if ($Debug) { $PlayArgs += "--debug" }
 if ($Fullscreen) { $PlayArgs += "--fullscreen" }
 

@@ -59,10 +59,10 @@ class ManualPlayer:
         tk.Label(sidebar, text="ROVER TELEMETRY", bg="#171717", fg="#ffffff",
                  font=("Consolas", 14, "bold")).pack(anchor="w", pady=(0, 8))
         self.hud_labels: list[tk.Label] = []
-        for _ in range(21):
+        for _ in range(24):
             label = tk.Label(sidebar, anchor="w", justify="left", bg="#171717", fg="#f4f4f4",
-                             font=("Consolas", 10, "bold"))
-            label.pack(fill="x", pady=1)
+                             font=("Consolas", 9, "bold"))
+            label.pack(fill="x", pady=0)
             self.hud_labels.append(label)
 
         tk.Label(sidebar, text="CONTROLS", bg="#171717", fg="#ffffff",
@@ -89,14 +89,15 @@ class ManualPlayer:
             ("randomize", "T  RANDOM NEW WORLD"),
         )):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
-                             font=("Consolas", 9, "bold"), padx=6, pady=3)
-            label.grid(row=index // 2, column=index % 2, sticky="ew", padx=2, pady=2)
+                             font=("Consolas", 8, "bold"), padx=3, pady=2)
+            label.grid(row=index // 3, column=index % 3, sticky="ew", padx=1, pady=1)
             self.control_labels[name] = label
         controls.grid_columnconfigure(0, weight=1)
         controls.grid_columnconfigure(1, weight=1)
+        controls.grid_columnconfigure(2, weight=1)
         self.status = tk.Label(sidebar, anchor="w", justify="left", wraplength=self._sidebar_width - 20,
                                bg="#171717", fg="#aaaaaa", font=("Consolas", 9))
-        self.status.pack(fill="x", pady=(8, 0))
+        self.status.pack(side="bottom", fill="x", pady=(4, 0))
         self.photo = None
         self.image_id = None
 
@@ -313,7 +314,17 @@ class ManualPlayer:
         regen_text = f"MOTION RECHARGE +{debug.get('passive_charge_rate', 0.0):.2f}/s"
         regen_color = "#52e06f" if debug.get("passive_charge_rate", 0.0) > 0.0 else "#888888"
         panel_deploy = debug.get("solar_panel_deployment", 0.0)
-        panel_text = f"SOLAR PANEL {panel_deploy * 100:3.0f}%  {'CHARGING' if debug.get('charging_active', False) else 'READY'}"
+        if not debug.get("solar_panel_requested", False):
+            panel_text = "SOLAR PANEL STOWED - F"
+        elif panel_deploy < 0.99:
+            panel_text = f"SOLAR PANEL DEPLOYING {panel_deploy * 100:3.0f}%"
+        elif debug.get("charging_active", False):
+            panel_text = f"SOLAR CHARGING +{debug.get('solar_charge_rate', 0.0):.2f}/s"
+        else:
+            panel_text = "SOLAR PANEL READY - STOP TO CHARGE"
+        battery_percent = debug['energy'] / max(1.0, debug['energy_capacity']) * 100
+        net_rate = debug.get('energy_gain_rate', 0.0) - debug.get('energy_cost_rate', 0.0)
+        battery_text = f"BATTERY {battery_percent:3.0f}%  NET {net_rate:+.2f}/s"
 
         piston_text = (
             "CONTACT" if debug.get("roof_piston_contact")
@@ -336,18 +347,16 @@ class ManualPlayer:
              f"PWR {debug['cold_power_factor'] * 100:3.0f}%", temperature_color),
             (f"GRAVITY {debug.get('gravity', -3.71):5.2f} m/s²  "
              f"x{debug.get('gravity_multiplier', 1.0):.2f}", "#d5c6ff"),
-            (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}  "
-             f"({debug['energy'] / max(1.0, debug['energy_capacity']) * 100:3.0f}%)  "
-             f"HEATER {'ON' if debug.get('heater_active', False) else 'OFF'}", "#f4f4f4"),
+            (battery_text, "#52e06f" if net_rate > 0.01 else "#ffb84d" if net_rate < -0.01 else "#f4f4f4"),
             (f"LAYERS {debug.get('active_layers', 0)}  W {debug.get('layer_weight', 0.0):.2f}  "
              f"TRAC {debug.get('latent_traction', 1.0):.2f}  VISC {debug.get('latent_viscosity', 0.0):.2f}", "#d5c6ff"),
-            (f"MOIST {debug.get('latent_moisture', 0.0):.2f}  PRESS {debug.get('latent_tire_pressure', 1.0):.2f}  "
+            (f"MOIST {debug.get('latent_moisture', 0.0):.2f}  "
              f"RESERVE {debug.get('latent_charge_reserve', 0.0) * 100:.0f}%", "#d5c6ff"),
             (f"SPRING {jump_edge_text} {'PRELOAD' if debug.get('suspension_jump_phase') == 1 else 'LAUNCH' if debug.get('suspension_jump_phase') == 2 else 'READY'} "
              f"{debug.get('suspension_jump_charge', 0.0) * 100:.0f}%  PISTON {piston_edge_text} "
              f"{piston_text} "
              f"B CLIMB {'ON' if debug.get('climb_mode') else 'OFF'}  "
-             f"P PROP {'ON' if debug.get('propeller_mode') else 'OFF'}", "#52e06f"),
+             f"P PROP {debug.get('propeller_deployment', 0.0) * 100:.0f}%", "#52e06f"),
             (f"BRANCH {debug.get('route_branch', 'terrain').upper()}", "#6fd3ff"),
             (regen_text, regen_color),
             (panel_text, "#52e06f" if debug.get("charging_active", False) else "#9fd8ff"),
@@ -469,7 +478,6 @@ def main() -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(candidates, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote {len(candidates)} rule candidates to {output}")
-    _print_biome_catalog()
     ManualPlayer(args).run()
 
 

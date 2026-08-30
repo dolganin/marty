@@ -49,6 +49,8 @@ struct RoverState {
   float ambient_temperature = -45.0f;
   float thermal_transfer = 1.0f;
   float drive_fuel_rate = 0.0f;
+  float energy_cost_rate = 0.0f;
+  float energy_gain_rate = 0.0f;
   float cold_power_factor = 1.0f;
   float clutch_engagement = 1.0f;
   float drivetrain_slip = 0.0f;
@@ -59,6 +61,7 @@ struct RoverState {
   float solar_charge_rate = 0.0f;
   float passive_charge_rate = 0.0f;
   float solar_irradiance = 0.0f;
+  bool solar_panel_stationary = false;
   int lidar_active_steps = 0;
   int lidar_cooldown_steps = 0;
   float lidar_last_energy_cost = 0.0f;
@@ -113,7 +116,6 @@ struct RoverState {
   float latent_moisture = 0.25f;
   float latent_heat = 0.25f;
   float latent_charge_reserve = 1.0f;
-  float latent_tire_pressure = 1.0f;
   float latent_viscosity = 0.0f;
   float latent_sink = 0.0f;
   float latent_suspension = 1.0f;
@@ -128,6 +130,7 @@ struct RoverState {
   float active_layer_weight = 0.0f;
   bool climb_mode = false;
   bool propeller_mode = false;
+  float propeller_deployment = 0.0f;
   float propeller_phase = 0.0f;
   int jump_cooldown_steps = 0;
   int suspension_jump_phase = 0;  // 1 preload/compress, 2 rebound/launch.

@@ -154,18 +154,6 @@
         0.02
       ],
       "bias": 0.18
-    },
-    {
-      "inputs": [
-        "moisture",
-        "heat"
-      ],
-      "target": "tire_pressure",
-      "coefficients": [
-        -0.035,
-        0.02
-      ],
-      "bias": 1.0
     }
   ],
   "frozen_stacks": [

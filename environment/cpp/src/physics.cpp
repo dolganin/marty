@@ -69,19 +69,23 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float pre_contact_vertical_speed = state.body.velocity.y;
   ControlInput control = decode_discrete_action(discrete_action, config_.body_tilt_torque);
   const int jump_action_mask = ControlJump | ControlJumpFront | ControlJumpRear;
-  const bool jump_active = control.jump || control.jump_front || control.jump_rear;
-  const bool piston_active = control.roof_piston || control.roof_piston_front ||
-                             control.roof_piston_rear;
-  const bool jump_released = !jump_active && (state.previous_action & jump_action_mask) != 0;
+  bool jump_active = control.jump || control.jump_front || control.jump_rear;
+  bool piston_active = control.roof_piston || control.roof_piston_front ||
+                       control.roof_piston_rear;
+  bool jump_released = !jump_active && (state.previous_action & jump_action_mask) != 0;
   const bool climb_pressed = control.toggle_climb &&
       (state.previous_action & ControlToggleClimb) == 0;
   const bool propeller_pressed = control.toggle_propeller &&
       (state.previous_action & ControlTogglePropeller) == 0;
   if (climb_pressed) state.climb_mode = !state.climb_mode;
   if (propeller_pressed) state.propeller_mode = !state.propeller_mode;
+  state.propeller_deployment = clamp(
+      state.propeller_deployment + (state.propeller_mode ? 1.0f : -1.0f) * dt / 0.65f,
+      0.0f, 1.0f);
   if (state.propeller_mode) {
     state.propeller_phase = std::fmod(
-        state.propeller_phase + dt * (11.0f + 21.0f * std::abs(control.throttle)), 6.2831853f);
+        state.propeller_phase + state.propeller_deployment * dt *
+        (11.0f + 21.0f * std::abs(control.throttle)), 6.2831853f);
   }
   if (state.jump_cooldown_steps > 0) --state.jump_cooldown_steps;
   if (state.suspension_jump_phase_steps > 0) --state.suspension_jump_phase_steps;
@@ -90,8 +94,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     state.suspension_jump_charge = 0.0f;
   }
   if (piston_active) {
-    state.roof_piston_mask = control.roof_piston ? 3 :
-        (control.roof_piston_front ? 1 : 2);
+    state.roof_piston_mask = (control.roof_piston ? 3 : 0) |
+        (control.roof_piston_front ? 1 : 0) |
+        (control.roof_piston_rear ? 2 : 0);
   }
   const float piston_speed = piston_active ? 1.0f / 0.18f : -1.0f / 0.10f;
   state.roof_piston_extension = clamp(state.roof_piston_extension + piston_speed * dt, 0.0f, 1.0f);
@@ -140,7 +145,23 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     state.solar_panel_deployment = std::max(
         0.0f, state.solar_panel_deployment - dt / std::max(0.1f, config_.panel_retract_time));
   }
-  const bool rover_stationary = length(state.body.velocity) < 0.15f;
+  const bool charging_lockout = state.solar_panel_requested;
+  if (charging_lockout) {
+    control.throttle = 0.0f;
+    control.brake = 1.0f;
+    control.body_torque = 0.0f;
+    control.jump = control.jump_front = control.jump_rear = false;
+    control.roof_piston = control.roof_piston_front = control.roof_piston_rear = false;
+    jump_active = false;
+    jump_released = false;
+    piston_active = false;
+    state.suspension_jump_phase = 0;
+    state.suspension_jump_charge = 0.0f;
+    state.propeller_mode = false;
+  }
+  const bool rover_stationary = length(state.body.velocity) < 0.06f &&
+                                std::abs(state.body.angular_velocity) < 0.08f;
+  state.solar_panel_stationary = rover_stationary;
   state.charging_active = state.solar_panel_requested &&
                           state.solar_panel_deployment >= 0.999f && rover_stationary;
   const bool shift_up_pressed = control.shift_up && (state.previous_action & ControlShiftUp) == 0;
@@ -389,7 +410,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float climb_torque = state.climb_mode ? 1.75f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
-  state.solar_charge_rate = state.charging_active ? state.latent_solar_rate : 0.0f;
+  state.solar_charge_rate = state.charging_active ? state.latent_solar_rate * 10.0f : 0.0f;
   state.solar_irradiance = state.latent_solar_rate;
   stats.energy_gain = state.solar_charge_rate * dt;
   float ambient_temperature = state.latent_ambient_temperature;
@@ -459,7 +480,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   Vec2 body_force{0.0f, state.body.mass * gravity};
   body_force.x += state.latent_wind_force;
   float body_torque = control.body_torque;
-  if (state.solar_panel_deployment > 0.01f && std::abs(state.body.velocity.x) > 0.3f) {
+  if (!charging_lockout && state.solar_panel_deployment > 0.01f &&
+      std::abs(state.body.velocity.x) > 0.3f) {
     const Vec2 panel_axis = rotate({0.0f, 1.0f}, state.body.angle);
     const float panel_lift = state.solar_panel_deployment *
         std::min(22.0f, std::abs(state.body.velocity.x) * std::abs(state.body.velocity.x) * 0.55f);
@@ -532,8 +554,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   // The roof actuator can only push when its visible rod has found solid
   // terrain. This makes it a genuine contact force (useful after a rollover),
   // rather than a second hidden mid-air jump.
-  if (piston_active && state.roof_piston_extension > 0.02f &&
-      std::abs(state.body.angle) > 1.55f && rig.body.size.y > 0.0f) {
+  if (piston_active && state.roof_piston_extension > 0.02f && rig.body.size.y > 0.0f) {
     const Vec2 roof_axis = rotate_body({0.0f, 1.0f});
     for (int piston = 0; piston < 2; ++piston) {
       const int piston_bit = 1 << piston;
@@ -550,7 +571,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       // kick and unavailable while upright. It cannot serve as a low-gravity
       // flight engine because contact is lost as soon as it lifts the rover.
       const float force = state.roof_piston_extension *
-          std::max(0.0f, 70.0f * penetration - 8.0f * tip_speed);
+          std::max(0.0f, 260.0f * penetration - 8.0f * tip_speed);
       const Vec2 reaction = -roof_axis * force;
       body_force += reaction;
       body_torque += cross(base - state.body.position, reaction);
@@ -588,7 +609,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       stats.energy_cost += submerged * point_speed * point_speed * 0.006f * dt;
     }
   }
-  if (state.propeller_mode && std::abs(control.throttle) > 0.0f) {
+  if (state.propeller_deployment >= 0.99f && std::abs(control.throttle) > 0.0f) {
     // The propeller works in every medium. Dense mud/water reduce efficiency
     // through the world viscosity instead of turning the system fully off.
     const float medium_efficiency = 1.0f / (1.0f + state.latent_viscosity * 0.65f);
@@ -600,7 +621,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float thrust = 26.0f * medium_efficiency * control.throttle * reserve_power *
                          propeller_ready;
     body_force += rotate_body({thrust, 0.0f});
-    stats.energy_cost += (8.0f + 35.0f * std::abs(control.throttle)) *
+    stats.energy_cost += (0.16f + 0.72f * std::abs(control.throttle)) *
                          medium_efficiency * dt;
   }
 
@@ -818,8 +839,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       // contribution from this zone alone.
       traction_force += contact.tangent *
                         (-state.latent_viscosity * 2.2f * ctx.wheel_speed);
-      stats.energy_cost += (0.10f + state.latent_sink * 0.06f +
-                            state.latent_viscosity * 0.02f * std::abs(ctx.wheel_speed)) * dt;
+      stats.energy_cost += (0.025f + state.latent_sink * 0.015f +
+                            state.latent_viscosity * 0.005f * std::abs(ctx.wheel_speed)) * dt;
       body_force += traction_force;
       body_torque += cross(anchor_world - state.body.position, traction_force);
 
@@ -919,7 +940,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                        torque_split * state.clutch_engagement *
                                        kGearEnergyMul[state.gear_index] *
                                        (1.0f + 0.06f * speed * speed + state.latent_viscosity * 0.8f +
-                                        (state.climb_mode ? 0.65f : 0.0f)) * 0.0020f * dt
+                                        (state.climb_mode ? 0.65f : 0.0f)) * 0.00025f * dt
                                  : 0.0f;
     stats.energy_cost += wheel_fuel;
     stats.drive_energy_cost += wheel_fuel;
@@ -1075,17 +1096,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.imu_impact = std::max(stats.hard_contact * dt, body_contact_impulse) /
                      std::max(0.1f, state.body.mass);
   stats.energy_cost += lidar_energy_cost;
-  // Downhill regen: descending with the wheels driving into the ground converts
-  // some of the lost potential energy back into charge instead of pure brake heat.
-  // It only fires while grounded and moving so it cannot be farmed by sitting still.
-  {
-    const float ground_slope = terrain.query(state.body.position.x).slope;
-    const float downhill_component = -ground_slope * state.body.velocity.x;
-    state.passive_charge_rate =
-        any_wheel_grounded ? clamp(downhill_component, 0.0f, 4.0f) * 0.35f : 0.0f;
-  }
-  stats.energy_gain += state.passive_charge_rate * dt;
+  state.passive_charge_rate = 0.0f;
   state.drive_fuel_rate = stats.drive_energy_cost / std::max(0.0001f, dt);
+  state.energy_cost_rate = stats.energy_cost / std::max(0.0001f, dt);
+  state.energy_gain_rate = stats.energy_gain / std::max(0.0001f, dt);
   state.energy = clamp(state.energy - stats.energy_cost + stats.energy_gain,
                        0.0f, config_.energy_capacity);
   return stats;

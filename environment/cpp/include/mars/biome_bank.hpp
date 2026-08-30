@@ -47,8 +47,8 @@ inline constexpr std::array<FrozenMechanismStack, 6> kFrozenMechanismStacks{{
     {{MechanicType::Sand, MechanicType::Mud, MechanicType::Wind, MechanicType::Crust}, 4, BiomeSplit::Test},
 }};
 
-enum class CouplingInput : int { Moisture, Viscosity, Heat, TirePressure, Slip, Speed };
-enum class CouplingTarget : int { Traction, Heat, TirePressure };
+enum class CouplingInput : int { Moisture, Viscosity, Heat, Slip, Speed };
+enum class CouplingTarget : int { Traction, Heat };
 
 struct FrozenCouplingRule {
   std::array<CouplingInput, 2> inputs{};
@@ -62,13 +62,11 @@ struct FrozenCouplingRule {
 
 // Mirror of coupling_rules in biome_bank.json.  Bounds are part of the frozen
 // binary contract, so a manifest cannot introduce an unbounded formula.
-inline constexpr std::array<FrozenCouplingRule, 3> kFrozenCouplingRules{{
+inline constexpr std::array<FrozenCouplingRule, 2> kFrozenCouplingRules{{
     {{CouplingInput::Moisture, CouplingInput::Viscosity}, {-0.62f, -0.16f}, 2,
       CouplingTarget::Traction, 1.18f, 0.12f, 1.45f},
     {{CouplingInput::Slip, CouplingInput::Speed}, {0.14f, 0.02f}, 2,
       CouplingTarget::Heat, 0.18f, 0.0f, 1.0f},
-    {{CouplingInput::Moisture, CouplingInput::Heat}, {-0.035f, 0.02f}, 2,
-      CouplingTarget::TirePressure, 1.0f, 0.65f, 1.25f},
 }};
 
 struct BiomeColor { uint8_t r = 42, g = 35, b = 30; };

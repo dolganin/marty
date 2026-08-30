@@ -55,8 +55,15 @@ void Terrain::generate(uint64_t seed) {
     const float cx = n == 0
         ? std::min(max_x - 8.0f, 32.0f + unit_dist(rng) * 10.0f)
         : 12.0f + unit_dist(rng) * std::max(1.0f, max_x - 16.0f);
-    const float radius = 1.4f + unit_dist(rng) * 3.1f;
-    const float depth = amplitude_ * (0.45f + 0.70f * unit_dist(rng));
+    // Very deep traps are deliberately narrow: momentum or a charged spring
+    // can clear them, while crawling into one drops both axles into the bowl.
+    const bool deep_pit = unit_dist(rng) < 0.22f;
+    const float radius = deep_pit
+        ? 0.70f + unit_dist(rng) * 0.35f
+        : 1.4f + unit_dist(rng) * 3.1f;
+    const float depth = deep_pit
+        ? 1.75f + unit_dist(rng) * 0.85f
+        : amplitude_ * (0.45f + 0.70f * unit_dist(rng));
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;

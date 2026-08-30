@@ -230,11 +230,11 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  if (state.propeller_mode) {
+  {
     const Vec2 hub_world = state.body.position +
         rotate({-rig.body.size.x * 0.58f, 0.02f}, state.body.angle);
     const Vec2 hub = screen(hub_world);
-    const float blade_length = 0.34f * ppm;
+    const float blade_length = 0.06f * ppm + 0.28f * ppm * state.propeller_deployment;
     for (int blade = 0; blade < 3; ++blade) {
       const float angle = state.propeller_phase + static_cast<float>(blade) * 2.0943951f - state.body.angle;
       const int bx = static_cast<int>(hub.x + std::cos(angle) * blade_length);

@@ -270,8 +270,8 @@ void Env::update_world_latents() {
   float weight_sum = 0.0f;
   // Resetting to a bounded baseline each tick makes the order-dependent chain
   // deterministic and prevents state drift from escaping its safety envelope.
-  float moisture = 0.22f, heat = 0.25f, pressure = 1.0f, viscosity = 0.0f, sink = 0.0f;
-  float gravity = 1.0f, wind = 0.0f, ambient = -45.0f, thermal = 1.0f;
+  float moisture = 0.22f, heat = 0.25f, viscosity = 0.0f, sink = 0.0f;
+  float gravity = 1.0f, wind = 0.0f, ambient = -21.0f, thermal = 1.0f;
   float solar = 1.0f, lidar_cost = 1.0f, lidar_range = 1.0f;
   for (int i = 0; i < n; ++i) {
     const auto& z = *active[static_cast<size_t>(i)];
@@ -285,13 +285,12 @@ void Env::update_world_latents() {
     heat = clamp(heat + w * (p.ambient_temperature > 10.0f ? 0.15f : -0.04f), 0.0f, 1.0f);
     viscosity = clamp(viscosity + w * p.viscosity, 0.0f, 2.5f);
     sink = clamp(sink + w * p.sink_rate, 0.0f, 1.0f);
-    pressure = clamp(pressure + w * (z.type == MechanicType::Crust ? 0.10f : -0.035f), 0.65f, 1.25f);
     gravity = clamp(gravity + w * (p.gravity_mul - 1.0f), 0.45f, 1.35f);
     wind = clamp(wind + w * p.wind_force, -80.0f, 80.0f);
     // Keep Mars-like variation without allowing a generated layer to collapse
     // the entire temperature distribution into implausible −120°C extremes.
-    const float zone_ambient = clamp(p.ambient_temperature, -82.0f, 48.0f);
-    ambient = clamp(ambient + w * (zone_ambient - ambient), -82.0f, 48.0f);
+    const float zone_ambient = clamp(p.ambient_temperature, -82.0f, 48.0f) + 24.0f;
+    ambient = clamp(ambient + w * (zone_ambient - ambient), -58.0f, 72.0f);
     thermal = clamp(thermal + w * (p.thermal_transfer - thermal), 0.25f, 3.0f);
     solar = clamp(solar + w * (p.solar_charge_rate - solar), 0.0f, 3.0f);
     lidar_cost = clamp(lidar_cost + w * (p.lidar_energy_mul - lidar_cost), 0.4f, 3.0f);
@@ -302,7 +301,6 @@ void Env::update_world_latents() {
       case CouplingInput::Moisture: return moisture;
       case CouplingInput::Viscosity: return viscosity;
       case CouplingInput::Heat: return heat;
-      case CouplingInput::TirePressure: return pressure;
       case CouplingInput::Slip: return state_.drivetrain_slip;
       case CouplingInput::Speed: return std::abs(state_.body.velocity.x);
     }
@@ -321,12 +319,10 @@ void Env::update_world_latents() {
     switch (rule.target) {
       case CouplingTarget::Traction: traction = value; break;
       case CouplingTarget::Heat: heat = value; break;
-      case CouplingTarget::TirePressure: pressure = value; break;
     }
   }
   state_.latent_moisture = moisture; state_.latent_heat = heat;
   state_.latent_viscosity = viscosity; state_.latent_sink = sink;
-  state_.latent_tire_pressure = pressure;
   state_.latent_charge_reserve = clamp(state_.energy / std::max(1.0f, config_.physics.energy_capacity), 0.0f, 1.0f);
   state_.latent_suspension = clamp(1.0f - sink * 0.25f + (state_.climb_mode ? 0.12f : 0.0f), 0.65f, 1.25f);
   state_.latent_traction = traction;

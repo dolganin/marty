@@ -9,12 +9,12 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 
-LATENTS = frozenset({"traction", "moisture", "heat", "charge_reserve", "tire_pressure",
+LATENTS = frozenset({"traction", "moisture", "heat", "charge_reserve",
                      "viscosity", "sink", "suspension"})
 INPUTS = LATENTS | frozenset({"speed", "slip", "slope", "immersion", "throttle"})
 BOUNDS = {
     "traction": (0.12, 1.45), "moisture": (0.0, 1.0), "heat": (0.0, 1.0),
-    "charge_reserve": (0.0, 1.0), "tire_pressure": (0.65, 1.25),
+    "charge_reserve": (0.0, 1.0),
     "viscosity": (0.0, 2.5), "sink": (0.0, 1.0), "suspension": (0.65, 1.25),
 }
 
