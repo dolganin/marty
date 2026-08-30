@@ -143,7 +143,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const bool rover_stationary = length(state.body.velocity) < 0.15f;
   state.charging_active = state.solar_panel_requested &&
                           state.solar_panel_deployment >= 0.999f && rover_stationary;
-  const bool charging_lockout = false;
   const bool shift_up_pressed = control.shift_up && (state.previous_action & ControlShiftUp) == 0;
   const bool shift_down_pressed =
       control.shift_down && (state.previous_action & ControlShiftDown) == 0;
@@ -390,7 +389,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float climb_torque = state.climb_mode ? 1.75f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
-  state.solar_charge_rate = state.charging_active ? state.latent_solar_rate * 10.0f : 0.0f;
+  state.solar_charge_rate = state.charging_active ? state.latent_solar_rate : 0.0f;
   state.solar_irradiance = state.latent_solar_rate;
   stats.energy_gain = state.solar_charge_rate * dt;
   float ambient_temperature = state.latent_ambient_temperature;
@@ -426,7 +425,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float thermal_mass = std::max(0.01f, config_.engine_thermal_mass);
   const float heater_energy =
       std::max(0.0f, config_.engine_heater_energy_rate) * dt;
-  state.heater_active = control.heater && !charging_lockout &&
+  state.heater_active = control.heater &&
                         !state.engine_overheated && state.energy >= heater_energy;
   if (state.heater_active) {
     stats.energy_cost += heater_energy;
@@ -489,7 +488,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     state.recovery_state = clamp((std::abs(state.body.angle) - 1.35f) / 1.6f, 0.0f, 1.0f);
     // A suspension kick is a physical recovery aid, not a teleport: it only
     // creates a bounded moment and still needs ground contact/traction.
-    if (jump_active) body_torque += state.body.angle > 0.0f ? -16.0f : 16.0f;
+    // The torque is scaled by how far tilted (not a fixed kick) and opposed by
+    // an angular-velocity damping term so it settles instead of overshooting
+    // past vertical and rocking back and forth against the opposite stop.
+    if (jump_active) {
+      const float recovery_torque = 16.0f * state.recovery_state;
+      const float damping_torque = -state.body.angular_velocity * 6.0f;
+      body_torque += (state.body.angle > 0.0f ? -recovery_torque : recovery_torque) + damping_torque;
+    }
   } else {
     state.recovery_state = 0.0f;
   }
@@ -908,9 +914,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       next_drivetrain_grounded = next_drivetrain_grounded || wheel.in_contact;
     }
     any_wheel_grounded = any_wheel_grounded || wheel.in_contact;
-    if (state.climb_mode && driven_wheel && std::abs(control.throttle) > 0.0f) {
-      stats.energy_cost += 5.0f * std::abs(control.throttle) * dt;
-    }
+    const float wheel_fuel = driven_wheel && state.engine_running && !in_neutral
+                                 ? std::abs(config_.motor_torque * control.throttle) *
+                                       torque_split * state.clutch_engagement *
+                                       kGearEnergyMul[state.gear_index] *
+                                       (1.0f + 0.06f * speed * speed + state.latent_viscosity * 0.8f +
+                                        (state.climb_mode ? 0.65f : 0.0f)) * 0.0020f * dt
+                                 : 0.0f;
+    stats.energy_cost += wheel_fuel;
+    stats.drive_energy_cost += wheel_fuel;
   }
   state.drivetrain_slip = next_drivetrain_slip;
   state.drivetrain_grounded = next_drivetrain_grounded;
@@ -949,10 +961,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
   state.body.velocity += body_force * state.body.inv_mass * dt;
   state.body.velocity *= (1.0f - config_.linear_damping);
-  if (charging_lockout) {
-    state.body.velocity *= 0.84f;
-    state.body.angular_velocity *= 0.80f;
-  }
   state.body.position += state.body.velocity * dt;
   state.body.angular_velocity += body_torque * state.body.inv_inertia * dt;
   state.body.angular_velocity *= (1.0f - config_.angular_damping);
@@ -1058,9 +1066,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       }
     }
   }
-  if (charging_lockout) {
-    stats.energy_cost = 0.0f;
-  }
   const Vec2 world_acceleration =
       (state.body.velocity - previous_body_velocity) / std::max(0.0001f, dt);
   state.imu_acceleration = rotate(world_acceleration, -state.body.angle);
@@ -1070,7 +1075,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.imu_impact = std::max(stats.hard_contact * dt, body_contact_impulse) /
                      std::max(0.1f, state.body.mass);
   stats.energy_cost += lidar_energy_cost;
-  state.passive_charge_rate = 0.0f;
+  // Downhill regen: descending with the wheels driving into the ground converts
+  // some of the lost potential energy back into charge instead of pure brake heat.
+  // It only fires while grounded and moving so it cannot be farmed by sitting still.
+  {
+    const float ground_slope = terrain.query(state.body.position.x).slope;
+    const float downhill_component = -ground_slope * state.body.velocity.x;
+    state.passive_charge_rate =
+        any_wheel_grounded ? clamp(downhill_component, 0.0f, 4.0f) * 0.35f : 0.0f;
+  }
+  stats.energy_gain += state.passive_charge_rate * dt;
   state.drive_fuel_rate = stats.drive_energy_cost / std::max(0.0001f, dt);
   state.energy = clamp(state.energy - stats.energy_cost + stats.energy_gain,
                        0.0f, config_.energy_capacity);

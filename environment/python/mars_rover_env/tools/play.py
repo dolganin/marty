@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import time
 from pathlib import Path
 
@@ -78,21 +79,14 @@ class ManualPlayer:
             ("ignition", "E  IGNITION"),
             ("heater", "H  ENGINE HEAT"),
             ("solar", "F  SOLAR PANEL"),
-            ("lidar", "G  LIDAR SCAN"),
-            ("lidar_front", "1  FRONT LIDAR"),
-            ("lidar_rear", "2  REAR LIDAR"),
-            ("lidar_left", "3  LEFT LIDAR"),
-            ("lidar_right", "4  RIGHT LIDAR"),
+            ("lidar", "G  LIDAR (+CTRL REAR, +ALT LEFT, +CTRL+ALT RIGHT)"),
             ("drive", "V  RWD / FWD / AWD"),
-            ("jump", "K  LOWER SPRING JUMP"),
-            ("jump_rear", "N  REAR SPRING"),
-            ("jump_front", "M  FRONT SPRING"),
-            ("piston", "I  BOTH PISTONS"),
-            ("piston_rear", "U  REAR PISTON"),
-            ("piston_front", "O  FRONT PISTON"),
+            ("jump", "K  SPRING JUMP (+CTRL FRONT, +ALT REAR)"),
+            ("piston", "I  ROOF PISTON (+CTRL FRONT, +ALT REAR)"),
             ("climb", "B  CLIMB MODE"),
             ("propeller", "P  PROPELLER"),
             ("restart", "R  RESET SAME WORLD"),
+            ("randomize", "T  RANDOM NEW WORLD"),
         )):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
                              font=("Consolas", 9, "bold"), padx=6, pady=3)
@@ -119,6 +113,13 @@ class ManualPlayer:
             self.restart_notice = "RESTART: MANUAL RESET; SAME TRIAL"
             self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": False})
             self.last_reward = 0.0
+        elif key == "t":
+            # Reroll into a brand new random world (fresh seed, trial boundary
+            # so hidden mechanics resample too) without leaving the debugger.
+            self.seed = random.randint(0, 2**31 - 1)
+            self.restart_notice = f"RANDOMIZED WORLD: seed={self.seed}"
+            self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": True})
+            self.last_reward = 0.0
         elif key in {"escape", "q"}:
             self.root.destroy()
 
@@ -140,19 +141,33 @@ class ManualPlayer:
         shift_up = "x" in self.keys
         toggle_drive = "v" in self.keys
         ignition = "e" in self.keys
-        lidar = "g" in self.keys
         heater = "h" in self.keys
         toggle_charge = "f" in self.keys
-        jump = "k" in self.keys
-        jump_rear = "n" in self.keys
-        jump_front = "m" in self.keys
-        roof_piston = "i" in self.keys
-        roof_piston_rear = "u" in self.keys
-        roof_piston_front = "o" in self.keys
         climb = "b" in self.keys
         propeller = "p" in self.keys
-        lidar_front, lidar_rear = "1" in self.keys, "2" in self.keys
-        lidar_left, lidar_right = "3" in self.keys, "4" in self.keys
+
+        # Directional variants of lidar/jump/piston no longer get dedicated
+        # keys: one button plus the Ctrl/Alt modifiers picks the side, so the
+        # sidebar doesn't need a whole row per direction.
+        ctrl_held = "control_l" in self.keys or "control_r" in self.keys
+        alt_held = "alt_l" in self.keys or "alt_r" in self.keys
+
+        lidar_held = "g" in self.keys
+        lidar = lidar_held and not ctrl_held and not alt_held
+        lidar_rear = lidar_held and ctrl_held and not alt_held
+        lidar_left = lidar_held and alt_held and not ctrl_held
+        lidar_right = lidar_held and ctrl_held and alt_held
+        lidar_front = False
+
+        jump_held = "k" in self.keys
+        jump = jump_held and not ctrl_held and not alt_held
+        jump_front = jump_held and ctrl_held
+        jump_rear = jump_held and alt_held and not ctrl_held
+
+        piston_held = "i" in self.keys
+        roof_piston = piston_held and not ctrl_held and not alt_held
+        roof_piston_front = piston_held and ctrl_held
+        roof_piston_rear = piston_held and alt_held and not ctrl_held
         action = 0
         if gas or reverse:
             action |= 1
@@ -401,26 +416,11 @@ class ManualPlayer:
                 ("#6a4d86" if debug["drive_layout"] == "FWD" else idle)),
         )
         self.control_labels["jump"].configure(
-            bg=active if debug.get("jump_cooldown", 0.0) > 0.0 else idle
-        )
-        self.control_labels["jump_rear"].configure(
-            bg=active if debug.get("suspension_jump_phase") == 1 and
-                         debug.get("suspension_jump_mask") == 2 else idle
-        )
-        self.control_labels["jump_front"].configure(
-            bg=active if debug.get("suspension_jump_phase") == 1 and
-                         debug.get("suspension_jump_mask") == 1 else idle
+            bg=active if debug.get("suspension_jump_phase") == 1 or
+                         debug.get("jump_cooldown", 0.0) > 0.0 else idle
         )
         self.control_labels["piston"].configure(
             bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 else idle
-        )
-        self.control_labels["piston_rear"].configure(
-            bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 and
-                         debug.get("roof_piston_mask") == 2 else idle
-        )
-        self.control_labels["piston_front"].configure(
-            bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 and
-                         debug.get("roof_piston_mask") == 1 else idle
         )
         self.control_labels["climb"].configure(
             bg=active if debug.get("climb_mode", False) else idle
@@ -439,7 +439,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(config_dir / "play.yaml"))
     parser.add_argument("--rig", default=str(config_dir / "rover_rig.yaml"))
-    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="fixed world seed; omit for a fresh random seed every launch (press T in-session to reroll)",
+    )
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=720)
     parser.add_argument("--fullscreen", action="store_true",
@@ -455,6 +458,9 @@ def main() -> None:
         help="path for candidates requested by --request-rules",
     )
     args = parser.parse_args()
+    if args.seed is None:
+        args.seed = random.randint(0, 2**31 - 1)
+        print(f"No --seed given; using random seed={args.seed} (pass --seed to pin a world)")
     if args.request_rules:
         from mars_rover_env.rule_request import request_rules
 
