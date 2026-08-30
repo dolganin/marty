@@ -57,11 +57,13 @@ struct RoverState {
   bool charging_active = false;
   float solar_panel_deployment = 0.0f;
   float solar_charge_rate = 0.0f;
+  float passive_charge_rate = 0.0f;
   float solar_irradiance = 0.0f;
   int lidar_active_steps = 0;
   int lidar_cooldown_steps = 0;
   float lidar_last_energy_cost = 0.0f;
   float lidar_range = 0.0f;
+  int lidar_direction = 0;  // 0 front, 1 rear, 2 left, 3 right.
   Vec2 imu_acceleration{};
   float imu_angular_acceleration = 0.0f;
   float imu_impact = 0.0f;
@@ -126,10 +128,19 @@ struct RoverState {
   float active_layer_weight = 0.0f;
   bool climb_mode = false;
   bool propeller_mode = false;
+  float propeller_phase = 0.0f;
   int jump_cooldown_steps = 0;
+  int suspension_jump_phase = 0;  // 1 preload/compress, 2 rebound/launch.
+  int suspension_jump_phase_steps = 0;
+  float suspension_jump_charge = 0.0f;
+  int suspension_jump_mask = 3;  // 1 front, 2 rear, 3 both.
+  float roof_piston_extension = 0.0f;
+  int roof_piston_mask = 3;  // 1 front, 2 rear, 3 both.
+  bool roof_piston_contact = false;
   float recovery_state = 0.0f;
   uint64_t world_seed = 0;
   int route_branch = 0;  // 0 terrain, 1 lower water, 2 upper dry surface
+  Vec2 render_camera_position{};
 };
 
 struct EpisodeResult {

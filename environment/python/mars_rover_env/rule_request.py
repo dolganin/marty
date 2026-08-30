@@ -130,16 +130,47 @@ def request_rules(count: int, config_path: str | Path = DEFAULT_CONFIG) -> list[
                        {"name": "coupling_rules", "strict": True, "schema": schema}}}
     else:
         raise RuntimeError(f"Unsupported openai.api_mode: {mode!r}")
-    request = urllib.request.Request(endpoint, data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}, method="POST")
+    def send(body: dict[str, Any]) -> dict[str, Any]:
+        request = urllib.request.Request(
+            endpoint, data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=float(api.get("timeout_seconds", 180))) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(
+                f"OpenAI request failed: HTTP {exc.code}: {exc.read().decode(errors='replace')}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"OpenAI request failed: {exc.reason}") from exc
+
+    result = send(payload)
     try:
-        with urllib.request.urlopen(request, timeout=float(api.get("timeout_seconds", 180))) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"OpenAI request failed: HTTP {exc.code}: {exc.read().decode(errors='replace')}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"OpenAI request failed: {exc.reason}") from exc
-    rules = json.loads(_output_text(result)).get("rules", [])
+        response_text = _output_text(result)
+    except RuntimeError as structured_error:
+        if mode != "chat_completions":
+            raise
+        # Some OpenAI-compatible gateways return 200 but silently drop a
+        # json_schema response_format. Retry as a conventional JSON-only chat.
+        fallback = dict(payload)
+        fallback.pop("response_format", None)
+        fallback["messages"] = [dict(message) for message in payload["messages"]]
+        fallback["messages"][0]["content"] += (
+            " Return exactly one valid JSON object with a top-level 'rules' array; "
+            "do not use Markdown or explanations."
+        )
+        fallback_result = send(fallback)
+        try:
+            response_text = _output_text(fallback_result)
+        except RuntimeError as fallback_error:
+            raise RuntimeError(
+                "The configured chat gateway returned no assistant text for both structured and "
+                f"plain-JSON requests. First response: {structured_error}. "
+                f"Fallback response: {fallback_error}."
+            ) from fallback_error
+    rules = json.loads(response_text).get("rules", [])
     if len(rules) != count:
         raise RuntimeError("LLM did not return the requested number of rules")
     return [validate_rule(rule).to_dict() for rule in rules]

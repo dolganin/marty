@@ -94,8 +94,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
   }
   const auto& rig = env.config().rig;
   const float ppm = config_.pixels_per_meter;
-  const float camera_x = state.body.position.x - 3.0f;
-  const float camera_y = state.body.position.y - 1.8f;
+  const float camera_x = state.render_camera_position.x - 3.0f;
+  const float camera_y = state.render_camera_position.y - 1.8f;
   auto screen = [&](Vec2 p) {
     return Vec2{(p.x - camera_x) * ppm,
                 static_cast<float>(height - 1) - (p.y - camera_y) * ppm};
@@ -207,6 +207,44 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
                    -state.body.angle, rig.body.size.x * 0.5f * ppm,
                    rig.body.size.y * 0.5f * ppm, {210, 105, 25});
 
+  if (state.roof_piston_extension > 0.001f) {
+    const Vec2 axis = rotate({0.0f, 1.0f}, state.body.angle);
+    for (int piston = 0; piston < 2; ++piston) {
+      if ((state.roof_piston_mask & (1 << piston)) == 0) continue;
+      const float local_x = piston == 0 ? rig.body.size.x * 0.34f : -rig.body.size.x * 0.34f;
+      const Vec2 base_world = state.body.position +
+          rotate({local_x, rig.body.size.y * 0.5f}, state.body.angle);
+      const Vec2 tip_world = base_world + axis * (0.14f + 0.36f * state.roof_piston_extension);
+      const Vec2 tip = screen(tip_world);
+      const Color rod_color = state.roof_piston_contact ? Color{196, 142, 48} : Color{82, 89, 100};
+      const Vec2 cylinder_center_world = base_world + axis * 0.09f;
+      const Vec2 cylinder_center = screen(cylinder_center_world);
+      draw_rotated_box(rgb, width, height, static_cast<int>(cylinder_center.x),
+                       static_cast<int>(cylinder_center.y), -state.body.angle,
+                       std::max(2.0f, 0.075f * ppm), std::max(3.0f, 0.10f * ppm),
+                       {75, 84, 98});
+      const Vec2 rod_base = screen(base_world + axis * 0.14f);
+      draw_line(rgb, width, height, static_cast<int>(rod_base.x), static_cast<int>(rod_base.y),
+                static_cast<int>(tip.x), static_cast<int>(tip.y), rod_color);
+      draw_circle(rgb, width, height, static_cast<int>(tip.x), static_cast<int>(tip.y), 3, rod_color);
+    }
+  }
+
+  if (state.propeller_mode) {
+    const Vec2 hub_world = state.body.position +
+        rotate({-rig.body.size.x * 0.58f, 0.02f}, state.body.angle);
+    const Vec2 hub = screen(hub_world);
+    const float blade_length = 0.34f * ppm;
+    for (int blade = 0; blade < 3; ++blade) {
+      const float angle = state.propeller_phase + static_cast<float>(blade) * 2.0943951f - state.body.angle;
+      const int bx = static_cast<int>(hub.x + std::cos(angle) * blade_length);
+      const int by = static_cast<int>(hub.y - std::sin(angle) * blade_length);
+      draw_line(rgb, width, height, static_cast<int>(hub.x), static_cast<int>(hub.y), bx, by,
+                {64, 70, 78});
+    }
+    draw_circle(rgb, width, height, static_cast<int>(hub.x), static_cast<int>(hub.y), 4, {148, 154, 166});
+  }
+
   if (state.solar_panel_deployment > 0.001f) {
     const float deployment = state.solar_panel_deployment;
     const Vec2 mast_base_world =
@@ -262,12 +300,16 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
   }
 
   if (state.lidar_active_steps > 0 && state.lidar_range > 0.0f) {
-    const Vec2 origin = screen(state.body.position + rotate({rig.body.size.x * 0.45f, 0.0f},
-                                                             state.body.angle));
+    const Vec2 local_dir = state.lidar_direction == 1 ? Vec2{-1.0f, 0.0f} :
+                           state.lidar_direction == 2 ? Vec2{0.0f, 1.0f} :
+                           state.lidar_direction == 3 ? Vec2{0.0f, -1.0f} : Vec2{1.0f, 0.0f};
+    const Vec2 world_dir = rotate(local_dir, state.body.angle);
+    const Vec2 origin = screen(state.body.position + world_dir * (rig.body.size.x * 0.45f));
     constexpr int kRays = 18;
     for (int ray = 1; ray <= kRays; ++ray) {
       const float distance = state.lidar_range * static_cast<float>(ray) / kRays;
-      const float x = state.body.position.x + distance;
+      const Vec2 sample = state.body.position + world_dir * distance;
+      const float x = sample.x;
       const Vec2 hit = screen({x, terrain.query(x).height});
       draw_line(rgb, width, height, static_cast<int>(origin.x), static_cast<int>(origin.y),
                 static_cast<int>(hit.x), static_cast<int>(hit.y), {62, 255, 124});

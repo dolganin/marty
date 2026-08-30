@@ -223,7 +223,7 @@ class IceBiome final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.friction_mul = 0.18f + 0.20f * biome_random01(s);
-    p.ambient_temperature = -105.0f + 30.0f * biome_random01(s, 1);
+    p.ambient_temperature = -76.0f + 28.0f * biome_random01(s, 1);
     p.thermal_transfer = 1.6f + 0.5f * biome_random01(s, 2);
     p.solar_charge_rate = 2.2f + 0.8f * biome_random01(s, 3); return p;
   }

@@ -267,6 +267,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["trial_time_left"] = env.trial_time_left();
              d["trial_exhausted"] = env.trial_exhausted();
              d["x"] = state.body.position.x;
+             d["distance_m"] = std::max(0.0f, state.body.position.x - 1.0f);
+             d["best_distance_m"] = std::max(0.0f, env.best_progress() - 1.0f);
              d["y"] = state.body.position.y;
              d["vx"] = state.body.velocity.x;
              d["vy"] = state.body.velocity.y;
@@ -322,11 +324,13 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["solar_panel_deployment"] = state.solar_panel_deployment;
              d["charging_active"] = state.charging_active;
              d["solar_charge_rate"] = state.solar_charge_rate;
+             d["passive_charge_rate"] = state.passive_charge_rate;
              d["solar_irradiance"] = state.solar_irradiance;
              d["lidar_active"] = state.lidar_active_steps > 0;
              d["lidar_cooldown"] = static_cast<float>(state.lidar_cooldown_steps) *
                                      env.config().physics.dt;
              d["lidar_range"] = state.lidar_range;
+             d["lidar_direction"] = state.lidar_direction;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
              d["imu_acceleration_x"] = state.imu_acceleration.x;
              d["imu_acceleration_y"] = state.imu_acceleration.y;
@@ -388,6 +392,12 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["climb_mode"] = state.climb_mode;
              d["propeller_mode"] = state.propeller_mode;
              d["jump_cooldown"] = state.jump_cooldown_steps * env.config().physics.dt;
+             d["suspension_jump_phase"] = state.suspension_jump_phase;
+             d["suspension_jump_charge"] = state.suspension_jump_charge;
+             d["suspension_jump_mask"] = state.suspension_jump_mask;
+             d["roof_piston_extension"] = state.roof_piston_extension;
+             d["roof_piston_mask"] = state.roof_piston_mask;
+             d["roof_piston_contact"] = state.roof_piston_contact;
              d["recovery_state"] = state.recovery_state;
              d["route_branch"] = state.route_branch == 2 ? py::cast("upper_dry") :
                                  state.route_branch == 1 ? py::cast("lower_water") : py::cast("terrain");

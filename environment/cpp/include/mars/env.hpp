@@ -68,12 +68,13 @@ class Env {
   const MechanicLayout& mechanic_layout() const { return mechanic_layout_; }
 
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 65536; }
+  int action_dim() const { return 1 << 25; }
 
   int trial_steps_used() const { return trial_steps_used_; }
   int trial_step_budget() const;
   bool trial_exhausted() const;
   float trial_time_left() const;
+  float best_progress() const { return best_progress_x_; }
 
  private:
   void select_mechanic_layout(uint64_t seed);

@@ -6,6 +6,7 @@
 param(
     [int]$Seed = 1,
     [switch]$Debug,
+    [switch]$Fullscreen,
     [switch]$RefreshBank,
     [string]$ResumeBank,
     [ValidateRange(1, 64)]
@@ -48,5 +49,6 @@ if ($RefreshBank) {
 
 $PlayArgs = @("-m", "mars_rover_env.tools.play", "--seed", $Seed)
 if ($Debug) { $PlayArgs += "--debug" }
+if ($Fullscreen) { $PlayArgs += "--fullscreen" }
 
 & $Python @PlayArgs

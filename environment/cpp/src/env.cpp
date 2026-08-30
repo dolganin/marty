@@ -212,7 +212,7 @@ void Env::build_observation(float* obs_out) const {
                      ? static_cast<float>(state_.lidar_cooldown_steps) * config_.physics.dt
                      : 0.0f;
   obs_out[k++] = state_.lidar_range / std::max(1.0f, config_.physics.lidar_base_range);
-  obs_out[k++] = static_cast<float>(state_.previous_action) / 65535.0f;
+  obs_out[k++] = static_cast<float>(state_.previous_action) / 33554431.0f;
   obs_out[k++] = state_.last_reward;
 
   obs_out[k++] = state_.solar_irradiance / 3.0f;
@@ -288,7 +288,10 @@ void Env::update_world_latents() {
     pressure = clamp(pressure + w * (z.type == MechanicType::Crust ? 0.10f : -0.035f), 0.65f, 1.25f);
     gravity = clamp(gravity + w * (p.gravity_mul - 1.0f), 0.45f, 1.35f);
     wind = clamp(wind + w * p.wind_force, -80.0f, 80.0f);
-    ambient = clamp(ambient + w * (p.ambient_temperature - ambient), -130.0f, 55.0f);
+    // Keep Mars-like variation without allowing a generated layer to collapse
+    // the entire temperature distribution into implausible −120°C extremes.
+    const float zone_ambient = clamp(p.ambient_temperature, -82.0f, 48.0f);
+    ambient = clamp(ambient + w * (zone_ambient - ambient), -82.0f, 48.0f);
     thermal = clamp(thermal + w * (p.thermal_transfer - thermal), 0.25f, 3.0f);
     solar = clamp(solar + w * (p.solar_charge_rate - solar), 0.0f, 3.0f);
     lidar_cost = clamp(lidar_cost + w * (p.lidar_energy_mul - lidar_cost), 0.4f, 3.0f);

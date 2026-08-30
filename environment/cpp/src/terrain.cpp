@@ -49,9 +49,14 @@ void Terrain::generate(uint64_t seed) {
   }
 
   for (int n = 0; n < crater_count_; ++n) {
-    const float cx = 7.0f + unit_dist(rng) * std::max(1.0f, max_x - 10.0f);
-    const float radius = 0.8f + unit_dist(rng) * 2.5f;
-    const float depth = amplitude_ * (0.25f + 0.55f * unit_dist(rng));
+    // The first crater is deliberately placed after the tutorial-flat spawn
+    // zone. Subsequent ones remain seed-random but are large enough to read as
+    // visible bowls from the rover camera.
+    const float cx = n == 0
+        ? std::min(max_x - 8.0f, 32.0f + unit_dist(rng) * 10.0f)
+        : 12.0f + unit_dist(rng) * std::max(1.0f, max_x - 16.0f);
+    const float radius = 1.4f + unit_dist(rng) * 3.1f;
+    const float depth = amplitude_ * (0.45f + 0.70f * unit_dist(rng));
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;

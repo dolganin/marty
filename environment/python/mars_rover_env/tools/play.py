@@ -18,13 +18,24 @@ class ManualPlayer:
         import tkinter as tk
 
         self._tk = tk
+        self.root = tk.Tk()
+        self.root.title("Mars Rover Manual Control")
+        self._fullscreen = bool(args.fullscreen)
+        self._sidebar_width = 500
+        if self._fullscreen:
+            self.root.attributes("-fullscreen", True)
+            render_width = max(640, self.root.winfo_screenwidth() - self._sidebar_width - 16)
+            render_height = max(360, self.root.winfo_screenheight() - 16)
+        else:
+            render_width = int(args.width)
+            render_height = int(args.height)
 
         self.env = MarsRoverEnv(
             config_path=args.config,
             rig_path=args.rig,
             render_mode="debug_rgb_array" if args.debug else "rgb_array",
-            render_width=args.width,
-            render_height=args.height,
+            render_width=render_width,
+            render_height=render_height,
         )
         self.seed = args.seed
         self.obs, self.info = self.env.reset(seed=self.seed)
@@ -35,14 +46,30 @@ class ManualPlayer:
         self.restart_notice = ""
         self.last_reward = 0.0
 
-        self.root = tk.Tk()
-        self.root.title("Mars Rover Manual Control")
-        self.canvas = tk.Canvas(self.root, width=args.width, height=args.height, highlightthickness=0)
-        self.canvas.pack()
-        controls = tk.Frame(self.root)
+        self.canvas = tk.Canvas(self.root, width=render_width, height=render_height,
+                                highlightthickness=0, bg="#000000")
+        self.canvas.grid(row=0, column=0, rowspan=2, sticky="nsew")
+        sidebar = tk.Frame(self.root, width=self._sidebar_width, bg="#171717", padx=10, pady=10)
+        sidebar.grid(row=0, column=1, sticky="ns")
+        sidebar.grid_propagate(False)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
+
+        tk.Label(sidebar, text="ROVER TELEMETRY", bg="#171717", fg="#ffffff",
+                 font=("Consolas", 14, "bold")).pack(anchor="w", pady=(0, 8))
+        self.hud_labels: list[tk.Label] = []
+        for _ in range(21):
+            label = tk.Label(sidebar, anchor="w", justify="left", bg="#171717", fg="#f4f4f4",
+                             font=("Consolas", 10, "bold"))
+            label.pack(fill="x", pady=1)
+            self.hud_labels.append(label)
+
+        tk.Label(sidebar, text="CONTROLS", bg="#171717", fg="#ffffff",
+                 font=("Consolas", 12, "bold")).pack(anchor="w", pady=(12, 5))
+        controls = tk.Frame(sidebar, bg="#171717")
         controls.pack(fill="x")
         self.control_labels: dict[str, tk.Label] = {}
-        for name, text in (
+        for index, (name, text) in enumerate((
             ("gas", "D / →  GAS"),
             ("brake", "S / ↓  BRAKE"),
             ("clutch", "C / SHIFT  CLUTCH"),
@@ -50,24 +77,34 @@ class ManualPlayer:
             ("up", "X  GEAR UP"),
             ("ignition", "E  IGNITION"),
             ("heater", "H  ENGINE HEAT"),
-            ("solar", "F  SOLAR CHARGE"),
+            ("solar", "F  SOLAR PANEL"),
             ("lidar", "G  LIDAR SCAN"),
+            ("lidar_front", "1  FRONT LIDAR"),
+            ("lidar_rear", "2  REAR LIDAR"),
+            ("lidar_left", "3  LEFT LIDAR"),
+            ("lidar_right", "4  RIGHT LIDAR"),
             ("drive", "V  RWD / FWD / AWD"),
-            ("jump", "K  SUSPENSION JUMP"),
+            ("jump", "K  LOWER SPRING JUMP"),
+            ("jump_rear", "N  REAR SPRING"),
+            ("jump_front", "M  FRONT SPRING"),
+            ("piston", "I  BOTH PISTONS"),
+            ("piston_rear", "U  REAR PISTON"),
+            ("piston_front", "O  FRONT PISTON"),
             ("climb", "B  CLIMB MODE"),
             ("propeller", "P  PROPELLER"),
             ("restart", "R  RESET SAME WORLD"),
-        ):
+        )):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
-                             font=("Consolas", 10, "bold"), padx=7, pady=4)
-            label.pack(side="left", padx=2, pady=3)
+                             font=("Consolas", 9, "bold"), padx=6, pady=3)
+            label.grid(row=index // 2, column=index % 2, sticky="ew", padx=2, pady=2)
             self.control_labels[name] = label
-        self.status = tk.Label(self.root, anchor="w", justify="left")
-        self.status.pack(fill="x")
+        controls.grid_columnconfigure(0, weight=1)
+        controls.grid_columnconfigure(1, weight=1)
+        self.status = tk.Label(sidebar, anchor="w", justify="left", wraplength=self._sidebar_width - 20,
+                               bg="#171717", fg="#aaaaaa", font=("Consolas", 9))
+        self.status.pack(fill="x", pady=(8, 0))
         self.photo = None
         self.image_id = None
-        self.hud_bg_id = None
-        self.hud_text_ids: list[int] = []
 
         self.root.bind_all("<KeyPress>", self.on_key_press)
         self.root.bind_all("<KeyRelease>", self.on_key_release)
@@ -76,12 +113,18 @@ class ManualPlayer:
     def on_key_press(self, event) -> None:
         key = event.keysym.lower()
         self.keys.add(key)
-        if key == "r":
+        if key == "f11":
+            self.toggle_fullscreen()
+        elif key == "r":
             self.restart_notice = "RESTART: MANUAL RESET; SAME TRIAL"
             self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": False})
             self.last_reward = 0.0
         elif key in {"escape", "q"}:
             self.root.destroy()
+
+    def toggle_fullscreen(self) -> None:
+        self._fullscreen = not self._fullscreen
+        self.root.attributes("-fullscreen", self._fullscreen)
 
     def on_key_release(self, event) -> None:
         self.keys.discard(event.keysym.lower())
@@ -97,12 +140,19 @@ class ManualPlayer:
         shift_up = "x" in self.keys
         toggle_drive = "v" in self.keys
         ignition = "e" in self.keys
-        toggle_charge = "f" in self.keys
         lidar = "g" in self.keys
         heater = "h" in self.keys
+        toggle_charge = "f" in self.keys
         jump = "k" in self.keys
+        jump_rear = "n" in self.keys
+        jump_front = "m" in self.keys
+        roof_piston = "i" in self.keys
+        roof_piston_rear = "u" in self.keys
+        roof_piston_front = "o" in self.keys
         climb = "b" in self.keys
         propeller = "p" in self.keys
+        lidar_front, lidar_rear = "1" in self.keys, "2" in self.keys
+        lidar_left, lidar_right = "3" in self.keys, "4" in self.keys
         action = 0
         if gas or reverse:
             action |= 1
@@ -128,10 +178,24 @@ class ManualPlayer:
             action |= 1024
         if lidar:
             action |= 2048
+        if lidar_front: action |= 2097152
+        if lidar_rear: action |= 4194304
+        if lidar_left: action |= 8388608
+        if lidar_right: action |= 16777216
         if heater:
             action |= 4096
         if jump:
             action |= 8192
+        if jump_front:
+            action |= 131072
+        if jump_rear:
+            action |= 262144
+        if roof_piston:
+            action |= 65536
+        if roof_piston_front:
+            action |= 524288
+        if roof_piston_rear:
+            action |= 1048576
         if climb:
             action |= 16384
         if propeller:
@@ -165,7 +229,8 @@ class ManualPlayer:
         self.update_control_hints(debug)
         self.status.configure(
             text=(
-                f"gear={debug['gear']} mechanic={debug['mechanic']} x={debug['x']:.2f} vx={debug['vx']:.2f} "
+                f"DIST {debug.get('distance_m', 0.0):.1f}m  BEST {debug.get('best_distance_m', 0.0):.1f}m\n"
+                f"gear={debug['gear']} x={debug['x']:.2f} vx={debug['vx']:.2f} "
                 f"energy={debug['energy']:.3f} damage={debug['damage']:.3f} reward={self.last_reward:.3f}  "
                 f"{self.restart_notice}"
             )
@@ -174,10 +239,7 @@ class ManualPlayer:
 
     def update_hud(self, debug: dict) -> None:
         solar_mode = debug["solar_panel_requested"] or debug["solar_panel_deployment"] > 0.001
-        if solar_mode:
-            engine_text = "ENGINE OFF - SOLAR MODE"
-            engine_color = "#78c8ff"
-        elif debug["engine_overheated"]:
+        if debug["engine_overheated"]:
             engine_text = "ENGINE OVERHEAT - COOLING"
             engine_color = "#ff5555"
         elif debug.get("heater_active", False):
@@ -233,22 +295,21 @@ class ManualPlayer:
             upshift_color = "#ffb84d"
             after_shift_text = f"NEXT GEAR RPM: {debug['next_gear_rpm']:.0f}"
 
-        panel = debug["solar_panel_deployment"] * 100.0
-        if debug["charging_active"]:
-            solar_text = f"SOLAR CHARGING +{debug['solar_charge_rate']:.2f}/s"
-            solar_color = "#52e06f"
-        elif debug["solar_panel_requested"] and panel <= 0.1:
-            solar_text = "SOLAR PARKING..."
-            solar_color = "#ffb84d"
-        elif debug["solar_panel_requested"]:
-            solar_text = f"SOLAR DEPLOYING {panel:3.0f}%"
-            solar_color = "#78c8ff"
-        elif panel > 0.1:
-            solar_text = f"SOLAR STOWING {panel:3.0f}%"
-            solar_color = "#78c8ff"
-        else:
-            solar_text = "SOLAR STOWED - F TO DEPLOY"
-            solar_color = "#888888"
+        regen_text = f"MOTION RECHARGE +{debug.get('passive_charge_rate', 0.0):.2f}/s"
+        regen_color = "#52e06f" if debug.get("passive_charge_rate", 0.0) > 0.0 else "#888888"
+        panel_deploy = debug.get("solar_panel_deployment", 0.0)
+        panel_text = f"SOLAR PANEL {panel_deploy * 100:3.0f}%  {'CHARGING' if debug.get('charging_active', False) else 'READY'}"
+
+        piston_text = (
+            "CONTACT" if debug.get("roof_piston_contact")
+            else f"{debug.get('roof_piston_extension', 0.0) * 100:.0f}%"
+        )
+        jump_edge_text = {1: "FRONT", 2: "REAR", 3: "BOTH"}.get(
+            debug.get("suspension_jump_mask", 3), "BOTH"
+        )
+        piston_edge_text = {1: "FRONT", 2: "REAR", 3: "BOTH"}.get(
+            debug.get("roof_piston_mask", 3), "BOTH"
+        )
 
         lines = [
             (f"FPS {self.fps_value:5.1f}", "#f4f4f4"),
@@ -261,16 +322,20 @@ class ManualPlayer:
             (f"GRAVITY {debug.get('gravity', -3.71):5.2f} m/s²  "
              f"x{debug.get('gravity_multiplier', 1.0):.2f}", "#d5c6ff"),
             (f"ENERGY {debug['energy']:6.2f} / {debug['energy_capacity']:.0f}  "
+             f"({debug['energy'] / max(1.0, debug['energy_capacity']) * 100:3.0f}%)  "
              f"HEATER {'ON' if debug.get('heater_active', False) else 'OFF'}", "#f4f4f4"),
-            (f"LAYERS {' + '.join(debug.get('active_layer_names', [])) or 'NONE'}  W {debug.get('layer_weight', 0.0):.2f}  "
+            (f"LAYERS {debug.get('active_layers', 0)}  W {debug.get('layer_weight', 0.0):.2f}  "
              f"TRAC {debug.get('latent_traction', 1.0):.2f}  VISC {debug.get('latent_viscosity', 0.0):.2f}", "#d5c6ff"),
             (f"MOIST {debug.get('latent_moisture', 0.0):.2f}  PRESS {debug.get('latent_tire_pressure', 1.0):.2f}  "
              f"RESERVE {debug.get('latent_charge_reserve', 0.0) * 100:.0f}%", "#d5c6ff"),
-            (f"K JUMP {debug.get('jump_cooldown', 0.0):.1f}s  "
+            (f"SPRING {jump_edge_text} {'PRELOAD' if debug.get('suspension_jump_phase') == 1 else 'LAUNCH' if debug.get('suspension_jump_phase') == 2 else 'READY'} "
+             f"{debug.get('suspension_jump_charge', 0.0) * 100:.0f}%  PISTON {piston_edge_text} "
+             f"{piston_text} "
              f"B CLIMB {'ON' if debug.get('climb_mode') else 'OFF'}  "
              f"P PROP {'ON' if debug.get('propeller_mode') else 'OFF'}", "#52e06f"),
             (f"BRANCH {debug.get('route_branch', 'terrain').upper()}", "#6fd3ff"),
-            (solar_text, solar_color),
+            (regen_text, regen_color),
+            (panel_text, "#52e06f" if debug.get("charging_active", False) else "#9fd8ff"),
             ((f"LIDAR ACTIVE {debug.get('lidar_range', 0.0):.1f} m  "
               f"COST {debug.get('lidar_energy_cost', 0.0):.2f}")
              if debug.get("lidar_active", False) else
@@ -279,11 +344,6 @@ class ManualPlayer:
              "#52ff8a" if debug.get("lidar_active", False) else
              ("#ffb84d" if debug.get("lidar_cooldown", 0.0) > 0.0 else "#888888")),
             (f"DRIVE {debug['drive_layout']}", "#f4f4f4"),
-            ((f"WATER {debug['water_depth']:.2f} m  "
-              f"{max(0.0, debug['zone_end_x'] - debug['x']):.1f} m LEFT")
-             if debug["mechanic"] == "Liquid" else
-             f"SURFACE {debug['mechanic']}  {max(0.0, debug['zone_end_x'] - debug['x']):.1f} m",
-             "#6fd3ff" if debug["mechanic"] == "Liquid" else "#f4f4f4"),
             (f"LIGHT {debug.get('screen_brightness', 1.0) * 100:3.0f}%", "#f4f4f4"),
             (f"GEAR {debug['gear']} / {debug['gear_count']}  "
              f"ENERGY x{debug['gear_energy_multiplier']:.2f}", "#f4f4f4"),
@@ -301,28 +361,13 @@ class ManualPlayer:
              "#52e06f" if debug["can_shift_down"] else
              ("#ffb84d" if debug["should_shift_down"] else "#888888")),
         ]
-        if self.hud_bg_id is None:
-            self.hud_bg_id = self.canvas.create_rectangle(
-                6, 6, 430, 16 + len(lines) * 18, fill="#111111", outline=""
-            )
-            self.hud_text_ids = [
-                self.canvas.create_text(12, 12 + i * 18, anchor="nw", font=("Consolas", 12, "bold"))
-                for i in range(len(lines))
-            ]
-        for item_id, (text, color) in zip(self.hud_text_ids, lines):
-            self.canvas.itemconfigure(item_id, text=text, fill=color)
-            self.canvas.tag_raise(item_id)
-        self.canvas.tag_raise(self.hud_bg_id)
-        for item_id in self.hud_text_ids:
-            self.canvas.tag_raise(item_id)
+        for label, (text, color) in zip(self.hud_labels, lines):
+            label.configure(text=text, fg=color)
 
     def update_control_hints(self, debug: dict) -> None:
         active = "#287a3d"
         ready = "#9a651f"
         idle = "#252525"
-        solar_mode = (
-            debug["solar_panel_requested"] or debug["solar_panel_deployment"] > 0.001
-        )
         self.control_labels["gas"].configure(bg=active if ({"d", "right"} & self.keys) else idle)
         self.control_labels["brake"].configure(
             bg=active if ({"s", "down", "space"} & self.keys) else idle
@@ -336,10 +381,6 @@ class ManualPlayer:
         self.control_labels["heater"].configure(
             bg=active if debug.get("heater_active", False) else
             (ready if debug["engine_cold_locked"] else idle)
-        )
-        self.control_labels["solar"].configure(
-            bg=active if debug["charging_active"] else
-            (ready if solar_mode else idle)
         )
         self.control_labels["lidar"].configure(
             bg=active if debug.get("lidar_active", False) else
@@ -362,6 +403,25 @@ class ManualPlayer:
         self.control_labels["jump"].configure(
             bg=active if debug.get("jump_cooldown", 0.0) > 0.0 else idle
         )
+        self.control_labels["jump_rear"].configure(
+            bg=active if debug.get("suspension_jump_phase") == 1 and
+                         debug.get("suspension_jump_mask") == 2 else idle
+        )
+        self.control_labels["jump_front"].configure(
+            bg=active if debug.get("suspension_jump_phase") == 1 and
+                         debug.get("suspension_jump_mask") == 1 else idle
+        )
+        self.control_labels["piston"].configure(
+            bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 else idle
+        )
+        self.control_labels["piston_rear"].configure(
+            bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 and
+                         debug.get("roof_piston_mask") == 2 else idle
+        )
+        self.control_labels["piston_front"].configure(
+            bg=active if debug.get("roof_piston_extension", 0.0) > 0.0 and
+                         debug.get("roof_piston_mask") == 1 else idle
+        )
         self.control_labels["climb"].configure(
             bg=active if debug.get("climb_mode", False) else idle
         )
@@ -380,8 +440,10 @@ def main() -> None:
     parser.add_argument("--config", default=str(config_dir / "play.yaml"))
     parser.add_argument("--rig", default=str(config_dir / "rover_rig.yaml"))
     parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--width", type=int, default=960)
-    parser.add_argument("--height", type=int, default=540)
+    parser.add_argument("--width", type=int, default=1280)
+    parser.add_argument("--height", type=int, default=720)
+    parser.add_argument("--fullscreen", action="store_true",
+                        help="use the entire screen; press F11 to toggle during play")
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--debug", action="store_true")
     parser.add_argument(

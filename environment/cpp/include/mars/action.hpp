@@ -16,10 +16,19 @@ enum ControlBits : int {
   ControlToggleCharge = 1 << 10,
   ControlLidar = 1 << 11,
   ControlHeater = 1 << 12,
-  // Momentary suspension kick, and persistent low-range / propeller modes.
+  // Momentary suspension kick, roof piston, and persistent low-range / propeller modes.
   ControlJump = 1 << 13,
   ControlToggleClimb = 1 << 14,
   ControlTogglePropeller = 1 << 15,
+  ControlRoofPiston = 1 << 16,
+  ControlJumpFront = 1 << 17,
+  ControlJumpRear = 1 << 18,
+  ControlRoofPistonFront = 1 << 19,
+  ControlRoofPistonRear = 1 << 20,
+  ControlLidarFront = 1 << 21,
+  ControlLidarRear = 1 << 22,
+  ControlLidarLeft = 1 << 23,
+  ControlLidarRight = 1 << 24,
 };
 
 struct ControlInput {
@@ -35,6 +44,15 @@ struct ControlInput {
   bool lidar = false;
   bool heater = false;
   bool jump = false;
+  bool roof_piston = false;
+  bool jump_front = false;
+  bool jump_rear = false;
+  bool roof_piston_front = false;
+  bool roof_piston_rear = false;
+  bool lidar_front = false;
+  bool lidar_rear = false;
+  bool lidar_left = false;
+  bool lidar_right = false;
   bool toggle_climb = false;
   bool toggle_propeller = false;
 };
@@ -60,6 +78,15 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   out.lidar = (action & ControlLidar) != 0;
   out.heater = (action & ControlHeater) != 0;
   out.jump = (action & ControlJump) != 0;
+  out.roof_piston = (action & ControlRoofPiston) != 0;
+  out.jump_front = (action & ControlJumpFront) != 0;
+  out.jump_rear = (action & ControlJumpRear) != 0;
+  out.roof_piston_front = (action & ControlRoofPistonFront) != 0;
+  out.roof_piston_rear = (action & ControlRoofPistonRear) != 0;
+  out.lidar_front = (action & ControlLidarFront) != 0;
+  out.lidar_rear = (action & ControlLidarRear) != 0;
+  out.lidar_left = (action & ControlLidarLeft) != 0;
+  out.lidar_right = (action & ControlLidarRight) != 0;
   out.toggle_climb = (action & ControlToggleClimb) != 0;
   out.toggle_propeller = (action & ControlTogglePropeller) != 0;
   return out;
