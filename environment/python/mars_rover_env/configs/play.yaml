@@ -23,7 +23,10 @@ terrain:
   roughness: 0.85
   crater_count: 34
   step_count: 32
-  length: 737.0
+  # Difficulty pacing denominator only (physical terrain still spans
+  # sample_count*dx=737m) - shrinking it compresses the calm opening and
+  # reaches full difficulty well inside a realistic 120s run.
+  length: 320.0
 
 physics:
   dt: 0.016666667
@@ -47,8 +50,10 @@ physics:
   engine_cooling_airflow: 0.08
   engine_heater_energy_rate: 0.15
   engine_heater_heat: 18.0
-  initial_energy: 60.0
-  energy_capacity: 75.0
+  # Moderate capacity bump: enough for a short tactical overspeed burst, not
+  # enough to bankroll the whole run (see docs on the logarithmic top-end).
+  initial_energy: 100.0
+  energy_capacity: 130.0
   panel_deploy_time: 4.0
   panel_retract_time: 3.0
   brake_strength: 80.0

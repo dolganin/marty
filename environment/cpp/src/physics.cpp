@@ -802,8 +802,23 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
       const float axle_speed = dot(anchor_velocity, contact.tangent);
       const float driven_speed = axle_speed * control.throttle;
-      const float speed_fade = 1.0f / (1.0f + std::max(0.0f, driven_speed) /
-                                               std::max(3.0f, gear_max_speed * 3.5f));
+      const bool top_gear = state.gear_index == kGearCount - 1;
+      const float top_gear_max_speed = kGearMaxSpeeds[kGearCount - 1];
+      float speed_fade;
+      if (!top_gear || driven_speed <= top_gear_max_speed) {
+        speed_fade = 1.0f / (1.0f + std::max(0.0f, driven_speed) /
+                                    std::max(3.0f, gear_max_speed * 3.5f));
+      } else {
+        // Past the 8th gear's rated speed there is no hard wall: drive force
+        // keeps a logarithmically (not hyperbolically) decaying share, so
+        // overspeed is reachable but with fast-diminishing returns per unit
+        // of extra throttle rather than asymptoting to a fixed ceiling.
+        const float base_fade = 1.0f / (1.0f + top_gear_max_speed /
+                                                    (top_gear_max_speed * 3.5f));
+        const float excess = driven_speed - top_gear_max_speed;
+        speed_fade = base_fade / (1.0f + std::log1p(excess /
+                                                     std::max(1.0f, top_gear_max_speed * 0.4f)));
+      }
 
 
 
@@ -960,12 +975,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       next_drivetrain_grounded = next_drivetrain_grounded || wheel.in_contact;
     }
     any_wheel_grounded = any_wheel_grounded || wheel.in_contact;
+    // Past the top gear's rated speed, holding overspeed costs energy at a
+    // cubic rate: a short tactical burst is affordable, sustaining it is not.
+    const float top_gear_max_speed = kGearMaxSpeeds[kGearCount - 1];
+    const float overspeed = std::max(0.0f, speed - top_gear_max_speed);
+    const float overspeed_ratio = overspeed / std::max(1.0f, top_gear_max_speed * 0.5f);
+    const float overspeed_cost_mul = 1.0f + 9.0f * overspeed_ratio * overspeed_ratio * overspeed_ratio;
     const float wheel_fuel = driven_wheel && state.engine_running && !in_neutral
                                  ? std::abs(config_.motor_torque * control.throttle) *
                                        torque_split * state.clutch_engagement *
                                        kGearEnergyMul[state.gear_index] *
                                        (1.0f + 0.06f * speed * speed + state.latent_viscosity * 0.8f +
                                         (state.climb_mode ? 0.65f : 0.0f)) *
+                                       overspeed_cost_mul *
                                        state.latent_energy_resistance *
                                        (1.0f - 0.94f * liquid_immersion) * 0.00025f * dt
                                  : 0.0f;
