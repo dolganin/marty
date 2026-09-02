@@ -93,6 +93,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("engine_inertia", &mars::PhysicsConfig::engine_inertia)
       .def_readwrite("engine_drag_torque", &mars::PhysicsConfig::engine_drag_torque)
       .def_readwrite("clutch_sync_rate", &mars::PhysicsConfig::clutch_sync_rate)
+      .def_readwrite("shift_energy_base", &mars::PhysicsConfig::shift_energy_base)
+      .def_readwrite("shift_energy_sync_per_krpm",
+                     &mars::PhysicsConfig::shift_energy_sync_per_krpm)
       .def_readwrite("initial_engine_temperature",
                      &mars::PhysicsConfig::initial_engine_temperature)
       .def_readwrite("cold_start_temperature", &mars::PhysicsConfig::cold_start_temperature)
@@ -380,6 +383,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["upshift_speed_ok"] = state.upshift_speed_ok;
              d["upshift_recommended"] = state.upshift_recommended;
              d["shift_cooldown"] = static_cast<float>(state.shift_cooldown_steps) / 60.0f;
+             d["shift_clutch_cut"] = static_cast<float>(state.shift_clutch_cut_steps) *
+                 env.config().physics.dt;
+             d["shift_energy_cost"] = state.last_shift_energy_cost;
              d["shift_buffered"] = state.shift_up_buffer_steps > 0 ||
                                      state.shift_down_buffer_steps > 0;
              d["top_gear"] = state.gear_index >= kDebugGearCount - 1;

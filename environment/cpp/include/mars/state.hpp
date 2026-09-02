@@ -90,8 +90,10 @@ struct RoverState {
   bool can_shift_down = false;
   bool should_shift_down = false;
   int shift_cooldown_steps = 0;
+  int shift_clutch_cut_steps = 0;
   int shift_up_buffer_steps = 0;
   int shift_down_buffer_steps = 0;
+  float last_shift_energy_cost = 0.0f;
   int engine_lug_steps = 0;
   float driveline_load_factor = 0.0f;
   float gear_energy_multiplier = 1.0f;

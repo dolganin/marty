@@ -18,6 +18,11 @@ struct PhysicsConfig {
   float engine_inertia = 0.48f;
   float engine_drag_torque = 7.0f;
   float clutch_sync_rate = 3200.0f;
+  // Battery work consumed by one actual gear engagement.  The second term is
+  // multiplied by the RPM mismatch (in thousands) that the synchroniser has
+  // to remove.
+  float shift_energy_base = 0.75f;
+  float shift_energy_sync_per_krpm = 0.32f;
   float initial_engine_temperature = 20.0f;
   float cold_start_temperature = -25.0f;
   float minimum_operating_temperature = -38.0f;

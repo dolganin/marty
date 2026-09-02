@@ -122,6 +122,8 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                     "engine_inertia",
                     "engine_drag_torque",
                     "clutch_sync_rate",
+                    "shift_energy_base",
+                    "shift_energy_sync_per_krpm",
                     "initial_engine_temperature",
                     "cold_start_temperature",
                     "minimum_operating_temperature",

@@ -41,6 +41,8 @@ physics:
   engine_inertia: 1.25
   engine_drag_torque: 12.0
   clutch_sync_rate: 2800.0
+  shift_energy_base: 0.75
+  shift_energy_sync_per_krpm: 0.32
   initial_engine_temperature: 20.0
   cold_start_temperature: -25.0
   minimum_operating_temperature: -38.0

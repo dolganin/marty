@@ -189,29 +189,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   const float shift_speed = std::abs(state.body.velocity.x);
   const bool clutch_pedal_down = control.clutch < 0.5f;
-
-
-
-
   const bool powered_upshift_request =
-      control.shift_up && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
-
-
-
-
-
-
-
-  if ((control.shift_up && clutch_pedal_down && !control.shift_down) ||
-      powered_upshift_request) {
-    state.shift_up_buffer_steps = std::max(state.shift_up_buffer_steps, 60);
-    state.shift_down_buffer_steps = 0;
-  }
-  if (control.shift_down && clutch_pedal_down && !control.shift_up) {
-    state.shift_down_buffer_steps = std::max(state.shift_down_buffer_steps, 60);
-    state.shift_up_buffer_steps = 0;
-  }
-  const float clutch_target = control.clutch;
+      shift_up_pressed && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
+  const bool powered_downshift_request =
+      shift_down_pressed && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
+  // X/Z are edge-triggered requests. Holding a key must not turn the rover
+  // into a free automatic transmission; a request can only wait for its safe
+  // RPM window.
+  const float clutch_target = state.shift_clutch_cut_steps > 0 ? 0.0f : control.clutch;
   const float clutch_rate = clutch_target > state.clutch_engagement ? 3.5f : 10.0f;
   state.clutch_engagement +=
       clamp(clutch_target - state.clutch_engagement, -clutch_rate * dt, clutch_rate * dt);
@@ -219,11 +204,30 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (state.shift_cooldown_steps > 0) {
     --state.shift_cooldown_steps;
   }
+  if (state.shift_clutch_cut_steps > 0) {
+    --state.shift_clutch_cut_steps;
+  }
+  state.last_shift_energy_cost = 0.0f;
 
 
 
   const float drivetrain_load =
       clamp(std::abs(std::sin(state.body.angle)) * 2.2f, 0.0f, 1.0f);
+  float driven_wheel_radius = 0.0f;
+  for (const auto& wheel : rig.wheels) driven_wheel_radius += wheel.radius;
+  driven_wheel_radius /= std::max(1.0f, static_cast<float>(rig.wheels.size()));
+  driven_wheel_radius = std::max(0.05f, driven_wheel_radius);
+  constexpr float kRadPerSecToRpm = 60.0f / 6.28318530718f;
+  // The wheel encoder sees the compliant tyre/suspension side of the drive.
+  // This calibrated effective ratio retains a gradual loaded RPM rise at
+  // launch while keeping the useful shift window inside the rover's actual
+  // low-speed range.
+  constexpr float kEffectiveDrivelineRatio = 2.25f;
+  const auto road_rpm_for_gear = [&](int gear_index) {
+    if (gear_index < 0 || gear_index >= kGearCount) return kIdleRpm;
+    return shift_speed / driven_wheel_radius * kGearRatios[gear_index] *
+           config_.final_drive_ratio * kEffectiveDrivelineRatio * kRadPerSecToRpm;
+  };
   const float desired_post_shift_rpm =
       state.gear_index >= 0 && state.gear_index < kGearCount - 1
           ? kBasePostShiftRpm[state.gear_index] +
@@ -234,12 +238,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   float recommended_upshift_rpm = 0.0f;
   float minimum_upshift_rpm = 0.0f;
   if (state.gear_index >= 0 && state.gear_index < kGearCount - 1) {
-    next_gear_rpm = shift_speed / kGearMaxSpeeds[state.gear_index + 1] * kRedlineRpm;
+    next_gear_rpm = road_rpm_for_gear(state.gear_index + 1);
 
 
 
-    const float speed_step =
-        kGearMaxSpeeds[state.gear_index + 1] / kGearMaxSpeeds[state.gear_index];
+    const float speed_step = kGearRatios[state.gear_index] /
+                             kGearRatios[state.gear_index + 1];
     recommended_upshift_rpm =
         clamp(desired_post_shift_rpm * speed_step, 2800.0f, 8500.0f);
     minimum_upshift_rpm =
@@ -251,14 +255,18 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       state.gear_index >= 0 && state.engine_rpm >= recommended_upshift_rpm &&
       next_gear_rpm >= desired_post_shift_rpm * 0.92f;
   const bool can_shift_up =
-      (clutch_pedal_down || powered_upshift_request) && state.shift_cooldown_steps == 0 &&
+      state.shift_up_buffer_steps > 0 &&
+      (clutch_pedal_down || powered_upshift_request || std::abs(control.throttle) > 0.5f) &&
+      state.shift_cooldown_steps == 0 &&
       state.gear_index < kGearCount - 1 &&
       upshift_speed_ok;
   const float lower_gear_rpm =
       state.gear_index > 0
-          ? shift_speed / kGearMaxSpeeds[state.gear_index - 1] * kRedlineRpm
+          ? road_rpm_for_gear(state.gear_index - 1)
           : kIdleRpm;
-  const bool can_shift_down = clutch_pedal_down && state.shift_cooldown_steps == 0 &&
+  const bool can_shift_down = state.shift_down_buffer_steps > 0 &&
+                              (clutch_pedal_down || powered_downshift_request) &&
+                              state.shift_cooldown_steps == 0 &&
                               state.gear_index >= 0 &&
                               (state.gear_index == 0 || lower_gear_rpm <= kSafeDownshiftRpm);
   const float minimum_loaded_rpm = 1500.0f + drivetrain_load * 1800.0f;
@@ -271,16 +279,30 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.can_shift_down = can_shift_down;
   state.should_shift_down = state.gear_index > 0 && state.engine_rpm < minimum_loaded_rpm;
   if (state.shift_up_buffer_steps > 0 && can_shift_up) {
+    const float target_rpm = road_rpm_for_gear(state.gear_index + 1);
+    const float mismatch_krpm = std::abs(state.engine_rpm - target_rpm) * 0.001f;
+    state.last_shift_energy_cost = config_.shift_energy_base +
+        config_.shift_energy_sync_per_krpm * mismatch_krpm;
+    stats.energy_cost += state.last_shift_energy_cost;
     state.gear_index = std::min(state.gear_index + 1, kGearCount - 1);
     state.shift_cooldown_steps = 45;
+    state.shift_clutch_cut_steps = std::max(1, static_cast<int>(0.16f / dt));
+    state.clutch_engagement = 0.0f;
     state.shift_up_buffer_steps = 0;
     state.shift_down_buffer_steps = 0;
     state.can_shift_up = false;
     state.can_shift_down = false;
   }
   if (state.shift_down_buffer_steps > 0 && can_shift_down) {
+    const float target_rpm = road_rpm_for_gear(state.gear_index - 1);
+    const float mismatch_krpm = std::abs(state.engine_rpm - target_rpm) * 0.001f;
+    state.last_shift_energy_cost = config_.shift_energy_base +
+        config_.shift_energy_sync_per_krpm * mismatch_krpm;
+    stats.energy_cost += state.last_shift_energy_cost;
     state.gear_index = std::max(state.gear_index - 1, -1);
     state.shift_cooldown_steps = 45;
+    state.shift_clutch_cut_steps = std::max(1, static_cast<int>(0.16f / dt));
+    state.clutch_engagement = 0.0f;
     state.shift_up_buffer_steps = 0;
     state.shift_down_buffer_steps = 0;
     state.can_shift_up = false;
@@ -291,7 +313,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float gear_max_speed = in_neutral ? 1.0e9f : kGearMaxSpeeds[state.gear_index];
   const float road_coupled_rpm =
       in_neutral ? state.engine_rpm
-                 : shift_speed / std::max(0.1f, gear_max_speed) * kRedlineRpm;
+                 : road_rpm_for_gear(state.gear_index);
   const float driveline_load_factor =
       in_neutral ? 0.0f
                  : (state.gear_index == 0
@@ -370,7 +392,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
           ? clamp((kIdleRpm - state.engine_rpm) * 0.08f, 0.0f,
                   config_.motor_torque * 0.45f)
           : 0.0f;
-  constexpr float kRadPerSecToRpm = 60.0f / 6.28318530718f;
   const float free_rpm_acceleration =
       (throttle_torque + idle_governor - drag_torque) /
       std::max(0.05f, config_.engine_inertia) * kRadPerSecToRpm;
