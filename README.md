@@ -5,6 +5,7 @@ Windows:
 ```powershell
 .\scripts\setup.ps1
 .\scripts\windows\play.ps1 -Debug -Seed (Get-Random)
+.\scripts\windows\play.ps1 -Debug -Fullscreen -Split test
 .\scripts\windows\play.ps1 -RefreshBank -BiomeCount 8 -Debug -Seed (Get-Random)
 ```
 

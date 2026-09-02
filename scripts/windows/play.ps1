@@ -7,6 +7,8 @@ param(
     [Nullable[int]]$Seed = $null,
     [switch]$Debug,
     [switch]$Fullscreen,
+    [ValidateSet("train", "test")]
+    [string]$Split = "train",
     [switch]$RefreshBank,
     [string]$ResumeBank,
     [ValidateRange(1, 64)]
@@ -51,5 +53,6 @@ $PlayArgs = @("-m", "mars_rover_env.tools.play")
 if ($null -ne $Seed) { $PlayArgs += @("--seed", $Seed) }
 if ($Debug) { $PlayArgs += "--debug" }
 if ($Fullscreen) { $PlayArgs += "--fullscreen" }
+$PlayArgs += @("--split", $Split)
 
 & $Python @PlayArgs
