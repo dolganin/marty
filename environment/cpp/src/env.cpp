@@ -14,6 +14,7 @@ Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physic
 
 void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   rng_.seed(seed);
+  endgame_test_world_ = config_.biome_split == 2;
   const int next_episode_in_trial = trial_start ? 0 : state_.episode_in_trial + 1;
   if (trial_start || !has_trial_mechanic_seed_) {
     trial_mechanic_seed_ = seed;
@@ -40,6 +41,15 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
       clamp(picked_params.terrain_step_mul, 0.3f, 3.0f)));
   scaled_terrain.safe_start_fraction = difficulty_safe_fraction_;
   scaled_terrain.difficulty_exponent = config_.difficulty_exponent;
+  if (endgame_test_world_) {
+    // Test is a held-out endgame probe, not another progressive training
+    // course. Generate every metre from the far-distance distribution.
+    scaled_terrain.safe_start_fraction = 0.0f;
+    const float physical_length = std::max(
+        scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
+    scaled_terrain.difficulty_distance_offset = physical_length * 32.0f;
+    scaled_terrain.preserve_spawn_safety = false;
+  }
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
   finalize_mechanic_layout();
@@ -340,6 +350,7 @@ void Env::update_world_latents() {
 }
 
 float Env::course_difficulty(float x) const {
+  if (endgame_test_world_) return 1.0f;
   const float course_length = std::max(1.0f, config_.terrain.length);
   const float progress = clamp(x / course_length, 0.0f, 1.0f);
   if (progress <= difficulty_safe_fraction_) return 0.0f;
@@ -380,7 +391,7 @@ void Env::select_mechanic_layout(uint64_t seed) {
                                         config_.difficulty_safe_fraction_max), 0.0f, 0.40f);
   const float safe_max = clamp(std::max(config_.difficulty_safe_fraction_min,
                                         config_.difficulty_safe_fraction_max), safe_min, 0.45f);
-  difficulty_safe_fraction_ = safe_min + (safe_max - safe_min) * u(rng_);
+  difficulty_safe_fraction_ = endgame_test_world_ ? 0.0f : safe_min + (safe_max - safe_min) * u(rng_);
   const auto build_layers = [&]() {
     mechanic_layout_.layer_count = 0;
     // Physical regions span 55–120m, with 1–4 rules simultaneously
@@ -513,7 +524,8 @@ void Env::select_mechanic_layout(uint64_t seed) {
                                 static_cast<float>(std::max(1, zone_count));
     const float slot_x = slot_progress * config_.terrain.length;
     const float difficulty = course_difficulty(slot_x);
-    const bool take_anchor = !anchors.empty() && (slot == 0 || u(rng_) > difficulty);
+    const bool take_anchor = !anchors.empty() &&
+                             (!endgame_test_world_ && (slot == 0 || u(rng_) > difficulty));
     int candidate;
     if (take_anchor) {
       if (difficulty < 0.18f) {

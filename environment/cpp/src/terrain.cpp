@@ -28,6 +28,8 @@ void Terrain::configure(const TerrainConfig& config) {
   step_count_ = config.step_count;
   safe_start_fraction_ = clamp(config.safe_start_fraction, 0.0f, 0.45f);
   difficulty_exponent_ = clamp(config.difficulty_exponent, 0.5f, 4.0f);
+  difficulty_distance_offset_ = std::max(0.0f, config.difficulty_distance_offset);
+  preserve_spawn_safety_ = config.preserve_spawn_safety;
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
   solid_.assign(static_cast<size_t>(config.sample_count), 1u);
   surfaces_.clear();
@@ -111,17 +113,20 @@ void Terrain::generate(uint64_t seed) {
     }
   }
 
-  const int spawn_safe_samples = std::min(static_cast<int>(heights_.size()), static_cast<int>(5.0f / dx_));
-  for (int i = 0; i < spawn_safe_samples; ++i) {
-    const float t = static_cast<float>(i) / std::max(1.0f, static_cast<float>(spawn_safe_samples - 1));
-    heights_[static_cast<size_t>(i)] =
-        base_height_ * (1.0f - t) + heights_[static_cast<size_t>(i)] * t;
+  if (preserve_spawn_safety_) {
+    const int spawn_safe_samples = std::min(static_cast<int>(heights_.size()), static_cast<int>(5.0f / dx_));
+    for (int i = 0; i < spawn_safe_samples; ++i) {
+      const float t = static_cast<float>(i) /
+                      std::max(1.0f, static_cast<float>(spawn_safe_samples - 1));
+      heights_[static_cast<size_t>(i)] =
+          base_height_ * (1.0f - t) + heights_[static_cast<size_t>(i)] * t;
+    }
   }
 }
 
 float Terrain::difficulty_at(float x) const {
   const float course_length = std::max(dx_, length());
-  const float progress = clamp(x / course_length, 0.0f, 1.0f);
+  const float progress = clamp((x + difficulty_distance_offset_) / course_length, 0.0f, 1.0f);
   if (progress <= safe_start_fraction_) return 0.0f;
   const float t = clamp((progress - safe_start_fraction_) /
                             std::max(0.01f, 1.0f - safe_start_fraction_),

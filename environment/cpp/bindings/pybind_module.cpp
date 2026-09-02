@@ -81,7 +81,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("step_count", &mars::TerrainConfig::step_count)
       .def_readwrite("length", &mars::TerrainConfig::length)
       .def_readwrite("safe_start_fraction", &mars::TerrainConfig::safe_start_fraction)
-      .def_readwrite("difficulty_exponent", &mars::TerrainConfig::difficulty_exponent);
+      .def_readwrite("difficulty_exponent", &mars::TerrainConfig::difficulty_exponent)
+      .def_readwrite("difficulty_distance_offset", &mars::TerrainConfig::difficulty_distance_offset)
+      .def_readwrite("preserve_spawn_safety", &mars::TerrainConfig::preserve_spawn_safety);
 
   py::class_<mars::PhysicsConfig>(m, "PhysicsConfig")
       .def(py::init<>())
@@ -283,6 +285,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["distance_m"] = std::max(0.0f, state.body.position.x - 1.0f);
              d["best_distance_m"] = std::max(0.0f, env.best_progress() - 1.0f);
              d["course_difficulty"] = env.terrain().difficulty_at(state.body.position.x);
+             d["endgame_test_world"] = env.config().biome_split == 2;
              d["safe_start_m"] = env.terrain().safe_start_fraction() * env.terrain().length();
              d["terrain_profile"] = zone.terrain_profile;
              d["terrain_frequency_scale"] = zone.terrain_frequency_scale;

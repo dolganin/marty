@@ -34,6 +34,7 @@ class ManualPlayer:
         self.env = MarsRoverEnv(
             config_path=args.config,
             rig_path=args.rig,
+            biome_split={"train": 1, "test": 2}[args.split],
             render_mode="debug_rgb_array" if args.debug else "rgb_array",
             render_width=render_width,
             render_height=render_height,
@@ -355,7 +356,8 @@ class ManualPlayer:
              f"{piston_text} "
              f"B CLIMB {'ON' if debug.get('climb_mode') else 'OFF'}  "
              f"P PROP {debug.get('propeller_deployment', 0.0) * 100:.0f}%", "#52e06f"),
-            (f"BRANCH {debug.get('route_branch', 'terrain').upper()}  "
+            (f"{'TEST ENDGAME' if debug.get('endgame_test_world') else 'TRAIN CURRICULUM'}  "
+             f"BRANCH {debug.get('route_branch', 'terrain').upper()}  "
              f"BALLAST {debug.get('ballast_air', 0.55) * 100:.0f}%  "
              f"DIFF {debug.get('course_difficulty', 0.0) * 100:.0f}%", "#6fd3ff"),
             (regen_text, regen_color),
@@ -464,6 +466,10 @@ def main() -> None:
                         help="use the entire screen; press F11 to toggle during play")
     parser.add_argument("--fps", type=int, default=60)
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument(
+        "--split", choices=("train", "test"), default="train",
+        help="train uses the progressive course; test starts in the held-out endgame world",
+    )
     parser.add_argument(
         "--request-rules", type=int, default=0, metavar="N",
         help="request N structured rule candidates through the configured OpenAI endpoint before opening HUD",

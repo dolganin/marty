@@ -32,6 +32,10 @@ struct TerrainConfig {
   float length = 512.0f;
   float safe_start_fraction = 0.02f;
   float difficulty_exponent = 0.7125f;
+  // Virtual source coordinate for curriculum sampling.  It lets a generated
+  // test world use the same distribution as a very distant part of a course.
+  float difficulty_distance_offset = 0.0f;
+  bool preserve_spawn_safety = true;
 };
 
 class Terrain {
@@ -71,6 +75,8 @@ class Terrain {
   int step_count_ = 16;
   float safe_start_fraction_ = 0.02f;
   float difficulty_exponent_ = 0.7125f;
+  float difficulty_distance_offset_ = 0.0f;
+  bool preserve_spawn_safety_ = true;
 };
 
 }

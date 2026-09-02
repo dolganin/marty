@@ -107,7 +107,8 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             _apply_section(
                 cfg.terrain,
                 data["terrain"],
-                ("sample_count", "dx", "base_height", "amplitude", "roughness", "crater_count", "step_count", "length"),
+                ("sample_count", "dx", "base_height", "amplitude", "roughness", "crater_count", "step_count", "length",
+                 "safe_start_fraction", "difficulty_exponent", "difficulty_distance_offset", "preserve_spawn_safety"),
             )
         if "physics" in data:
             _apply_section(
