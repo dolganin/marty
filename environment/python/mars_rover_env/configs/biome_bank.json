@@ -1,8 +1,5 @@
 {
-  "schema_version": 4,
-  "bank_version": "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83",
-  "train_version": "sha256:e30dc0089549e28a40ce50c4ae466a8e0ddd1e5ca6d41da8c02dd588b07ec80f",
-  "test_version": "sha256:c78421a6bece4867513f3d1801a3977ad63b7d8c89d47374af9be5ee8db32c40",
+  "anchor_source_sha256": "286ecd26a7a9ff0066c460e4b35dda4f17d592d29c5f97e06c24c7f0f5b5b11e",
   "anchors": [
     "normal",
     "sand",
@@ -13,121 +10,120 @@
     "crust",
     "liquid"
   ],
-  "anchor_source_sha256": "286ecd26a7a9ff0066c460e4b35dda4f17d592d29c5f97e06c24c7f0f5b5b11e",
-  "quota_per_stratum": 2,
+  "bank_version": "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83",
   "behavioral_dedup_epsilon": 0.0971,
   "biomes": [
     {
-      "id": "lateral_shear_belt",
+      "behavior_fingerprint": null,
       "class_name": "LateralShearBelt",
-      "split": "train",
+      "id": "lateral_shear_belt",
       "skill_stratum": "lateral_force",
       "source_sha256": "bf8bb47bf6454e8dfa68f2199350b0d00b36d861b6b08c8d3914dbe3586a462a",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "hysteresis_surge_bog",
+      "behavior_fingerprint": null,
       "class_name": "HysteresisSurgeBog",
-      "split": "train",
+      "id": "hysteresis_surge_bog",
       "skill_stratum": "inertia_hysteresis",
       "source_sha256": "10a4b7135fa0dc5616a050e36b6058d074368876ae434dad079734def512735a",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "gravity_shelf_lug",
+      "behavior_fingerprint": null,
       "class_name": "GravityShelfLug",
-      "split": "train",
+      "id": "gravity_shelf_lug",
       "skill_stratum": "gravity_change",
       "source_sha256": "e56cd59a824787d700fc21d821676d79e12bb0e723ce4a53e3ea25b9681ce5bb",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "thermal_surge_relay",
+      "behavior_fingerprint": null,
       "class_name": "ThermalSurgeRelay",
-      "split": "train",
+      "id": "thermal_surge_relay",
       "skill_stratum": "energy_mode",
       "source_sha256": "8d837a4874834d1124fc1dd9ec4dcf20ee5ea1a9b65477a326e5649348c0060f",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "rime_quarry_dawn",
+      "behavior_fingerprint": null,
       "class_name": "RimeQuarryDawn",
-      "split": "train",
+      "id": "rime_quarry_dawn",
       "skill_stratum": "dynamic_obstacle",
       "source_sha256": "0050cd27adb77deafa5d7183118e0ff2b15c721e27b1137874438bf361986041",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "gravity_shear_escarpment",
+      "behavior_fingerprint": null,
       "class_name": "GravityShearEscarpment",
-      "split": "train",
+      "id": "gravity_shear_escarpment",
       "skill_stratum": "gravity_change",
       "source_sha256": "9aef8cc394bb30e9aa94779cdc69933026bb69e783bdbeb889fdbb494641ee01",
-      "behavior_fingerprint": null
+      "split": "train"
     },
     {
-      "id": "ebb_traction_dark",
+      "behavior_fingerprint": null,
       "class_name": "EbbTractionDark",
-      "split": "test",
+      "id": "ebb_traction_dark",
       "skill_stratum": "traction_loss",
       "source_sha256": "138234ea7fb218bd84b4371feaa8eb08b8050dbff51c8a0304dc86199e2f6f81",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "bake_cycle_basalt_fan",
+      "behavior_fingerprint": null,
       "class_name": "BakeCycleBasaltFan",
-      "split": "test",
+      "id": "bake_cycle_basalt_fan",
       "skill_stratum": "lateral_force",
       "source_sha256": "438607eb15c7fc5fc5e86d07e7a8e7e898aef58b4c6e44631652d362356aafc9",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "reversible_momentum_lagoon",
+      "behavior_fingerprint": null,
       "class_name": "ReversibleMomentumLagoon",
-      "split": "test",
+      "id": "reversible_momentum_lagoon",
       "skill_stratum": "inertia_hysteresis",
       "source_sha256": "5c98cfb6419a25fa01f47f5d5925c7b368345fcebfe8f239e81288ec68058601",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "mass_swing_fetch",
+      "behavior_fingerprint": null,
       "class_name": "MassSwingFetch",
-      "split": "test",
+      "id": "mass_swing_fetch",
       "skill_stratum": "gravity_change",
       "source_sha256": "7088c2ad1fe956c18f48524200c6615ed41864c1458b7536683f94ad9dcf4a41",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "battery_bay_tycho",
+      "behavior_fingerprint": null,
       "class_name": "BatteryBayTycho",
-      "split": "test",
+      "id": "battery_bay_tycho",
       "skill_stratum": "energy_mode",
       "source_sha256": "d184b14654a594ad74b7b055339525da8e2fa3498d9e68377e97c0ba2191f399",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "shatter_step_berm",
+      "behavior_fingerprint": null,
       "class_name": "ShatterStepBerm",
-      "split": "test",
+      "id": "shatter_step_berm",
       "skill_stratum": "dynamic_obstacle",
       "source_sha256": "31caf79d0de289b10e4948e4e95238e8c6c88f2d89aa2d981d252fc0bf6d75ab",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "fathom_draft_flux",
+      "behavior_fingerprint": null,
       "class_name": "FathomDraftFlux",
-      "split": "test",
+      "id": "fathom_draft_flux",
       "skill_stratum": "inertia_hysteresis",
       "source_sha256": "c1d5250a9d57ae2faf4f7979932f6659d2ca0f595c596b0e399651b032b152e3",
-      "behavior_fingerprint": null
+      "split": "test"
     },
     {
-      "id": "grip_inversion_scree",
+      "behavior_fingerprint": null,
       "class_name": "GripInversionScree",
-      "split": "test",
+      "id": "grip_inversion_scree",
       "skill_stratum": "traction_loss",
       "source_sha256": "f4da6699497e005c734cda3ef31839bf784f189e774337c9ff664538d30b5600",
-      "behavior_fingerprint": null
+      "split": "test"
     }
   ],
   "coupling_rules": [
@@ -159,49 +155,54 @@
   ],
   "frozen_stacks": [
     {
-      "split": "anchor",
       "mechanisms": [
         "normal",
         "wind"
-      ]
+      ],
+      "split": "anchor"
     },
     {
-      "split": "train",
       "mechanisms": [
         "sand",
         "wind"
-      ]
+      ],
+      "split": "train"
     },
     {
-      "split": "train",
       "mechanisms": [
         "mud",
         "crust",
         "wind"
-      ]
+      ],
+      "split": "train"
     },
     {
-      "split": "train",
       "mechanisms": [
         "ice",
         "low_gravity"
-      ]
+      ],
+      "split": "train"
     },
     {
-      "split": "held_out",
       "mechanisms": [
         "liquid",
         "wind"
-      ]
+      ],
+      "split": "held_out"
     },
     {
-      "split": "held_out",
       "mechanisms": [
         "sand",
         "mud",
         "wind",
         "crust"
-      ]
+      ],
+      "split": "held_out"
     }
-  ]
+  ],
+  "quota_per_stratum": 2,
+  "reference_version": "sha256:7dbfd1af838b60b7fe5ead486686b12c2fe5274a2790ef3837dc449bda3e29e1",
+  "schema_version": 4,
+  "test_version": "sha256:c78421a6bece4867513f3d1801a3977ad63b7d8c89d47374af9be5ee8db32c40",
+  "train_version": "sha256:e30dc0089549e28a40ce50c4ae466a8e0ddd1e5ca6d41da8c02dd588b07ec80f"
 }

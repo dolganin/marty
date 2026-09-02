@@ -16,16 +16,20 @@ env:
   terrain_profile_frequency_growth: 0.75
 
 terrain:
-  sample_count: 4096
+  # sample_count*dx=~20000m physical extent - a 600s run driving flat-out at
+  # top-gear speed the whole time covers ~8100m, so this stays comfortably
+  # ahead of even an unrealistic best case instead of clamping to a flat
+  # plateau past the array bound (see Terrain::query, terrain.cpp).
+  sample_count: 111112
   dx: 0.18
   base_height: 0.0
   amplitude: 0.95
   roughness: 0.85
   crater_count: 34
   step_count: 32
-  # Difficulty pacing denominator only (physical terrain still spans
-  # sample_count*dx=737m) - shrinking it compresses the calm opening and
-  # reaches full difficulty well inside a realistic 120s run.
+  # Difficulty pacing denominator only (independent of physical extent above)
+  # - shrinking it compresses the calm opening and reaches full difficulty
+  # well inside the run instead of ramping across the whole course.
   length: 320.0
 
 physics:
@@ -64,6 +68,7 @@ physics:
 termination:
   finish_x: 700.0
   max_steps: 0
+  trial_time_limit: 600.0
   flip_angle: 2.45
   min_energy: 0.0
   stuck_steps: 600

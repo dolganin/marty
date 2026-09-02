@@ -92,6 +92,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (state.suspension_jump_phase == 2 && state.suspension_jump_phase_steps == 0) {
     state.suspension_jump_phase = 0;
     state.suspension_jump_charge = 0.0f;
+    state.suspension_jump_preload_velocity = 0.0f;
   }
   if (piston_active) {
     state.roof_piston_mask = (control.roof_piston ? 3 : 0) |
@@ -152,6 +153,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     piston_active = false;
     state.suspension_jump_phase = 0;
     state.suspension_jump_charge = 0.0f;
+    state.suspension_jump_preload_velocity = 0.0f;
     state.propeller_mode = false;
   }
   state.ballast_blowing = control.ballast_blow && !control.ballast_flood;
@@ -504,18 +506,34 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     body_torque += cross(rotate({0.0f, rig.body.size.y * 0.5f + 0.25f}, state.body.angle), panel_force);
   }
   if (jump_active && state.jump_cooldown_steps == 0 && !state.airborne) {
-    // Holding K progressively compresses both struts. Releasing K converts the
-    // stored compression into a rebound, so press duration directly controls
-    // launch strength instead of creating a fixed impulse.
+    // Holding K drives a real second-order preload actuator.  It starts with
+    // zero compression velocity, gathers speed, then eases into its travel
+    // stop.  Releasing K therefore unloads a spring that has built up
+    // compression over time rather than switching to a fixed launch impulse.
     if (state.suspension_jump_phase != 1) {
       state.suspension_jump_mask = control.jump ? 3 : (control.jump_front ? 1 : 2);
+      state.suspension_jump_preload_velocity = 0.0f;
     }
     state.suspension_jump_phase = 1;
-    state.suspension_jump_charge = clamp(state.suspension_jump_charge + dt / 0.75f, 0.0f, 1.0f);
+    constexpr float kPreloadAngularFrequency = 7.5f;
+    constexpr float kPreloadDampingRatio = 1.0f;
+    const float preload_acceleration =
+        kPreloadAngularFrequency * kPreloadAngularFrequency *
+            (1.0f - state.suspension_jump_charge) -
+        2.0f * kPreloadDampingRatio * kPreloadAngularFrequency *
+            state.suspension_jump_preload_velocity;
+    state.suspension_jump_preload_velocity += preload_acceleration * dt;
+    state.suspension_jump_charge = clamp(
+        state.suspension_jump_charge + state.suspension_jump_preload_velocity * dt, 0.0f, 1.0f);
+    if ((state.suspension_jump_charge <= 0.0f && state.suspension_jump_preload_velocity < 0.0f) ||
+        (state.suspension_jump_charge >= 1.0f && state.suspension_jump_preload_velocity > 0.0f)) {
+      state.suspension_jump_preload_velocity = 0.0f;
+    }
     stats.energy_cost += 2.50f * dt;
   } else if (jump_released && state.suspension_jump_phase == 1 &&
              state.suspension_jump_charge >= 0.06f) {
     state.suspension_jump_phase = 2;
+    state.suspension_jump_preload_velocity = 0.0f;
     state.suspension_jump_phase_steps = std::max(
         1, static_cast<int>((0.06f + 0.15f * state.suspension_jump_charge) / dt));
     state.jump_cooldown_steps = std::max(1, static_cast<int>(0.45f / dt));

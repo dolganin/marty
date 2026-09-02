@@ -1,5 +1,6 @@
 #include "mars/batch_env.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 #include "mars/renderer.hpp"
@@ -20,7 +21,12 @@ void BatchEnv::reset_all(uint64_t seed, float* obs_out) {
   const int n = num_envs();
   const int observation_dim = obs_dim();
 #if defined(MARS_ROVER_HAS_OPENMP)
-#pragma omp parallel for schedule(static) if (n >= 64)
+  // A simulation step is deliberately small.  Letting OpenMP use every
+  // logical CPU made the per-tick barrier dominate on large workstations.
+  // Sixteen workers saturate this memory/cache-bound loop while retaining a
+  // useful batch speed-up and deterministic per-environment execution.
+  const int parallel_threads = std::min(16, n);
+#pragma omp parallel for schedule(static) if (n >= 64) num_threads(parallel_threads)
 #endif
   for (int i = 0; i < n; ++i) {
     envs_[static_cast<size_t>(i)].reset(seed + static_cast<uint64_t>(i) * 9973ULL, true,
@@ -37,7 +43,8 @@ void BatchEnv::step_batch(const int* actions, float* obs_out, float* rewards_out
   const int n = num_envs();
   const int observation_dim = obs_dim();
 #if defined(MARS_ROVER_HAS_OPENMP)
-#pragma omp parallel for schedule(static) if (n >= 64)
+  const int parallel_threads = std::min(16, n);
+#pragma omp parallel for schedule(static) if (n >= 64) num_threads(parallel_threads)
 #endif
   for (int i = 0; i < n; ++i) {
     const auto out =

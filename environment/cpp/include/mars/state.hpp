@@ -139,6 +139,10 @@ struct RoverState {
   int suspension_jump_phase = 0;  // 1 preload/compress, 2 rebound/launch.
   int suspension_jump_phase_steps = 0;
   float suspension_jump_charge = 0.0f;
+  // Normalised compression and its rate form a small, critically damped
+  // actuator.  Keeping the rate makes preload visibly and physically ramp up
+  // instead of changing the suspension rest length at a constant rate.
+  float suspension_jump_preload_velocity = 0.0f;
   int suspension_jump_mask = 3;  // 1 front, 2 rear, 3 both.
   float roof_piston_extension = 0.0f;
   int roof_piston_mask = 3;  // 1 front, 2 rear, 3 both.

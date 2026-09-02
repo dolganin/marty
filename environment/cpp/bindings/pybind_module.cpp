@@ -412,6 +412,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["jump_cooldown"] = state.jump_cooldown_steps * env.config().physics.dt;
              d["suspension_jump_phase"] = state.suspension_jump_phase;
              d["suspension_jump_charge"] = state.suspension_jump_charge;
+             d["suspension_jump_preload_velocity"] = state.suspension_jump_preload_velocity;
              d["suspension_jump_mask"] = state.suspension_jump_mask;
              d["roof_piston_extension"] = state.roof_piston_extension;
              d["roof_piston_mask"] = state.roof_piston_mask;
