@@ -137,6 +137,7 @@ struct RoverState {
   bool propeller_mode = false;
   float propeller_deployment = 0.0f;
   float propeller_phase = 0.0f;
+  float propeller_thrust = 0.0f;
   int jump_cooldown_steps = 0;
   int suspension_jump_phase = 0;  // 1 preload/compress, 2 rebound/launch.
   int suspension_jump_phase_steps = 0;
@@ -147,7 +148,7 @@ struct RoverState {
   float suspension_jump_preload_velocity = 0.0f;
   int suspension_jump_mask = 3;  // 1 front, 2 rear, 3 both.
   float roof_piston_extension = 0.0f;
-  int roof_piston_mask = 3;  // 1 front, 2 rear, 3 both.
+  int roof_piston_mask = 0;  // 1 front, 2 rear. Both is deliberately invalid.
   bool roof_piston_contact = false;
   float recovery_state = 0.0f;
   uint64_t world_seed = 0;

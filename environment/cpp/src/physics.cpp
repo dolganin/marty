@@ -70,8 +70,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   ControlInput control = decode_discrete_action(discrete_action, config_.body_tilt_torque);
   const int jump_action_mask = ControlJump | ControlJumpFront | ControlJumpRear;
   bool jump_active = control.jump || control.jump_front || control.jump_rear;
-  bool piston_active = control.roof_piston || control.roof_piston_front ||
-                       control.roof_piston_rear;
+  bool piston_active = control.roof_piston_front || control.roof_piston_rear;
   bool jump_released = !jump_active && (state.previous_action & jump_action_mask) != 0;
   const bool climb_pressed = control.toggle_climb &&
       (state.previous_action & ControlToggleClimb) == 0;
@@ -95,8 +94,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     state.suspension_jump_preload_velocity = 0.0f;
   }
   if (piston_active) {
-    state.roof_piston_mask = (control.roof_piston ? 3 : 0) |
-        (control.roof_piston_front ? 1 : 0) |
+    state.roof_piston_mask = (control.roof_piston_front ? 1 : 0) |
         (control.roof_piston_rear ? 2 : 0);
   }
   const float piston_speed = piston_active ? 1.0f / 0.18f : -1.0f / 0.10f;
@@ -146,7 +144,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     control.brake = 1.0f;
     control.body_torque = 0.0f;
     control.jump = control.jump_front = control.jump_rear = false;
-    control.roof_piston = control.roof_piston_front = control.roof_piston_rear = false;
+    control.roof_piston_front = control.roof_piston_rear = false;
     control.ballast_blow = control.ballast_flood = false;
     jump_active = false;
     jump_released = false;
@@ -619,19 +617,17 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const auto surface = terrain.query_near(tip.x, tip.y);
       if (!surface.solid || surface.height < tip.y - 0.015f) continue;
       const float penetration = std::min(0.12f, surface.height - tip.y + 0.015f);
-      const float tip_speed = dot(state.body.velocity, roof_axis);
-      // A compact recovery piston, deliberately far weaker than the former
-      // kick and unavailable while upright. It cannot serve as a low-gravity
-      // flight engine because contact is lost as soon as it lifts the rover.
+      const Vec2 tip_velocity = state.body.velocity +
+          perp(tip - state.body.position) * state.body.angular_velocity;
+      const float tip_speed = dot(tip_velocity, roof_axis);
+      // Each actuator applies only its own contact force.  The resulting
+      // moment comes from its real off-centre mounting point; there is no
+      // shared circular recovery impulse when both rods are extended.
       const float force = state.roof_piston_extension *
-          std::max(0.0f, 260.0f * penetration - 8.0f * tip_speed);
+          std::max(0.0f, 338.0f * penetration - 8.0f * tip_speed);
       const Vec2 reaction = -roof_axis * force;
       body_force += reaction;
       body_torque += cross(base - state.body.position, reaction);
-      // The off-centre rod already supplies a physical moment. A small
-      // actuator bias chooses the rotation toward wheels-down rather than
-      // launching straight away from the contact point.
-      body_torque += state.body.angle > 0.0f ? -force * 0.75f : force * 0.75f;
       stats.hard_contact = std::max(stats.hard_contact, force);
       stats.energy_cost += 8.0f * state.roof_piston_extension * dt;
       state.roof_piston_contact = true;
@@ -663,23 +659,26 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       stats.energy_cost += submerged * point_speed * point_speed * 0.006f * dt;
     }
   }
-  if (state.propeller_deployment >= 0.99f && std::abs(control.throttle) > 0.0f) {
-    const bool in_liquid = body_zone.type == MechanicType::Liquid;
-    // Water needs less RPM than air, but reaches comparable thrust once the
-    // blades bite. It must not be weakened by wheel-medium viscosity.
-    const float medium_efficiency = in_liquid
-                                        ? 1.0f
-                                        : 1.0f / (1.0f + state.latent_viscosity * 0.65f);
-    const float rpm_threshold = in_liquid ? 1800.0f : 7600.0f;
-    const float rpm_span = in_liquid ? 2200.0f : kRedlineRpm - rpm_threshold;
+  state.propeller_thrust = 0.0f;
+  const Vec2 propeller_hub = state.body.position +
+      rotate_body({-rig.body.size.x * 0.58f, 0.02f});
+  const auto& propeller_zone = mechanics.at(propeller_hub.x);
+  const bool propeller_submerged = propeller_zone.type == MechanicType::Liquid &&
+      propeller_zone.liquid_level >= propeller_hub.y - 0.03f;
+  const bool propeller_upright = rotate_body({0.0f, 1.0f}).y >= 0.35f;
+  if (state.propeller_deployment >= 0.99f && control.throttle > 0.0f &&
+      propeller_submerged && propeller_upright) {
+    // A marine propeller is not an air thruster. It only pushes forward while
+    // submerged and upright enough for the blades to bite water.
+    const float rpm_threshold = 1800.0f;
+    const float rpm_span = 2200.0f;
     const float propeller_ready = clamp((state.engine_rpm - rpm_threshold) /
                                             std::max(1.0f, rpm_span),
                                         0.0f, 1.0f);
-    const float thrust = (in_liquid ? 108.0f : 52.0f) * medium_efficiency *
-                         control.throttle * reserve_power * propeller_ready;
+    const float thrust = 108.0f * reserve_power * propeller_ready;
     body_force += rotate_body({thrust, 0.0f});
-    stats.energy_cost += (0.16f + 0.72f * std::abs(control.throttle)) *
-                         medium_efficiency * dt;
+    state.propeller_thrust = thrust;
+    stats.energy_cost += (0.16f + 0.72f * control.throttle) * dt;
   }
 
   float next_drivetrain_slip = 0.0f;

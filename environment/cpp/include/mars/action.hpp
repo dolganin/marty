@@ -16,11 +16,11 @@ enum ControlBits : int {
   ControlToggleCharge = 1 << 10,
   ControlLidar = 1 << 11,
   ControlHeater = 1 << 12,
-  // Momentary suspension kick, roof piston, and persistent low-range / propeller modes.
+  // Momentary suspension kick and persistent low-range / propeller modes.
   ControlJump = 1 << 13,
   ControlToggleClimb = 1 << 14,
   ControlTogglePropeller = 1 << 15,
-  ControlRoofPiston = 1 << 16,
+  ControlRoofPiston = 1 << 16,  // Reserved legacy bit; intentionally ignored.
   ControlJumpFront = 1 << 17,
   ControlJumpRear = 1 << 18,
   ControlRoofPistonFront = 1 << 19,
@@ -42,7 +42,6 @@ struct ControlInput {
   bool lidar = false;
   bool heater = false;
   bool jump = false;
-  bool roof_piston = false;
   bool jump_front = false;
   bool jump_rear = false;
   bool roof_piston_front = false;
@@ -74,7 +73,6 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   out.lidar = (action & ControlLidar) != 0;
   out.heater = (action & ControlHeater) != 0;
   out.jump = (action & ControlJump) != 0;
-  out.roof_piston = (action & ControlRoofPiston) != 0;
   out.jump_front = (action & ControlJumpFront) != 0;
   out.jump_rear = (action & ControlJumpRear) != 0;
   out.roof_piston_front = (action & ControlRoofPistonFront) != 0;

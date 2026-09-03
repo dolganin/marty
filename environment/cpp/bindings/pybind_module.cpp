@@ -356,6 +356,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["ballast_flooding"] = state.ballast_flooding;
              d["solar_panel_stationary"] = state.solar_panel_stationary;
              d["propeller_deployment"] = state.propeller_deployment;
+             d["propeller_thrust"] = state.propeller_thrust;
              d["passive_charge_rate"] = state.passive_charge_rate;
              d["solar_irradiance"] = state.solar_irradiance;
              d["lidar_active"] = state.lidar_active_steps > 0;

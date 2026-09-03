@@ -9,7 +9,8 @@ namespace {
 
 struct Color { uint8_t r, g, b; };
 
-constexpr Color kLiquidPurple{126, 72, 176};
+constexpr Color kWaterShadow{8, 17, 28};
+constexpr Color kWaterHighlight{184, 226, 238};
 
 struct SurfaceStyle {
   Color ground;
@@ -20,6 +21,15 @@ struct SurfaceStyle {
 };
 
 Color color(BiomeColor c) { return {c.r, c.g, c.b}; }
+
+Color mix(Color from, Color to, float amount) {
+  const float t = clamp(amount, 0.0f, 1.0f);
+  return {
+      static_cast<uint8_t>(from.r + (static_cast<float>(to.r) - from.r) * t),
+      static_cast<uint8_t>(from.g + (static_cast<float>(to.g) - from.g) * t),
+      static_cast<uint8_t>(from.b + (static_cast<float>(to.b) - from.b) * t),
+  };
+}
 
 SurfaceStyle surface_style(int biome_id) {
   const auto visuals = biome_by_id(biome_id).visuals();
@@ -108,8 +118,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     const auto& zone = env.mechanic_at(wx);
     const float ground_height = terrain.query_near(wx, 1.0e6f).height;
     SurfaceStyle style = surface_style(zone.biome_id);
-    if (zone.type == MechanicType::Liquid) style.liquid_color = kLiquidPurple;
-    if (zone.type == MechanicType::Liquid && zone.liquid_level - ground_height < 0.08f) {
+    if (zone.type == MechanicType::Liquid) style.liquid = true;
+    if (zone.type == MechanicType::Liquid && zone.liquid_level - ground_height < 0.025f) {
       style = surface_style(builtin_biome_id(MechanicType::Sand));
     }
     const int gy = height - 1 - static_cast<int>((ground_height - camera_y) * ppm);
@@ -119,9 +129,14 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
           0, height - 1 - static_cast<int>((zone.liquid_level - camera_y) * ppm));
       const int water_end = std::min(height, std::max(water_start, gy));
       for (int y = water_start; y < water_end; ++y) {
-        const size_t i = static_cast<size_t>((y * width + x) * 3);
-        rgb[i] = style.liquid_color.r; rgb[i + 1] = style.liquid_color.g;
-        rgb[i + 2] = style.liquid_color.b;
+        const float depth = static_cast<float>(y - water_start) /
+                            std::max(1.0f, static_cast<float>(water_end - water_start));
+        const float ripple = 0.5f + 0.5f * std::sin(wx * 2.15f +
+            static_cast<float>(state.step_index) * 0.075f + depth * 5.0f);
+        const Color surface_tone = mix(style.liquid_color, kWaterHighlight, 0.18f);
+        const Color shaded = mix(surface_tone, kWaterShadow, 0.10f + 0.46f * depth);
+        put_pixel(rgb, width, height, x, y, mix(shaded, kWaterHighlight,
+                                                (1.0f - depth) * ripple * 0.18f));
       }
     }
     for (int y = start; y < height; ++y) {
@@ -171,36 +186,55 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
       const float wheel_ground_height = terrain.query(wheel_position.x).height;
       const int wheel_biome_id =
           wheel_zone.type == MechanicType::Liquid &&
-                  wheel_zone.liquid_level - wheel_ground_height < 0.08f
+                  wheel_zone.liquid_level - wheel_ground_height < 0.025f
               ? builtin_biome_id(MechanicType::Sand)
               : wheel_zone.biome_id;
       const auto wheel_style = surface_style(wheel_biome_id);
-      const Color dust_color = wheel_style.dust;
       const auto ground = terrain.query(wheel_position.x);
       const Vec2 tangent = normalized({ground.normal.y, -ground.normal.x});
       const float rolling_speed = dot(state.body.velocity, tangent);
       const float dust_speed = std::abs(rolling_speed);
-      const int particle_count =
-          std::clamp(wheel_style.particles.base_particles +
-                         static_cast<int>(dust_speed * wheel_style.particles.particle_rate),
-                     0, wheel_style.particles.max_particles);
       const Vec2 spray_dir = tangent * (rolling_speed >= 0.0f ? -1.0f : 1.0f);
-      const Vec2 origin{wheel_position.x, ground.height + wheel.radius * 0.12f};
-      for (int p = 0; p < particle_count; ++p) {
-        const uint32_t h = hash_u32(static_cast<uint32_t>(state.step_index * 37 + i * 101 + p * 17));
-        const float rx = static_cast<float>(h & 255u) / 255.0f;
-        const float ry = static_cast<float>((h >> 8) & 255u) / 255.0f;
-        const float distance = wheel.radius + 0.08f +
-                               rx * (0.18f + dust_speed * 0.10f) *
-                                   wheel_style.particles.particle_spread;
-        const float lift = ry * (0.05f + dust_speed * 0.035f) *
-                           wheel_style.particles.particle_lift;
-        const Vec2 particle_world = origin + spray_dir * distance + ground.normal * lift;
-        const Vec2 pp = screen(particle_world);
-        const int px = static_cast<int>(pp.x);
-        const int py = static_cast<int>(pp.y);
-        for (int size = 0; size < wheel_style.particles.particle_size; ++size)
-          put_pixel(rgb, width, height, px + size, py, dust_color);
+      const bool in_water = wheel_zone.type == MechanicType::Liquid &&
+          wheel_zone.liquid_level - ground.height >= 0.03f;
+      if (in_water) {
+        // Foam originates at a real tyre/water contact and trails behind the
+        // actual motion; it replaces the old dust pixels in liquid.
+        const int foam_count = std::clamp(1 + static_cast<int>(dust_speed * 4.0f), 1, 10);
+        const Vec2 origin{wheel_position.x, wheel_zone.liquid_level - 0.015f};
+        for (int p = 0; p < foam_count; ++p) {
+          const uint32_t h = hash_u32(static_cast<uint32_t>(state.step_index * 53 + i * 197 + p * 31));
+          const float along = 0.08f + static_cast<float>(h & 255u) / 255.0f *
+                               (0.25f + dust_speed * 0.16f);
+          const float lift = static_cast<float>((h >> 8) & 63u) / 63.0f * 0.07f;
+          const Vec2 pp = screen(origin + spray_dir * along + Vec2{0.0f, lift});
+          draw_circle(rgb, width, height, static_cast<int>(pp.x), static_cast<int>(pp.y),
+                      p % 4 == 0 ? 2 : 1, mix(wheel_style.liquid_color, kWaterHighlight, 0.72f));
+        }
+      } else {
+        const float motion = clamp((dust_speed - 0.20f) / 2.2f, 0.0f, 1.0f);
+        const float slip = clamp(wheel.slip, 0.0f, 1.0f);
+        const int particle_count = std::clamp(
+            static_cast<int>(motion * (2.0f + wheel_style.particles.base_particles * 0.35f +
+                                       dust_speed * wheel_style.particles.particle_rate *
+                                           (0.25f + 0.75f * slip))),
+            0, wheel_style.particles.max_particles);
+        const Vec2 origin{wheel_position.x, ground.height + wheel.radius * 0.10f};
+        for (int p = 0; p < particle_count; ++p) {
+          const uint32_t h = hash_u32(static_cast<uint32_t>(state.step_index * 37 + i * 101 + p * 17));
+          const float rx = static_cast<float>(h & 255u) / 255.0f;
+          const float ry = static_cast<float>((h >> 8) & 255u) / 255.0f;
+          const float distance = wheel.radius + 0.05f +
+                                 rx * (0.14f + dust_speed * 0.08f) *
+                                     wheel_style.particles.particle_spread;
+          const float lift = ry * (0.03f + dust_speed * 0.024f) *
+                             wheel_style.particles.particle_lift;
+          const Vec2 pp = screen(origin + spray_dir * distance + ground.normal * lift);
+          const int px = static_cast<int>(pp.x);
+          const int py = static_cast<int>(pp.y);
+          put_pixel(rgb, width, height, px, py, wheel_style.dust);
+          if (p % 5 == 0) put_pixel(rgb, width, height, px + 1, py, wheel_style.dust);
+        }
       }
     }
   }
@@ -290,16 +324,18 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     const float wx = camera_x + static_cast<float>(x) / ppm;
     const auto& zone = env.mechanic_at(wx);
     if (zone.type != MechanicType::Liquid) continue;
-    const Color liquid_tint = kLiquidPurple;
     const int surface_y = std::max(
         0, height - 1 - static_cast<int>((zone.liquid_level - camera_y) * ppm));
-    const int ground_y = std::min(
-        height, height - 1 - static_cast<int>((terrain.query(wx).height - camera_y) * ppm));
-    for (int y = surface_y; y < ground_y; ++y) {
-      const size_t idx = static_cast<size_t>((y * width + x) * 3);
-      rgb[idx] = static_cast<uint8_t>((static_cast<int>(rgb[idx]) * 3 + liquid_tint.r) / 4);
-      rgb[idx + 1] = static_cast<uint8_t>((static_cast<int>(rgb[idx + 1]) * 3 + liquid_tint.g) / 4);
-      rgb[idx + 2] = static_cast<uint8_t>((static_cast<int>(rgb[idx + 2]) * 3 + liquid_tint.b) / 4);
+    const float wave = std::sin(wx * 2.15f + static_cast<float>(state.step_index) * 0.075f) +
+                       0.45f * std::sin(wx * 5.7f - static_cast<float>(state.step_index) * 0.11f);
+    const int wave_y = surface_y + static_cast<int>(std::round(wave * 1.6f));
+    const auto style = surface_style(zone.biome_id);
+    put_pixel(rgb, width, height, x, wave_y, mix(style.liquid_color, kWaterHighlight, 0.58f));
+    const uint32_t h = hash_u32(static_cast<uint32_t>(x * 193 + state.step_index / 3));
+    if ((h & 31u) == 0u) {
+      draw_line(rgb, width, height, x, wave_y + 3,
+                x + 3 + static_cast<int>((h >> 8) & 7u), wave_y + 3,
+                mix(style.liquid_color, kWaterHighlight, 0.32f));
     }
   }
 

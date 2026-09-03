@@ -83,7 +83,7 @@ class ManualPlayer:
             ("lidar", "G  FORWARD LONG-RANGE LIDAR"),
             ("drive", "V  RWD / FWD / AWD"),
             ("jump", "K  SPRING JUMP (+CTRL FRONT, +ALT REAR)"),
-            ("piston", "I  ROOF PISTON (+CTRL FRONT, +ALT REAR)"),
+            ("piston", "CTRL+I FRONT PISTON / ALT+I REAR PISTON"),
             ("climb", "B  CLIMB MODE"),
             ("propeller", "P  PROPELLER"),
             ("ballast_up", "Y  BLOW BALLAST / FLOAT"),
@@ -103,14 +103,21 @@ class ManualPlayer:
         self.status.pack(side="bottom", fill="x", pady=(4, 0))
         self.photo = None
         self.image_id = None
+        # On Windows Alt+letter is often consumed by the native menu layer,
+        # so keep the modifier state captured from the I keypress as well.
+        self._alt_i_held = False
 
         self.root.bind_all("<KeyPress>", self.on_key_press)
         self.root.bind_all("<KeyRelease>", self.on_key_release)
+        self.root.bind_all("<Alt-i>", self.on_alt_i_press)
+        self.root.bind_all("<Alt-KeyRelease-i>", self.on_alt_i_release)
         self.root.after_idle(self.root.focus_force)
 
     def on_key_press(self, event) -> None:
         key = event.keysym.lower()
         self.keys.add(key)
+        if key == "i" and (event.state & 0x0008):
+            self._alt_i_held = True
         if key == "f11":
             self.toggle_fullscreen()
         elif key == "r":
@@ -132,7 +139,20 @@ class ManualPlayer:
         self.root.attributes("-fullscreen", self._fullscreen)
 
     def on_key_release(self, event) -> None:
-        self.keys.discard(event.keysym.lower())
+        key = event.keysym.lower()
+        self.keys.discard(key)
+        if key == "i":
+            self._alt_i_held = False
+
+    def on_alt_i_press(self, event) -> str:
+        self.keys.add("i")
+        self._alt_i_held = True
+        return "break"
+
+    def on_alt_i_release(self, event) -> str:
+        self.keys.discard("i")
+        self._alt_i_held = False
+        return "break"
 
     def action(self) -> int:
         gas = "right" in self.keys or "d" in self.keys
@@ -165,9 +185,8 @@ class ManualPlayer:
         jump_rear = jump_held and alt_held and not ctrl_held
 
         piston_held = "i" in self.keys
-        roof_piston = piston_held and not ctrl_held and not alt_held
         roof_piston_front = piston_held and ctrl_held
-        roof_piston_rear = piston_held and alt_held and not ctrl_held
+        roof_piston_rear = piston_held and (alt_held or self._alt_i_held) and not ctrl_held
         action = 0
         if gas or reverse:
             action |= 1
@@ -201,8 +220,6 @@ class ManualPlayer:
             action |= 131072
         if jump_rear:
             action |= 262144
-        if roof_piston:
-            action |= 65536
         if roof_piston_front:
             action |= 524288
         if roof_piston_rear:
