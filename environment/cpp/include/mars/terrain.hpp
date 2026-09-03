@@ -59,6 +59,8 @@ class Terrain {
   float length() const { return dx_ * static_cast<float>(heights_.size() - 1); }
   float difficulty_at(float x) const;
   float safe_start_fraction() const { return safe_start_fraction_; }
+  int generated_pit_count() const { return generated_pit_count_; }
+  int generated_step_count() const { return generated_step_count_; }
 
  private:
   float height_at_index(int i) const;
@@ -77,6 +79,8 @@ class Terrain {
   float difficulty_exponent_ = 0.7125f;
   float difficulty_distance_offset_ = 0.0f;
   bool preserve_spawn_safety_ = true;
+  int generated_pit_count_ = 0;
+  int generated_step_count_ = 0;
 };
 
 }

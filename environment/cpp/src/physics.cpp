@@ -955,6 +955,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       wheel.in_contact = true;
       contact.active = true;
       contact.point = {wheel.position.x, post_ground.height};
+      contact.normal = post_ground.normal;
+      contact.tangent = normalized({post_ground.normal.y, -post_ground.normal.x});
+      contact.ground_height = post_ground.height;
+      contact.slope = post_ground.slope;
       contact.penetration = std::max(contact.penetration, post_penetration);
       deformation_contact.active = true;
       deformation_contact.x = contact.point.x;
@@ -962,13 +966,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     }
     constrain_to_suspension();
 
-    const float wheel_brake_torque =
-        -clamp(wheel.angular_velocity * config_.brake_strength * control.brake,
-               -config_.brake_strength, config_.brake_strength);
     if (wheel.in_contact) {
-      const auto rolling_ground = terrain.query_near(wheel.position.x, wheel.position.y);
-      const Vec2 rolling_tangent = normalized({rolling_ground.normal.y, -rolling_ground.normal.x});
-      const float rolling_speed = dot(state.body.velocity, rolling_tangent);
+      const float rolling_speed = dot(state.body.velocity, contact.tangent);
 
 
       const float target_angular_velocity = -rolling_speed / std::max(0.05f, wheel.radius);
@@ -994,19 +993,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
             std::abs(rolling_speed) <= 0.12f ? 0.0f : target_angular_velocity;
       }
     } else {
-      if (driven_wheel && state.engine_running && !in_neutral &&
-          std::abs(control.throttle) > 0.0f) {
-        const float powered_speed =
-            control.throttle * (state.engine_rpm / kRedlineRpm) * gear_max_speed *
-            driveline_load_factor;
-        const float powered_angular_velocity =
-            -powered_speed / std::max(0.05f, wheel.radius);
-        wheel.angular_velocity +=
-            (powered_angular_velocity - wheel.angular_velocity) * 0.18f;
-      } else {
-        wheel.angular_velocity += wheel_brake_torque * wheel.inv_mass * dt;
-        wheel.angular_velocity *= 0.985f;
-      }
+      // The exposed wheel animation is a contact measurement, not an engine
+      // tachometer.  With no ground at the tyre, it must stay still even if
+      // the drivetrain is applying torque in the air.
+      wheel.angular_velocity = 0.0f;
     }
     wheel.angle += wheel.angular_velocity * dt;
     if (driven_wheel) {

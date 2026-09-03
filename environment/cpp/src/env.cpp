@@ -49,6 +49,10 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
         scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
     scaled_terrain.difficulty_distance_offset = physical_length * 32.0f;
     scaled_terrain.preserve_spawn_safety = false;
+    scaled_terrain.crater_count = std::max(120, scaled_terrain.crater_count * 6);
+    scaled_terrain.step_count = std::max(150, scaled_terrain.step_count * 8);
+    scaled_terrain.amplitude = std::max(1.10f, scaled_terrain.amplitude * 1.60f);
+    scaled_terrain.roughness = std::max(0.80f, scaled_terrain.roughness * 1.50f);
   }
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
@@ -469,11 +473,14 @@ void Env::select_mechanic_layout(uint64_t seed) {
     zone.terrain_surprise_strength = 0.0f;
     const float zone_difficulty = course_difficulty(config_.terrain.length * 0.5f);
     if (config_.fixed_biome_id < 0 &&
-        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
-                      (0.03f + 0.97f * zone_difficulty)) {
+        (endgame_test_world_ ||
+         u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
+                       (0.03f + 0.97f * zone_difficulty))) {
       zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
       zone.terrain_surprise_strength =
-          std::max(0.0f, config_.terrain_surprise_strength) *
+          (endgame_test_world_
+               ? std::max(1.50f, config_.terrain_surprise_strength * 1.40f)
+               : std::max(0.0f, config_.terrain_surprise_strength)) *
           (0.08f + 0.92f * zone_difficulty) * (0.75f + 0.5f * u(rng_));
     }
     zone.liquid_level = -1.0e9f;
@@ -584,11 +591,14 @@ void Env::select_mechanic_layout(uint64_t seed) {
                                   : (zone.begin_x + zone.end_x) * 0.5f;
     const float zone_difficulty = course_difficulty(zone_probe);
     if (config_.fixed_biome_id < 0 &&
-        u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
-                      (0.03f + 0.97f * zone_difficulty)) {
+        (endgame_test_world_ ||
+         u(rng_) < clamp(config_.terrain_surprise_probability, 0.0f, 1.0f) *
+                       (0.03f + 0.97f * zone_difficulty))) {
       zone.terrain_surprise_mode = 1 + static_cast<int>(u(rng_) * 4.0f) % 4;
       zone.terrain_surprise_strength =
-          std::max(0.0f, config_.terrain_surprise_strength) *
+          (endgame_test_world_
+               ? std::max(1.50f, config_.terrain_surprise_strength * 1.40f)
+               : std::max(0.0f, config_.terrain_surprise_strength)) *
           (0.08f + 0.92f * zone_difficulty) * (0.75f + 0.5f * u(rng_));
     }
     zone.liquid_level = -1.0e9f;
@@ -689,7 +699,9 @@ void Env::finalize_mechanic_layout() {
       if (zone.terrain_surprise_mode > 0) {
         const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 91);
         const float entrance = clamp(local_x / 3.0f, 0.0f, 1.0f);
-        const float spawn_safe = clamp((world_x - 5.0f) / 4.0f, 0.0f, 1.0f);
+        const float spawn_safe = endgame_test_world_
+                                     ? 1.0f
+                                     : clamp((world_x - 5.0f) / 4.0f, 0.0f, 1.0f);
         const float remaining = zone.end_x - world_x;
         const float exit = zone.end_x < 999999.0f
                                ? clamp(remaining / 3.0f, 0.0f, 1.0f)

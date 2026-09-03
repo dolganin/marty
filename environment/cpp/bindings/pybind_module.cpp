@@ -287,6 +287,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["course_difficulty"] = env.terrain().difficulty_at(state.body.position.x);
              d["endgame_test_world"] = env.config().biome_split == 2;
              d["safe_start_m"] = env.terrain().safe_start_fraction() * env.terrain().length();
+             d["generated_pit_count"] = env.terrain().generated_pit_count();
+             d["generated_step_count"] = env.terrain().generated_step_count();
              d["terrain_profile"] = zone.terrain_profile;
              d["terrain_frequency_scale"] = zone.terrain_frequency_scale;
              d["y"] = state.body.position.y;
@@ -340,6 +342,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                  ? state.clutch_engagement / 10.0f
                  : (1.0f - state.clutch_engagement) / 3.5f;
              d["drivetrain_slip"] = state.drivetrain_slip;
+             py::list wheel_angular_velocities;
+             for (int i = 0; i < state.wheel_count; ++i) {
+               wheel_angular_velocities.append(state.wheels[static_cast<size_t>(i)].angular_velocity);
+             }
+             d["wheel_angular_velocities"] = wheel_angular_velocities;
              d["solar_panel_requested"] = state.solar_panel_requested;
              d["solar_panel_deployment"] = state.solar_panel_deployment;
              d["charging_active"] = state.charging_active;

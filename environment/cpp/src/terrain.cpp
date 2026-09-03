@@ -63,7 +63,8 @@ void Terrain::generate(uint64_t seed) {
     const float t = mixture < 0.35f ? u : std::pow(u, 0.58f);
     return safe_end + 2.0f + t * std::max(1.0f, max_x - safe_end - 6.0f);
   };
-  for (int n = 0; n < step_count_; ++n) {
+  generated_step_count_ = std::max(0, step_count_);
+  for (int n = 0; n < generated_step_count_; ++n) {
     const float x0 = progressive_position();
     const float difficulty = difficulty_at(x0);
     const float width = 0.45f + (0.35f + 2.7f * difficulty) * unit_dist(rng);
@@ -78,18 +79,28 @@ void Terrain::generate(uint64_t seed) {
     }
   }
 
-  for (int n = 0; n < crater_count_; ++n) {
+  generated_pit_count_ = std::max(0, crater_count_);
+  for (int n = 0; n < generated_pit_count_; ++n) {
     const float cx = progressive_position();
     const float difficulty = difficulty_at(cx);
     // Very deep traps are deliberately narrow: momentum or a charged spring
     // can clear them, while crawling into one drops both axles into the bowl.
-    const bool deep_pit = unit_dist(rng) < 0.02f + 0.36f * difficulty * difficulty;
+    const float pit_draw = unit_dist(rng);
+    const bool deep_pit = pit_draw < 0.02f + 0.36f * difficulty * difficulty;
+    const bool broad_pit = !deep_pit && pit_draw < 0.24f + 0.52f * difficulty;
+    // Narrow deep pits reward a charged jump; broad pits test sustained
+    // traction and balance.  Endgame is dense without becoming one repeated
+    // bowl-shaped obstacle.
     const float radius = deep_pit
-        ? 0.65f + unit_dist(rng) * (0.20f + 0.25f * difficulty)
-        : 0.55f + difficulty * (0.85f + unit_dist(rng) * 3.1f);
+        ? 0.58f + unit_dist(rng) * (0.22f + 0.30f * difficulty)
+        : broad_pit
+            ? 1.20f + difficulty * (1.15f + unit_dist(rng) * 2.60f)
+            : 0.55f + difficulty * (0.85f + unit_dist(rng) * 3.1f);
     const float depth = deep_pit
         ? 1.50f + difficulty * (0.55f + unit_dist(rng) * 1.10f)
-        : amplitude_ * (0.08f + difficulty * (0.45f + 0.85f * unit_dist(rng)));
+        : broad_pit
+            ? amplitude_ * (0.24f + difficulty * (0.42f + 0.58f * unit_dist(rng)))
+            : amplitude_ * (0.08f + difficulty * (0.45f + 0.85f * unit_dist(rng)));
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;
