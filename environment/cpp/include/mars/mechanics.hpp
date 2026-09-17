@@ -36,7 +36,7 @@ struct GenerationInfluence {
 };
 
 // Frozen defaults mirror coupling_rules in biome_bank.json. Future reviewed
-// LLM rules use this same source -> target -> weight representation.
+// Coupling rules use this same source -> target -> weight representation.
 inline constexpr std::array<GenerationInfluence, 5> kGenerationInfluences{{
     {GenerationParameter::Moisture, GenerationParameter::Traction, -0.72f},
     {GenerationParameter::Sink, GenerationParameter::Traction, -0.58f},

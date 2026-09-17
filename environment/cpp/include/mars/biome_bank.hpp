@@ -148,7 +148,7 @@ class NormalBiome final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Normal; }
   BiomeVisuals visuals() const noexcept override { return {}; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
-    MechanicParams p; p.ambient_temperature = -65.0f + 30.0f * biome_random01(s);
+    MechanicParams p; p.ambient_temperature = -41.0f + 30.0f * biome_random01(s);
     p.thermal_transfer = 0.9f + 0.2f * biome_random01(s, 1);
     p.solar_charge_rate = 0.9f + 0.5f * biome_random01(s, 2); return p;
   }
@@ -165,7 +165,7 @@ class SandBiome final : public Biome {
     MechanicParams p; p.friction_mul = 0.50f + 0.28f * biome_random01(s);
     p.sink_rate = 0.018f + 0.035f * biome_random01(s, 1);
     p.energy_drain_mul = 1.25f + 0.65f * biome_random01(s, 2);
-    p.ambient_temperature = -25.0f + 20.0f * biome_random01(s, 3);
+    p.ambient_temperature = -1.0f + 20.0f * biome_random01(s, 3);
     p.thermal_transfer = 0.55f + 0.25f * biome_random01(s, 4);
     p.solar_charge_rate = 0.25f + 0.25f * biome_random01(s, 5); return p;
   }
@@ -199,7 +199,7 @@ class IceBiome final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.friction_mul = 0.18f + 0.20f * biome_random01(s);
-    p.ambient_temperature = -76.0f + 28.0f * biome_random01(s, 1);
+    p.ambient_temperature = -52.0f + 28.0f * biome_random01(s, 1);
     p.thermal_transfer = 1.6f + 0.5f * biome_random01(s, 2);
     p.solar_charge_rate = 2.2f + 0.8f * biome_random01(s, 3); return p;
   }
@@ -220,7 +220,7 @@ class MudBiome final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.friction_mul = 0.38f + 0.28f * biome_random01(s);
     p.viscosity = 1.5f + 4.0f * biome_random01(s, 1); p.energy_drain_mul = 1.5f + biome_random01(s, 2);
-    p.ambient_temperature = -55.0f + 25.0f * biome_random01(s, 3);
+    p.ambient_temperature = -31.0f + 25.0f * biome_random01(s, 3);
     p.thermal_transfer = 1.2f + 0.4f * biome_random01(s, 4);
     p.solar_charge_rate = 0.55f + 0.35f * biome_random01(s, 5); return p;
   }
@@ -254,7 +254,7 @@ class WindBiome final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Wind; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.wind_force = 5.0f + 10.0f * biome_random01(s);
-    p.ambient_temperature = -90.0f + 35.0f * biome_random01(s, 1);
+    p.ambient_temperature = -66.0f + 35.0f * biome_random01(s, 1);
     p.thermal_transfer = 1.9f + 0.6f * biome_random01(s, 2);
     p.solar_charge_rate = 0.65f + 0.35f * biome_random01(s, 3); return p;
   }
@@ -273,7 +273,7 @@ class LowGravityBiome final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::LowGravity; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.gravity_mul = 0.45f + 0.25f * biome_random01(s);
-    p.ambient_temperature = -70.0f + 30.0f * biome_random01(s, 1);
+    p.ambient_temperature = -46.0f + 30.0f * biome_random01(s, 1);
     p.thermal_transfer = 0.65f + 0.25f * biome_random01(s, 2);
     p.solar_charge_rate = 1.2f + 0.5f * biome_random01(s, 3); return p;
   }
@@ -293,7 +293,7 @@ class CrustBiome final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.friction_mul = 0.75f + 0.25f * biome_random01(s);
     p.crust_deform = 0.006f + 0.02f * biome_random01(s, 1);
-    p.ambient_temperature = -45.0f + 25.0f * biome_random01(s, 2);
+    p.ambient_temperature = -21.0f + 25.0f * biome_random01(s, 2);
     p.thermal_transfer = 0.7f + 0.25f * biome_random01(s, 3);
     p.solar_charge_rate = 1.1f + 0.5f * biome_random01(s, 4); return p;
   }
@@ -317,7 +317,7 @@ class LiquidBiome final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p; p.friction_mul = 0.35f + 0.20f * biome_random01(s);
     p.viscosity = 0.55f + 0.80f * biome_random01(s, 1); p.energy_drain_mul = 1.15f + 0.45f * biome_random01(s, 2);
-    p.ambient_temperature = -35.0f + 23.0f * biome_random01(s, 3);
+    p.ambient_temperature = -11.0f + 23.0f * biome_random01(s, 3);
     p.thermal_transfer = 4.0f + 1.5f * biome_random01(s, 4);
     p.solar_charge_rate = 0.25f + 0.25f * biome_random01(s, 5); return p;
   }
@@ -378,7 +378,7 @@ class MoltenWindowBiome : public Biome {
     MechanicParams p;
     p.friction_mul = 0.95f + 0.10f * biome_random01(s);
     p.crust_deform = 0.010f + 0.006f * biome_random01(s, 1);
-    p.ambient_temperature = 5.0f + 12.0f * biome_random01(s, 2);
+    p.ambient_temperature = 29.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 1.1f + 0.3f * biome_random01(s, 3);
     p.solar_charge_rate = 1.4f + 0.4f * biome_random01(s, 4);
 
@@ -480,7 +480,7 @@ class SetpointRimeShelf final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.85f + 0.15f * biome_random01(s);
-    p.ambient_temperature = -70.0f + 10.0f * biome_random01(s, 1);
+    p.ambient_temperature = -46.0f + 10.0f * biome_random01(s, 1);
     p.thermal_transfer = 1.6f + 0.4f * biome_random01(s, 2);
     p.solar_charge_rate = 0.9f + 0.3f * biome_random01(s, 3);
     p.energy_drain_mul = 1.05f + 0.15f * biome_random01(s, 4);
@@ -573,7 +573,7 @@ class CollapseWindowScarp final : public MoltenWindowBiome {
     MechanicParams p = MoltenWindowBiome::sample_params(s);
     p.friction_mul = 0.72f + 0.10f * biome_random01(s, 11);
     p.gravity_mul = 1.42f + 0.12f * biome_random01(s, 12);
-    p.ambient_temperature = -34.0f + 10.0f * biome_random01(s, 13);
+    p.ambient_temperature = -10.0f + 10.0f * biome_random01(s, 13);
     p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 14);
     p.solar_charge_rate = 0.55f + 0.20f * biome_random01(s, 15);
     p.terrain_amplitude_mul = 1.62f;
@@ -611,7 +611,7 @@ class CollapseWindowPlaya final : public MoltenWindowBiome {
     p.friction_mul = 1.22f + 0.14f * biome_random01(s, 11);
     p.gravity_mul = 0.74f + 0.08f * biome_random01(s, 12);
     p.viscosity = 0.45f + 0.20f * biome_random01(s, 13);
-    p.ambient_temperature = 26.0f + 12.0f * biome_random01(s, 14);
+    p.ambient_temperature = 50.0f + 12.0f * biome_random01(s, 14);
     p.thermal_transfer = 2.4f + 0.5f * biome_random01(s, 15);
     p.solar_charge_rate = 2.3f + 0.4f * biome_random01(s, 16);
     p.terrain_amplitude_mul = 0.62f;
@@ -650,7 +650,7 @@ class SpeedBandTalus final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.90f + 0.12f * biome_random01(s);
     p.crust_deform = 0.012f + 0.006f * biome_random01(s, 1);
-    p.ambient_temperature = -20.0f + 15.0f * biome_random01(s, 2);
+    p.ambient_temperature = 4.0f + 15.0f * biome_random01(s, 2);
     p.thermal_transfer = 1.0f + 0.3f * biome_random01(s, 3);
     p.solar_charge_rate = 1.2f + 0.4f * biome_random01(s, 4);
     p.lidar_range_mul = 0.40f;
@@ -728,7 +728,7 @@ class SlipPhasePan final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 1.15f + 0.20f * biome_random01(s);
-    p.ambient_temperature = -8.0f + 16.0f * biome_random01(s, 1);
+    p.ambient_temperature = 16.0f + 16.0f * biome_random01(s, 1);
     p.thermal_transfer = 0.65f + 0.25f * biome_random01(s, 2);
     p.solar_charge_rate = 1.7f + 0.5f * biome_random01(s, 3);
     p.energy_drain_mul = 1.05f + 0.15f * biome_random01(s, 4);
@@ -822,7 +822,7 @@ class SolarWindowPan final : public Biome {
     MechanicParams p;
     p.friction_mul = 1.02f + 0.12f * biome_random01(s);
     p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 1);
-    p.ambient_temperature = 16.0f + 12.0f * biome_random01(s, 2);
+    p.ambient_temperature = 40.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 1.45f + 0.35f * biome_random01(s, 3);
 
     p.solar_charge_rate = 0.18f + 0.10f * biome_random01(s, 4);
@@ -890,7 +890,7 @@ class PulseGravityReef final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.68f + 0.12f * biome_random01(s);
     p.gravity_mul = 0.55f + 0.10f * biome_random01(s, 1);
-    p.ambient_temperature = -52.0f + 12.0f * biome_random01(s, 2);
+    p.ambient_temperature = -28.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 0.75f + 0.20f * biome_random01(s, 3);
     p.solar_charge_rate = 1.35f + 0.35f * biome_random01(s, 4);
     p.energy_drain_mul = 0.95f + 0.15f * biome_random01(s, 5);
@@ -964,13 +964,13 @@ class CadenceDuneBelt final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.58f + 0.12f * biome_random01(s);
     p.sink_rate = 0.042f + 0.014f * biome_random01(s, 1);
-    p.ambient_temperature = 34.0f + 16.0f * biome_random01(s, 2);
+    p.ambient_temperature = 58.0f + 16.0f * biome_random01(s, 2);
     p.thermal_transfer = 2.10f + 0.40f * biome_random01(s, 3);
     p.solar_charge_rate = 1.05f + 0.35f * biome_random01(s, 4);
     p.energy_drain_mul = 1.20f + 0.20f * biome_random01(s, 5);
     p.lidar_range_mul = 0.34f;
     p.lidar_energy_mul = 2.3f;
-    p.gravity_mul = 1.18f + 0.10f * biome_random01(s, 6);
+    p.gravity_mul = 1.30f + 0.20f * biome_random01(s, 6);
     p.wind_force = 2.6f + 0.8f * biome_random01(s, 7);
     p.terrain_amplitude_mul = 1.20f;
     p.terrain_roughness_mul = 1.90f;
@@ -1042,7 +1042,7 @@ class CommitmentLedgeField final : public Biome {
     p.friction_mul = 1.15f + 0.10f * biome_random01(s);
     p.gravity_mul = 0.92f + 0.06f * biome_random01(s, 1);
     p.energy_drain_mul = 0.85f + 0.10f * biome_random01(s, 2);
-    p.ambient_temperature = -42.0f + 8.0f * biome_random01(s, 3);
+    p.ambient_temperature = -18.0f + 8.0f * biome_random01(s, 3);
     p.thermal_transfer = 0.9f + 0.2f * biome_random01(s, 4);
     p.solar_charge_rate = 1.2f + 0.2f * biome_random01(s, 5);
     p.lidar_energy_mul = 0.30f;
@@ -1110,7 +1110,7 @@ class LateralShearBelt final : public Biome {
     p.energy_drain_mul = 1.35f + 0.25f * biome_random01(s, 2);
     p.wind_force = 4.0f + 2.0f * biome_random01(s, 3);
 
-    p.ambient_temperature = -55.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -31.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.60f + 0.20f * biome_random01(s, 5);
     p.solar_charge_rate = 0.10f + 0.06f * biome_random01(s, 6);
     p.gravity_mul = 1.05f + 0.08f * biome_random01(s, 7);
@@ -1279,7 +1279,7 @@ class HysteresisSurgeBog final : public Biome {
     p.energy_drain_mul = 1.60f + 0.45f * biome_random01(s, 3);
     p.wind_force = 0.0f;
 
-    p.ambient_temperature = -25.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -1.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 2.2f + 0.5f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.04f * biome_random01(s, 6);
     p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 7);
@@ -1456,7 +1456,7 @@ class GravityShelfLug final : public Biome {
     p.energy_drain_mul = 1.10f + 0.15f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = -70.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -46.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.50f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.85f + 0.10f * biome_random01(s, 7);
@@ -1627,7 +1627,7 @@ class ThermalSurgeRelay final : public Biome {
     p.energy_drain_mul = 1.25f + 0.25f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.5f * biome_random01(s, 4);
 
-    p.ambient_temperature = 48.0f + 12.0f * biome_random01(s, 5);
+    p.ambient_temperature = 58.0f + 12.0f * biome_random01(s, 5);
     p.thermal_transfer = 3.4f + 0.6f * biome_random01(s, 6);
     p.solar_charge_rate = 0.12f + 0.06f * biome_random01(s, 7);
     p.gravity_mul = 0.90f + 0.10f * biome_random01(s, 8);
@@ -1771,7 +1771,7 @@ class RimeQuarryDawn final : public Biome {
     p.energy_drain_mul = 1.20f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = -95.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -58.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.4f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.55f + 0.15f * biome_random01(s, 7);
@@ -1945,7 +1945,7 @@ class GravityShearEscarpment final : public Biome {
     p.energy_drain_mul = 1.15f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.8f + 0.6f * biome_random01(s, 3);
 
-    p.ambient_temperature = -80.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -56.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.55f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.60f + 0.15f * biome_random01(s, 7);
@@ -2124,7 +2124,7 @@ class EbbTractionDark final : public Biome {
     p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = -90.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -56.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.2f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.03f + 0.02f * biome_random01(s, 6);
     p.gravity_mul = 1.00f + 0.08f * biome_random01(s, 7);
@@ -2307,7 +2307,7 @@ class BakeCycleBasaltFan final : public Biome {
     p.energy_drain_mul = 1.15f + 0.20f * biome_random01(s, 2);
     p.wind_force = 2.5f + 1.0f * biome_random01(s, 3);
 
-    p.ambient_temperature = 52.0f + 18.0f * biome_random01(s, 4);
+    p.ambient_temperature = 54.0f + 18.0f * biome_random01(s, 4);
     p.thermal_transfer = 2.9f + 0.6f * biome_random01(s, 5);
     p.solar_charge_rate = 0.06f + 0.04f * biome_random01(s, 6);
     p.gravity_mul = 1.02f + 0.08f * biome_random01(s, 7);
@@ -2458,7 +2458,7 @@ class ReversibleMomentumLagoon final : public Biome {
     p.energy_drain_mul = 1.30f + 0.25f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.3f * biome_random01(s, 4);
 
-    p.ambient_temperature = 12.0f + 14.0f * biome_random01(s, 5);
+    p.ambient_temperature = 36.0f + 14.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.4f + 0.4f * biome_random01(s, 6);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 7);
     p.gravity_mul = 0.95f + 0.10f * biome_random01(s, 8);
@@ -2649,7 +2649,7 @@ class MassSwingFetch final : public Biome {
     p.energy_drain_mul = 1.10f + 0.15f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = -76.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -52.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.55f + 0.15f * biome_random01(s, 5);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.55f + 0.15f * biome_random01(s, 7);
@@ -2803,7 +2803,7 @@ class BatteryBayTycho final : public Biome {
     p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = 24.0f + 14.0f * biome_random01(s, 4);
+    p.ambient_temperature = 48.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.3f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.10f + 0.06f * biome_random01(s, 6);
     p.gravity_mul = 1.00f + 0.08f * biome_random01(s, 7);
@@ -2950,7 +2950,7 @@ class ShatterStepBerm final : public Biome {
     p.energy_drain_mul = 1.18f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.6f * biome_random01(s, 3);
 
-    p.ambient_temperature = -70.0f + 14.0f * biome_random01(s, 4);
+    p.ambient_temperature = -46.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 0.65f + 0.20f * biome_random01(s, 5);
     p.solar_charge_rate = 0.05f + 0.03f * biome_random01(s, 6);
     p.gravity_mul = 0.98f + 0.08f * biome_random01(s, 7);
@@ -3156,7 +3156,7 @@ class FathomDraftFlux final : public Biome {
     p.energy_drain_mul = 1.50f + 0.30f * biome_random01(s, 3);
     p.wind_force = 0.2f + 0.3f * biome_random01(s, 4);
 
-    p.ambient_temperature = -30.0f + 15.0f * biome_random01(s, 5);
+    p.ambient_temperature = -6.0f + 15.0f * biome_random01(s, 5);
     p.thermal_transfer = 2.6f + 0.5f * biome_random01(s, 6);
     p.solar_charge_rate = 0.04f + 0.03f * biome_random01(s, 7);
     p.gravity_mul = 0.92f + 0.08f * biome_random01(s, 8);
@@ -3349,7 +3349,7 @@ class GripInversionScree final : public Biome {
     p.energy_drain_mul = 1.40f + 0.20f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
-    p.ambient_temperature = -85.0f + 15.0f * biome_random01(s, 4);
+    p.ambient_temperature = -55.0f + 15.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.1f + 0.3f * biome_random01(s, 5);
     p.solar_charge_rate = 0.03f + 0.02f * biome_random01(s, 6);
     p.gravity_mul = 1.02f + 0.06f * biome_random01(s, 7);

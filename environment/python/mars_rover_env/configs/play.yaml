@@ -70,7 +70,7 @@ physics:
 termination:
   finish_x: 700.0
   max_steps: 0
-  trial_time_limit: 600.0
+  trial_time_limit: 300.0
   flip_angle: 2.45
   min_energy: 0.0
   stuck_steps: 600

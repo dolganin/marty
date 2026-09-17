@@ -1,0 +1,149 @@
+# Песочница для настройки среды и отбора сложных трасс.
+#
+# Как пользоваться:
+#   .venv/bin/python -m mars_rover_env.tools.play --config configs/tuning.yaml --debug --seed 7
+#   MarsRoverEnv(config_path="configs/tuning.yaml")
+#   MarsRoverVecEnv(256, config_path="configs/tuning.yaml")
+#
+# ВАЖНО: файл конфига НЕ наследует env.yaml. Всё, чего здесь нет, берётся из
+# дефолтов C++ (EnvConfig), а не из env.yaml. Поэтому файл полный: все ключи,
+# которые читает загрузчик (mars_rover_env/config.py), перечислены явно.
+# Значения совпадают с текущим env.yaml, так что как есть он воспроизводит
+# обучающую среду, и от неё можно двигаться.
+#
+# Ключи, которых здесь нет, загрузчик молча игнорирует: опечатка не упадёт с
+# ошибкой, а просто ничего не изменит. Если правка не дала эффекта, сверьтесь
+# со списком в config.py.
+
+env:
+  # Сколько "жизней" в трайле. В v13 эпизод не завершается сам, поэтому на
+  # длину заезда это не влияет; нужно RL2 и depth_gate (требуют >= 2).
+  episodes_per_trial: 8
+
+  # 0 - встроенные, 1 - train, 2 - held-out test, 3 - якорные.
+  biome_split: 1
+  # >= 0 - зафиксировать один биом по индексу каталога (см. play, он печатает
+  # каталог при старте). -1 - выбирать по seed. Заметьте: индекс считается
+  # внутри выбранного сплита.
+  fixed_biome_id: -1
+  debug: false
+
+  # --- Состав трассы. Главные ручки сложности ---
+  # false - весь заезд в одном биоме; true - цепочка зон.
+  chain_biomes: true
+  # Больше зон при той же длине - чаще смена режима, меньше времени на
+  # подстройку под каждый. Это прямой рычаг "нужна ли адаптация".
+  chain_zone_count: 14
+  chain_segment_min_length: 30.0
+  chain_segment_max_length: 70.0
+  # Вероятность локального сюрприза рельефа в зоне. Фактическая вероятность
+  # умножается на сложность в этой точке трассы (0.03 + 0.97 * difficulty),
+  # поэтому в начале трассы сюрпризы редки даже при 1.0.
+  terrain_surprise_probability: 0.4
+  terrain_surprise_strength: 1.0
+
+  # --- Темп нарастания сложности вдоль трассы ---
+  # Доля трассы в начале, которая остаётся спокойной.
+  difficulty_safe_fraction_min: 0.02
+  difficulty_safe_fraction_max: 0.02
+  # < 1 - сложность растёт быстро в начале; > 1 - долгий пологий разгон.
+  difficulty_exponent: 0.7125
+  terrain_profile_frequency_growth: 0.75
+
+terrain:
+  # sample_count * dx - физическая длина массива высот в метрах.
+  sample_count: 80000
+  dx: 0.25
+  base_height: 0.0
+  # Амплитуда, шероховатость, число кратеров и ступеней - базовый рельеф
+  # до того, как биомы добавят свою геометрию.
+  amplitude: 0.6
+  roughness: 0.45
+  crater_count: 44
+  step_count: 20
+  # Знаменатель ТОЛЬКО для темпа сложности, не физическая длина. Меньше
+  # значение - полная сложность достигается раньше по дистанции. Именно этим
+  # удобно подтягивать уступы и сюрпризы в зону досягаемости за заезд.
+  length: 420.0
+  safe_start_fraction: 0.02
+  difficulty_exponent: 0.7125
+  difficulty_distance_offset: 0.0
+  preserve_spawn_safety: true
+
+physics:
+  dt: 0.016666667
+  gravity: -3.71
+  # Базовое сцепление до множителей биома.
+  wheel_friction: 1.2
+  motor_torque: 91.125
+  final_drive_ratio: 4.5
+  engine_inertia: 0.48
+  engine_drag_torque: 7.0
+  clutch_sync_rate: 3200.0
+  shift_energy_base: 0.75
+  shift_energy_sync_per_krpm: 0.32
+
+  # --- Тепло двигателя ---
+  initial_engine_temperature: 20.0
+  cold_start_temperature: -25.0
+  minimum_operating_temperature: -38.0
+  full_power_temperature: 65.0
+  overheat_temperature: 115.0
+  overheat_restart_temperature: 92.0
+  engine_thermal_mass: 8.0
+  engine_idle_heat: 2.2
+  engine_heat_per_fuel: 3.0
+  engine_cooling_conductance: 0.10
+  engine_cooling_airflow: 0.08
+  engine_heater_energy_rate: 0.15
+  engine_heater_heat: 18.0
+
+  # --- Энергия ---
+  initial_energy: 100.0
+  energy_capacity: 130.0
+
+  # --- Панель и лидар ---
+  panel_deploy_time: 1.0
+  panel_retract_time: 0.5
+  lidar_energy_cost: 0.65
+  lidar_scan_duration: 2.0
+  lidar_cooldown: 1.25
+  lidar_base_range: 24.0
+  # Ближняя зона видна всегда, без лидара. Уменьшите, чтобы разведка
+  # лидаром стала обязательной.
+  near_sense_range: 3.0
+
+  brake_strength: 20.0
+  body_tilt_torque: 8.0
+  # env.yaml их не задаёт, это дефолты движка (в play.yaml они другие).
+  linear_damping: 0.01
+  angular_damping: 0.02
+
+  # --- Приземления после прыжков с уступов ---
+  safe_landing_speed: 4.0
+  safe_landing_angle: 0.55
+  ballistic_min_air_steps: 6
+  fatal_landing_flip_angle: 2.35
+
+termination:
+  # В v13 финиша нет. Положительное значение включает старую логику и,
+  # помимо прочего, обрезает поле уступов по этой координате.
+  finish_x: 0.0
+  # Читается ТОЛЬКО когда trial_time_limit <= 0. Страховка от бесконечного
+  # эпизода, не лимит заезда.
+  max_steps: 18000
+  # Длина заезда в секундах. 300 с = 18000 шагов при dt = 1/60.
+  trial_time_limit: 300.0
+  flip_angle: 2.2
+  min_energy: 0.0
+  stuck_steps: 600
+  fatal_fall_y: -8.0
+
+reward:
+  progress_scale: 1.0
+  energy_cost_scale: 0.01
+  flip_penalty: 5.0
+  stuck_penalty: 0.05
+  hard_contact_penalty: 0.2
+  # Инертен: в v13 заезд никогда не помечается как finished.
+  finish_bonus: 0.0

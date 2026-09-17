@@ -85,7 +85,9 @@ void apply_generation_influences(MechanicParams& p) {
 
   p.moisture = clamp(p.moisture, 0.0f, 1.0f);
   p.sink_rate = clamp(p.sink_rate, 0.0f, 1.0f);
-  p.gravity_mul = clamp(p.gravity_mul, 0.45f, 1.35f);
+  // Wide on purpose: gravity is a regime of its own, and overlapping layers
+  // must be able to reach the extremes instead of being clipped into sameness.
+  p.gravity_mul = clamp(p.gravity_mul, 0.25f, 1.60f);
   p.wind_force = clamp(p.wind_force, -80.0f, 80.0f);
   p.ambient_temperature = clamp(p.ambient_temperature, -58.0f, 72.0f);
   p.solar_charge_rate = clamp(p.solar_charge_rate, 0.0f, 3.0f);
@@ -95,9 +97,9 @@ void apply_generation_influences(MechanicParams& p) {
 
 void prepare_generation_params(MechanicParams& p, MechanicType type, uint64_t seed) {
   p.moisture = sampled_moisture(type, seed);
-  // Existing biome temperatures were authored before the global +24 C shift.
-  // Store actual post-shift Celsius in every prepared zone from now on.
-  p.ambient_temperature = clamp(p.ambient_temperature + 24.0f, -58.0f, 72.0f);
+  // Biome ranges are authored in real post-shift Celsius; the window here is
+  // also the normalization window used by the influence graph.
+  p.ambient_temperature = clamp(p.ambient_temperature, -58.0f, 72.0f);
   p.base_friction_mul = clamp(p.friction_mul, 0.12f, 1.45f);
   // Previously dry zones used an exact zero. A small seeded carrier viscosity
   // gives the negative temperature edge room to vary instead of immediately

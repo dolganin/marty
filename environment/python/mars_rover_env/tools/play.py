@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import random
 import time
 from pathlib import Path
@@ -487,26 +486,10 @@ def main() -> None:
         "--split", choices=("train", "test"), default="train",
         help="train uses the progressive course; test starts in the held-out endgame world",
     )
-    parser.add_argument(
-        "--request-rules", type=int, default=0, metavar="N",
-        help="request N structured rule candidates through the configured OpenAI endpoint before opening HUD",
-    )
-    parser.add_argument(
-        "--rules-output", default="artifacts/candidates.json",
-        help="path for candidates requested by --request-rules",
-    )
     args = parser.parse_args()
     if args.seed is None:
         args.seed = random.randint(0, 2**31 - 1)
         print(f"No --seed given; using random seed={args.seed} (pass --seed to pin a world)")
-    if args.request_rules:
-        from mars_rover_env.rule_request import request_rules
-
-        candidates = request_rules(args.request_rules)
-        output = Path(args.rules_output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(candidates, indent=2) + "\n", encoding="utf-8")
-        print(f"Wrote {len(candidates)} rule candidates to {output}")
     ManualPlayer(args).run()
 
 

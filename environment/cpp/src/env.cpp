@@ -134,6 +134,13 @@ StepOutput Env::step(int action, float* obs_out) {
   StepOutput out{};
   out.terminated = false;
   out.truncated = trial_exhausted();
+  // v13 bounds a run by the shared clock. max_steps is only a safety net for
+  // configurations that disable that clock, so an episode cannot run forever.
+  if (!out.truncated && config_.termination.trial_time_limit <= 0.0f &&
+      config_.termination.max_steps > 0 &&
+      state_.step_index + 1 >= config_.termination.max_steps) {
+    out.truncated = true;
+  }
   state_.termination_reason = 0;
   if (out.truncated) state_.termination_reason = 7;
   out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, fatal, stuck);
@@ -752,8 +759,12 @@ void Env::finalize_mechanic_layout() {
     }
     if (zone.params.ledge_gap_width > 0.0f && zone.params.ledge_spacing > 0.0f) {
       const float zone_start = std::max(zone.begin_x, zone.params.ledge_start_x);
-      const float last_ledge = std::min({config_.termination.finish_x - 4.0f,
-                                         terrain_.length() - 4.0f, zone.end_x - 4.0f});
+      // v13 has no finish line (finish_x = 0), so it must not bound the ledge
+      // field - otherwise the limit goes negative and no ledge is ever carved.
+      float last_ledge = std::min(terrain_.length() - 4.0f, zone.end_x - 4.0f);
+      if (config_.termination.finish_x > 0.0f) {
+        last_ledge = std::min(last_ledge, config_.termination.finish_x - 4.0f);
+      }
       for (float begin = zone_start; begin < last_ledge; begin += zone.params.ledge_spacing) {
         const float difficulty = terrain_.difficulty_at(begin);
         if (difficulty < 0.08f) continue;

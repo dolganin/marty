@@ -1,8 +1,7 @@
 """Offline, reviewable generation-time influence graph for biome banks.
 
-Rules are data, never model-generated C++: an LLM may propose source -> target
-edges, but validation keeps the accepted graph deterministic, acyclic and
-bounded. Incoming contributions are summed and compressed with signed log1p.
+Rules are data, never C++ code: source -> target edges are validated so the accepted graph stays
+deterministic, acyclic and bounded. Incoming contributions are summed and compressed with signed log1p.
 """
 from __future__ import annotations
 
