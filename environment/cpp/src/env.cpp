@@ -42,8 +42,8 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   scaled_terrain.safe_start_fraction = difficulty_safe_fraction_;
   scaled_terrain.difficulty_exponent = config_.difficulty_exponent;
   if (endgame_test_world_) {
-    // Test is a held-out endgame probe, not another progressive training
-    // course. Generate every metre from the far-distance distribution.
+
+
     scaled_terrain.safe_start_fraction = 0.0f;
     const float physical_length = std::max(
         scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
@@ -110,9 +110,9 @@ StepOutput Env::step(int action, float* obs_out) {
       if (deform_scale > 0.0f) {
         float amount = deform_scale * c.penetration;
         if (zone.type == MechanicType::Sand && c.drive_effort > 0.05f) {
-          // Direct time-based rutting is the missing accumulation term: the
-          // old penetration-only rule converged as the ground followed the
-          // tyre, so spinning in place merely polished the profile.
+
+
+
           amount += zone.params.sink_rate * config_.physics.dt *
                     (0.25f + 0.95f * c.drive_effort +
                      2.10f * clamp(c.slip, 0.0f, 1.5f));
@@ -124,8 +124,8 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   state_.damage += stats.hard_contact > 1500.0f ? (stats.hard_contact - 1500.0f) * 0.000001f : 0.0f;
 
-  // A run ends only on the fixed two-minute timer.  Falls, flips and empty
-  // batteries are costly states to recover from, never terminal shortcuts.
+
+
   const bool finished = false;
   const bool flipped = is_flipped();
   const bool fatal = false;
@@ -142,8 +142,8 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   const bool stuck = false;
   trial_steps_used_ += 1;
-  // Only a bottomless gap counts as a fall.  A crater has a floor, so the rover
-  // is expected to climb out of it on its own rather than be lifted clear.
+
+
   if (state_.body.position.y < config_.termination.fatal_fall_y) {
     const float pit_recovery_x = terrain_.next_solid_x(state_.body.position.x, 2.5f);
     recover_from_pit(pit_recovery_x);
@@ -156,8 +156,8 @@ StepOutput Env::step(int action, float* obs_out) {
   StepOutput out{};
   out.terminated = false;
   out.truncated = trial_exhausted();
-  // v13 bounds a run by the shared clock. max_steps is only a safety net for
-  // configurations that disable that clock, so an episode cannot run forever.
+
+
   if (!out.truncated && config_.termination.trial_time_limit <= 0.0f &&
       config_.termination.max_steps > 0 &&
       state_.step_index + 1 >= config_.termination.max_steps) {
@@ -305,8 +305,8 @@ void Env::build_observation(float* obs_out) const {
                                            wheel_rig.suspension.min_length);
     obs_out[k++] = clamp((wheel_rig.suspension.max_length - travel) / span, 0.0f, 1.0f);
   }
-  // Observable organs and contact history; hidden layer IDs/order and latent
-  // values intentionally do not appear here.
+
+
   obs_out[k++] = state_.climb_mode ? 1.0f : 0.0f;
   obs_out[k++] = state_.propeller_mode ? 1.0f : 0.0f;
   obs_out[k++] = state_.jump_cooldown_steps * config_.physics.dt;
@@ -330,9 +330,9 @@ void Env::update_world_latents() {
   const int n = mechanic_layout_.active_layers(state_.body.position.x, active);
   state_.active_layer_count = n;
   float weight_sum = 0.0f;
-  // Blend sampled sources and uncoupled target bases first. The influence graph
-  // is then evaluated once, so overlapping layers contribute to one summed,
-  // logarithmically saturated adjustment rather than being coupled separately.
+
+
+
   MechanicParams mixed{};
   mixed.moisture = 0.22f;
   mixed.ambient_temperature = -21.0f;
@@ -362,6 +362,9 @@ void Env::update_world_latents() {
     mixed.lidar_range_mul += w * (p.lidar_range_mul - 1.0f);
   }
   apply_generation_influences(mixed);
+  const auto& current_zone = mechanic_layout_.at(state_.body.position.x);
+  mixed.lidar_range_mul = std::min(mixed.lidar_range_mul,
+                                   current_zone.params.lidar_range_mul);
   state_.latent_moisture = mixed.moisture;
   state_.latent_heat = clamp((mixed.ambient_temperature + 58.0f) / 130.0f, 0.0f, 1.0f);
   state_.latent_viscosity = mixed.viscosity;
@@ -432,8 +435,8 @@ void Env::select_mechanic_layout(uint64_t seed) {
   const bool force_evaluation_stack = evaluation_stack.count > 0;
   const auto build_layers = [&]() {
     mechanic_layout_.layer_count = 0;
-    // Physical regions span 55–120m, with 1–4 rules simultaneously
-    // active.  They are independent from the contiguous terrain carrier zones.
+
+
     std::uniform_real_distribution<float> region_length(55.0f, 120.0f);
     float begin = -20.0f;
     const auto id_for_type = [&](MechanicType type) {
@@ -470,9 +473,9 @@ void Env::select_mechanic_layout(uint64_t seed) {
           ? evaluation_stack
           : kFrozenMechanismStacks[static_cast<size_t>(
                 allowed[static_cast<size_t>(rng_() % static_cast<uint64_t>(allowed_count))])];
-      // An offline candidate evaluation must exercise every proposed
-      // mechanism, including at the spawn region.  Production sampling keeps
-      // its difficulty-dependent calm regions because the override is off.
+
+
+
       const bool calm_region = !force_evaluation_stack && u(rng_) > difficulty;
       const int stack = calm_region ? 1 : approved.count;
       for (int j = 0; j < stack && mechanic_layout_.layer_count < kMaxMechanicZones; ++j) {
@@ -588,8 +591,8 @@ void Env::select_mechanic_layout(uint64_t seed) {
         candidate = pool[pool_cursor % pool.size()];
       }
     }
-    // Water is a progressive mixture component rather than merely one of the
-    // shuffled anchors. Keep the opening readable and avoid adjacent basins.
+
+
     const int liquid_id = builtin_biome_id(MechanicType::Liquid);
     const bool previous_was_liquid =
         previous_id >= 0 && bank[static_cast<size_t>(previous_id)]->visual_type() ==
@@ -677,10 +680,10 @@ void Env::finalize_mechanic_layout() {
         1.0f + std::max(0.0f, config_.terrain_profile_frequency_growth) * zone_difficulty;
     zone.terrain_profile = profile;
     zone.terrain_frequency_scale = frequency_scale;
-    // Jaggedness is a held-out surface modifier: train courses stay smooth, so
-    // a policy that only ever learned clean ground meets it for the first time
-    // in the endgame world.  The kind is drawn per zone, the size grows with
-    // the difficulty ramp.
+
+
+
+
     zone.jagged_mode = 0;
     zone.jagged_amplitude = 0.0f;
     const float jagged_scale = std::max(0.0f, config_.terrain.jagged_scale);
@@ -695,12 +698,19 @@ void Env::finalize_mechanic_layout() {
     const int last_sample = std::min(
         terrain_.sample_count() - 1,
         static_cast<int>(std::floor(std::min(terrain_.length(), zone.end_x) / terrain_.dx())));
+    if (zone.params.lidar_range_mul <= 0.0f) {
+      terrain_.flatten_region(std::max(0.0f, zone.begin_x),
+                              std::min(terrain_.length(), zone.end_x));
+      zone.terrain_surprise_mode = 0;
+      zone.jagged_mode = 0;
+      zone.jagged_amplitude = 0.0f;
+    }
     for (int sample = first_sample; sample <= last_sample; ++sample) {
       const float world_x = static_cast<float>(sample) * terrain_.dx();
       const float local_x = world_x - zone.begin_x;
-      // Profile category is sampled once per zone. Distance shifts mass from
-      // predictable waves toward terraces/ridges; frequency increases
-      // independently, while amplitude retains the central difficulty scale.
+
+
+
       const float difficulty = terrain_.difficulty_at(world_x);
       const float phase = 6.2831853f * biome_random01(zone.terrain_seed, 17);
       float palette_delta = 0.0f;
@@ -709,7 +719,7 @@ void Env::finalize_mechanic_layout() {
           palette_delta = 0.22f * std::sin(local_x * 0.07f * frequency_scale + phase) +
                           0.08f * std::sin(local_x * 0.71f * frequency_scale + phase * 0.37f);
           break;
-        case 1: { // deterministic value-noise interpolation, no global period
+        case 1: {
           const float cell = 3.8f / frequency_scale;
           const int a = static_cast<int>(std::floor(local_x / cell));
           const float t = local_x / cell - static_cast<float>(a);
@@ -746,24 +756,24 @@ void Env::finalize_mechanic_layout() {
       if (zone.jagged_mode > 0) {
         float jagged = 0.0f;
         switch (zone.jagged_mode) {
-          case 1: {  // washboard: regular ripples that punish carrying speed
+          case 1: {
             const float wavelength = 0.85f + 0.45f * biome_random01(zone.terrain_seed, 63);
             jagged = 0.045f * std::sin(6.2831853f * local_x / wavelength + phase);
             break;
           }
-          case 2: {  // scree: a different spike under every wheel placement
+          case 2: {
             jagged = (biome_random01(zone.terrain_seed,
                                      700 + static_cast<uint64_t>(sample)) -
                       0.5f) * 0.11f;
             break;
           }
-          case 3: {  // sawtooth: climbing against the teeth costs more than with them
+          case 3: {
             const float wavelength = 1.6f + 1.2f * biome_random01(zone.terrain_seed, 64);
             const float f = local_x / wavelength - std::floor(local_x / wavelength);
             jagged = (f - 0.5f) * 0.14f;
             break;
           }
-          default: {  // rubble: rare boulders instead of a continuous texture
+          default: {
             const float cell = 3.0f;
             const uint64_t block = static_cast<uint64_t>(std::floor(local_x / cell));
             if (biome_random01(zone.terrain_seed, 900 + block) > 0.72f) {
@@ -819,10 +829,10 @@ void Env::finalize_mechanic_layout() {
     }
     const float depth = pending_basin_depth_[static_cast<size_t>(slot)];
     if (depth >= 0.0f) {
-      // A chain of separate ponds rather than one basin stretched over the
-      // whole zone: an unbounded bowl has shores so shallow that the rover
-      // never gets wet.  All ponds in a zone share one water level, and their
-      // bottoms differ - one of them is a trap that cannot be driven out of.
+
+
+
+
       const float field_begin = std::max(0.0f, zone.begin_x) + 8.0f;
       const float field_end =
           std::min(std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x),
@@ -834,7 +844,7 @@ void Env::finalize_mechanic_layout() {
         const uint64_t pond_seed = zone.terrain_seed + 7919ULL * static_cast<uint64_t>(pond_index);
         const float length = 42.0f + 48.0f * biome_random01(pond_seed, 31);
         const float pond_end = std::min(field_end, pond_begin + length);
-        // Every third pond is the trap, the rest cycle through the open shapes.
+
         const int shape = pond_index % 3 == 2 ? 3 : static_cast<int>(
                               biome_random01(pond_seed, 32) * 3.0f) % 3;
         terrain_.carve_pond(pond_begin, pond_end, level,
@@ -845,8 +855,8 @@ void Env::finalize_mechanic_layout() {
     }
     if (zone.params.ledge_gap_width > 0.0f && zone.params.ledge_spacing > 0.0f) {
       const float zone_start = std::max(zone.begin_x, zone.params.ledge_start_x);
-      // v13 has no finish line (finish_x = 0), so it must not bound the ledge
-      // field - otherwise the limit goes negative and no ledge is ever carved.
+
+
       float last_ledge = std::min(terrain_.length() - 4.0f, zone.end_x - 4.0f);
       if (config_.termination.finish_x > 0.0f) {
         last_ledge = std::min(last_ledge, config_.termination.finish_x - 4.0f);
@@ -915,7 +925,7 @@ void Env::recover_from_pit(float recovery_x) {
     wheel.normal_force = 0.0f;
     wheel.slip = 0.0f;
   }
-  state_.previous_x = recovery_x;  // Never reward distance granted by recovery.
+  state_.previous_x = recovery_x;
   state_.airborne = false;
   state_.has_grounded = false;
   state_.airborne_steps = 0;

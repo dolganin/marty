@@ -16,7 +16,7 @@ def test_seed_is_deterministic_and_actions_are_extended() -> None:
     obs_left, _ = left.reset(seed=90210)
     obs_right, _ = right.reset(seed=90210)
     # The action space covers every control bit up to the ballast pair.
-    assert left.action_space.n == 1 << 23
+    assert left.action_space.n == 1 << 24
     assert obs_left.shape == obs_right.shape
     assert np.array_equal(obs_left, obs_right)
     for action in (1, 1 | 8192, 1 | 16384, 1 | 32768, 0):

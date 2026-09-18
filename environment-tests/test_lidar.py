@@ -1,6 +1,7 @@
 import numpy as np
 
 import mars_rover_env  # noqa: F401  (ensures the native module is importable)
+import _mars_rover_cpp
 from _mars_rover_cpp import EnvConfig, MarsRoverBatchEnv
 
 
@@ -89,6 +90,23 @@ def test_proprioception_and_environment_sensors_are_observable() -> None:
     assert np.all(np.abs(encoders) <= 4.0)
     suspension = obs[0, SUSPENSION_BEGIN : SUSPENSION_BEGIN + 8]
     assert np.all((suspension >= 0.0) & (suspension <= 1.0))
+
+
+def test_blind_traction_flats_has_no_active_lidar() -> None:
+    entry = next(item for item in _mars_rover_cpp.biome_catalog()
+                 if item["id"] == "blind_traction_flats")
+    config = EnvConfig()
+    config.biome_split = 2
+    config.fixed_biome_id = int(entry["index"])
+    config.chain_biomes = False
+    batch, _obs, step = _batch(config, seed=17)
+
+    before = dict(batch.debug_info(0))
+    after = step(1 << 11)
+    assert before["mechanic"] == "Blind Traction Flats"
+    assert after["lidar_active"]
+    assert after["lidar_range"] == 0.0
+    assert after["terrain_surprise_mode"] == 0
 
 
 def test_anchor_courses_receive_reproducible_rare_terrain_surprises() -> None:

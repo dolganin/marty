@@ -10,7 +10,7 @@
     "crust",
     "liquid"
   ],
-  "bank_version": "sha256:c3331c8f1ce7b3abb3b42cfb61b14c8555c7b18eb2dcb2fda962152a560563dd",
+  "bank_version": "sha256:8521dea9659864c0612ee9e5447b0aaf7dc9d5d279aa078cefad0f913db3f262",
   "behavioral_dedup_epsilon": 0.0971,
   "biomes": [
     {
@@ -63,34 +63,10 @@
     },
     {
       "behavior_fingerprint": null,
-      "class_name": "EbbTractionDark",
-      "id": "ebb_traction_dark",
+      "class_name": "BlindTractionFlats",
+      "id": "blind_traction_flats",
       "skill_stratum": "traction_loss",
       "source_sha256": "138234ea7fb218bd84b4371feaa8eb08b8050dbff51c8a0304dc86199e2f6f81",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "BakeCycleBasaltFan",
-      "id": "bake_cycle_basalt_fan",
-      "skill_stratum": "lateral_force",
-      "source_sha256": "438607eb15c7fc5fc5e86d07e7a8e7e898aef58b4c6e44631652d362356aafc9",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "ReversibleMomentumLagoon",
-      "id": "reversible_momentum_lagoon",
-      "skill_stratum": "inertia_hysteresis",
-      "source_sha256": "5c98cfb6419a25fa01f47f5d5925c7b368345fcebfe8f239e81288ec68058601",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "MassSwingFetch",
-      "id": "mass_swing_fetch",
-      "skill_stratum": "gravity_change",
-      "source_sha256": "7088c2ad1fe956c18f48524200c6615ed41864c1458b7536683f94ad9dcf4a41",
       "split": "test"
     },
     {
@@ -99,30 +75,6 @@
       "id": "battery_bay_tycho",
       "skill_stratum": "energy_mode",
       "source_sha256": "d184b14654a594ad74b7b055339525da8e2fa3498d9e68377e97c0ba2191f399",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "ShatterStepBerm",
-      "id": "shatter_step_berm",
-      "skill_stratum": "dynamic_obstacle",
-      "source_sha256": "31caf79d0de289b10e4948e4e95238e8c6c88f2d89aa2d981d252fc0bf6d75ab",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "FathomDraftFlux",
-      "id": "fathom_draft_flux",
-      "skill_stratum": "inertia_hysteresis",
-      "source_sha256": "c1d5250a9d57ae2faf4f7979932f6659d2ca0f595c596b0e399651b032b152e3",
-      "split": "test"
-    },
-    {
-      "behavior_fingerprint": null,
-      "class_name": "GripInversionScree",
-      "id": "grip_inversion_scree",
-      "skill_stratum": "traction_loss",
-      "source_sha256": "f4da6699497e005c734cda3ef31839bf784f189e774337c9ff664538d30b5600",
       "split": "test"
     }
   ],

@@ -35,8 +35,8 @@ struct GenerationInfluence {
   float weight;
 };
 
-// Frozen defaults mirror coupling_rules in biome_bank.json. Future reviewed
-// Coupling rules use this same source -> target -> weight representation.
+
+
 inline constexpr std::array<GenerationInfluence, 5> kGenerationInfluences{{
     {GenerationParameter::Moisture, GenerationParameter::Traction, -0.72f},
     {GenerationParameter::Sink, GenerationParameter::Traction, -0.58f},
@@ -59,20 +59,20 @@ struct MechanicParams {
   float solar_charge_rate = 1.0f;
   float lidar_energy_mul = 1.0f;
   float lidar_range_mul = 1.0f;
-  // Geysers: a zone with strength > 0 erupts every geyser_period seconds and
-  // throws whatever floats above it upwards.
+
+
   float geyser_strength = 0.0f;
   float geyser_period = 0.0f;
-  // Hard ground: restitution added at wheel contact, 0 keeps the soft default.
+
   float bounce = 0.0f;
-  // Scheduled gravity: the zone holds one seeded level per schedule_step
-  // seconds and then switches, so the level has to be tracked, not derived.
+
+
   float gravity_schedule_low = 0.0f;
   float gravity_schedule_high = 0.0f;
   float gravity_schedule_step = 0.0f;
 
-  // Sampled values retained so overlapping layers can be combined first and
-  // passed through the influence graph exactly once.
+
+
   float base_friction_mul = 1.0f;
   float base_viscosity = 0.0f;
   float base_energy_drain_mul = 1.0f;
@@ -109,7 +109,7 @@ struct MechanicZone {
   float terrain_surprise_strength = 0.0f;
   int terrain_profile = 0;
   float terrain_frequency_scale = 1.0f;
-  // Surface jaggedness: a held-out modifier, see Env::finalize_mechanic_layout.
+
   int jagged_mode = 0;
   float jagged_amplitude = 0.0f;
   MechanicParams params{};
@@ -119,8 +119,8 @@ struct MechanicZone {
 struct MechanicLayout {
   std::array<MechanicZone, kMaxMechanicZones> zones{};
   int count = 1;
-  // Terrain zones remain contiguous in zones. Layers are independent, overlapping
-  // physical mechanisms and intentionally have a deterministic order.
+
+
   std::array<MechanicZone, kMaxMechanicZones> layers{};
   int layer_count = 0;
 

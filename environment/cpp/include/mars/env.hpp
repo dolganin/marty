@@ -49,9 +49,9 @@ struct EnvConfig {
   float difficulty_exponent = 0.7125f;
   float terrain_profile_frequency_growth = 0.75f;
 
-  // Offline bank-growth evaluator only.  A non-zero value forces every
-  // generated region to use this candidate stack; released environments keep
-  // the default zero and can sample only kFrozenMechanismStacks.
+
+
+
   std::array<MechanicType, 4> evaluation_stack_types{};
   int evaluation_stack_count = 0;
 };

@@ -92,7 +92,7 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     assert first == second
     # Rebaselined for kinematic engine coupling, the rev-limited gears and the
     # six-speed progressive ladder.
-    assert _fingerprint(first) == "263a55410d72a09f1e7e7dbcbc7d0d06321fb873ba2f22dfcf180bd04743a5a4"
+    assert _fingerprint(first) == "c4d5da11505efc559e1cbaf903b5e777e21dcad0899a093d74009f5b70c2e561"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():

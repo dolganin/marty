@@ -6,21 +6,21 @@
 namespace mars {
 namespace {
 
-// Six gears, not eight: the old ladder topped out at 126 km/h, which needs
-// 7 s of clean flat ground to reach and never happens on a real course.  The
-// top gear keeps its logarithmic overspeed tail past the rated speed.
-// Progressive spacing, as a real gearbox is laid out: a very short first for
-// launching without spinning the tyres, then steps that close up (1.80, 1.44,
-// 1.31, 1.24, 1.19).  Road speed at the limiter then rises in even increments
-// instead of doubling every couple of gears.
+
+
+
+
+
+
+
 constexpr float kGearRatios[] = {12.30f, 7.40f, 5.30f, 4.10f, 3.36f, 2.85f};
-// The old range topped out at 13.5 m/s and made conservative crawling the
-// dominant strategy.  A 30% taller road-speed envelope makes momentum useful
-// on train and makes carrying too much of it into held-out hazards dangerous.
-// The rated road speed of a gear is what the gearing itself allows at the
-// limiter, not a separate table: the old fixed caps cut drive force at a third
-// of the achievable speed, so the rover sat on the limiter in first and could
-// never reach the road speed an upshift needed.
+
+
+
+
+
+
+
 constexpr float kMinimumLoadedRpm[] = {800.0f, 1350.0f, 1800.0f, 2300.0f,
                                        2800.0f, 3200.0f};
 constexpr float kGearEnergyMul[] = {1.00f, 1.15f, 1.34f, 1.58f, 1.90f, 2.30f};
@@ -206,9 +206,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       shift_up_pressed && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
   const bool powered_downshift_request =
       shift_down_pressed && std::abs(control.throttle) > 0.5f && !clutch_pedal_down;
-  // X/Z are edge-triggered requests. Holding a key must not turn the rover
-  // into a free automatic transmission; a request can only wait for its safe
-  // RPM window.
+
+
+
   const float clutch_target = state.shift_clutch_cut_steps > 0 ? 0.0f : control.clutch;
   const float clutch_rate = clutch_target > state.clutch_engagement ? 3.5f : 10.0f;
   state.clutch_engagement +=
@@ -231,17 +231,17 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   driven_wheel_radius /= std::max(1.0f, static_cast<float>(rig.wheels.size()));
   driven_wheel_radius = std::max(0.05f, driven_wheel_radius);
   constexpr float kRadPerSecToRpm = 60.0f / 6.28318530718f;
-  // The wheel encoder sees the compliant tyre/suspension side of the drive.
-  // This calibrated effective ratio retains a gradual loaded RPM rise at
-  // launch while keeping the useful shift window inside the rover's actual
-  // low-speed range.
-  // True kinematics: with the clutch closed the engine turns exactly as fast as
-  // the wheels do.  The old 1.73 fudge made the shift window believe in road
-  // speeds five times higher than the drivetrain could actually produce.
+
+
+
+
+
+
+
   constexpr float kEffectiveDrivelineRatio = 1.0f;
-  // A rover on Mars weighs little, so a modern gearbox can feed the wheels more
-  // force than the wheelbase can hold down: full throttle simply loops it onto
-  // its back.  Cap the drive at the tipping moment instead.
+
+
+
   float half_wheelbase = 0.65f;
   float com_height = 0.30f;
   for (const auto& wheel : rig.wheels) {
@@ -265,15 +265,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     return shift_speed / driven_wheel_radius * kGearRatios[gear_index] *
            config_.final_drive_ratio * kEffectiveDrivelineRatio * kRadPerSecToRpm;
   };
-  // Shifting is decided by engine speed, the way a driver does it: rev out the
-  // gear, take the next one, and only refuse when the next gear would bog.
+
+
   const float desired_post_shift_rpm =
       state.gear_index >= 0 && state.gear_index < kGearCount - 1
           ? 2200.0f + std::abs(control.throttle) * 250.0f + drivetrain_load * 600.0f
           : 2200.0f;
-  // Taller road gearing needs a slightly wider usable shift window. Keep the
-  // slope-sensitive floor, but do not make third gear unreachable on flat
-  // ground merely because the rover now covers more distance per revolution.
+
+
+
   const float minimum_post_shift_rpm = 1150.0f + drivetrain_load * 450.0f;
   float next_gear_rpm = kIdleRpm;
   float recommended_upshift_rpm = 0.0f;
@@ -291,8 +291,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   const bool upshift_speed_ok =
       state.gear_index < 0 || next_gear_rpm >= minimum_post_shift_rpm * 0.98f;
-  // Refuse a gear the load cannot hold: the next gear has to keep the engine
-  // above its own loaded floor, otherwise the shift just stalls the rover.
+
+
   const float next_gear_floor =
       state.gear_index >= 0 && state.gear_index < kGearCount - 1
           ? std::max(minimum_post_shift_rpm, kMinimumLoadedRpm[state.gear_index + 1])
@@ -404,8 +404,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   state.engine_cold_locked =
       state.engine_temperature < config_.cold_start_temperature;
-  // A flat battery stops the engine: there is no spark or starter without
-  // stored energy.  The rover then coasts and can only recover by charging.
+
+
   const bool battery_empty = state.energy <= 0.0f;
   if (state.engine_running && battery_empty) {
     state.engine_running = false;
@@ -482,13 +482,13 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float lug_factor = state.gear_index <= 0
                                ? 1.0f
                                : clamp((state.engine_rpm - 650.0f) / 1550.0f, 0.0f, 1.0f);
-  // A flat battery leaves only a genuinely limp mechanical creep. Read the
-  // battery directly here rather than the previous tick's latent snapshot.
+
+
   const float battery_fraction = clamp(
       state.energy / std::max(1.0f, config_.energy_capacity), 0.0f, 1.0f);
   const float reserve_power = 0.006f + 0.994f * std::sqrt(battery_fraction);
-  // Climb mode drives spikes out of the tyres. It remains expensive and locks
-  // shifting, but no longer turns every adverse surface into a safe crawl.
+
+
   const float climb_torque = state.climb_mode ? 1.05f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
@@ -559,14 +559,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
   float gravity = config_.gravity * state.latent_gravity_multiplier;
-  // Geysers belong to the water they erupt through, so they are read from the
-  // terrain zone like the liquid level itself, not from the layer latents.
-  // A short burst every geyser_period seconds, with no cue before it.
+  if (state.energy <= 0.0f) gravity *= 4.0f;
+
+
+
   constexpr float kGeyserBurstSeconds = 0.35f;
   const auto& geyser_zone = mechanics.at(state.body.position.x);
-  // Scheduled gravity: hold one seeded level per step, then cross-fade into the
-  // next one.  A schedule cannot be extrapolated from a formula the way a wave
-  // can, so the current level has to be read off the rover's own behaviour.
+
+
+
   const float schedule_step = geyser_zone.params.gravity_schedule_step;
   if (schedule_step > 0.0f) {
     const float elapsed = static_cast<float>(state.step_index) * dt;
@@ -608,15 +609,15 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const bool spiked_in = state.climb_mode && state.drivetrain_grounded;
   body_force.x += state.latent_wind_force * (spiked_in ? 0.2f : 1.0f);
   if (spiked_in) {
-    // Anchored to the ground, the rover carries a smaller share of its weight
-    // and bleeds off any speed it had built up.
+
+
     body_force.y += state.body.mass * -gravity * 0.4f;
     body_force.x -= state.body.velocity.x * state.body.mass * 0.75f;
   }
-  // Without stored energy the drivetrain cannot keep a rover planing forever on
-  // an old impulse, so a flat battery bleeds excess speed away and leaves only
-  // a crawl.  It applies only once the battery is actually empty: the previous
-  // version ran on every step and capped a fully charged rover at 1.85 m/s.
+
+
+
+
   if (state.energy <= 0.0f) {
     constexpr float kLimpSpeedLimit = 0.35f;
     const float excess_speed =
@@ -637,10 +638,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     body_torque += cross(rotate({0.0f, rig.body.size.y * 0.5f + 0.25f}, state.body.angle), panel_force);
   }
   if (jump_active && state.jump_cooldown_steps == 0 && !state.airborne) {
-    // Holding K drives a real second-order preload actuator.  It starts with
-    // zero compression velocity, gathers speed, then eases into its travel
-    // stop.  Releasing K therefore unloads a spring that has built up
-    // compression over time rather than switching to a fixed launch impulse.
+
+
+
+
     if (state.suspension_jump_phase != 1) {
       state.suspension_jump_mask = control.jump ? 3 : (control.jump_front ? 1 : 2);
       state.suspension_jump_preload_velocity = 0.0f;
@@ -671,11 +672,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   if (std::abs(state.body.angle) > 1.35f) {
     state.recovery_state = clamp((std::abs(state.body.angle) - 1.35f) / 1.6f, 0.0f, 1.0f);
-    // A suspension kick is a physical recovery aid, not a teleport: it only
-    // creates a bounded moment and still needs ground contact/traction.
-    // The torque is scaled by how far tilted (not a fixed kick) and opposed by
-    // an angular-velocity damping term so it settles instead of overshooting
-    // past vertical and rocking back and forth against the opposite stop.
+
+
+
+
+
     if (jump_active) {
       const float recovery_torque = 16.0f * state.recovery_state;
       const float damping_torque = -state.body.angular_velocity * 6.0f;
@@ -694,9 +695,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   body_context.gravity = gravity;
   body_context.dt = dt;
   body_context.step_index = state.step_index;
-  // Layer effects have already been folded into WorldLatents by Env.  Keep the
-  // old biome hook out of runtime force accumulation: otherwise overlapping
-  // mechanics would secretly add independent forces instead of composing.
+
+
+
   (void)body_context;
   const float body_cos = std::cos(state.body.angle);
   const float body_sin = std::sin(state.body.angle);
@@ -714,9 +715,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     }
   };
 
-  // The roof actuator can only push when its visible rod has found solid
-  // terrain. This makes it a genuine contact force (useful after a rollover),
-  // rather than a second hidden mid-air jump.
+
+
+
   if (piston_active && state.roof_piston_extension > 0.02f && rig.body.size.y > 0.0f) {
     const Vec2 roof_axis = rotate_body({0.0f, 1.0f});
     for (int piston = 0; piston < 2; ++piston) {
@@ -732,9 +733,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const Vec2 tip_velocity = state.body.velocity +
           perp(tip - state.body.position) * state.body.angular_velocity;
       const float tip_speed = dot(tip_velocity, roof_axis);
-      // Each actuator applies only its own contact force.  The resulting
-      // moment comes from its real off-centre mounting point; there is no
-      // shared circular recovery impulse when both rods are extended.
+
+
+
       const float force = state.roof_piston_extension *
           std::max(0.0f, 338.0f * penetration - 8.0f * tip_speed);
       const Vec2 reaction = -roof_axis * force;
@@ -780,8 +781,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const bool propeller_upright = rotate_body({0.0f, 1.0f}).y >= 0.35f;
   if (state.propeller_deployment >= 0.99f && control.throttle > 0.0f &&
       propeller_submerged && propeller_upright) {
-    // A marine propeller is not an air thruster. It only pushes forward while
-    // submerged and upright enough for the blades to bite water.
+
+
     const float rpm_threshold = 1800.0f;
     const float rpm_span = 2200.0f;
     const float propeller_ready = clamp((state.engine_rpm - rpm_threshold) /
@@ -790,12 +791,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float thrust = 108.0f * reserve_power * propeller_ready;
     body_force += rotate_body({thrust, 0.0f});
     state.propeller_thrust = thrust;
-    stats.energy_cost += (0.16f + 0.72f * control.throttle) * dt;
+    stats.energy_cost += (2.0f + 6.0f * control.throttle) * dt;
   }
 
-  // Belly thruster: a rocket jet out of the underside.  It is the only way to
-  // clear a gap the ramps cannot launch you over, and it burns energy fast
-  // enough that holding it is never the cheap answer.
+
+
+
   state.thruster_thrust = 0.0f;
   if (control.thruster && state.energy > 0.0f) {
     constexpr float kThrusterWeightRatio = 2.4f;
@@ -803,7 +804,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float thrust = kThrusterWeightRatio * rover_weight;
     body_force += rotate_body({0.0f, 1.0f}) * thrust;
     state.thruster_thrust = thrust;
-    stats.energy_cost += 4.5f * dt;
+    stats.energy_cost += 12.0f * dt;
   }
 
   float next_drivetrain_slip = 0.0f;
@@ -831,8 +832,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                      (-wheel.mass * liquid_immersion * (0.55f + water_speed * 0.85f));
       wheel_force.y += wheel.mass * -gravity * 0.48f * liquid_immersion;
       if (state.geyser_active) {
-        // The lift belongs to a vent, not to the whole pond: a rover parked
-        // between two vents only feels the wash.
+
+
         constexpr float kVentReach = 4.2f;
         const float distance = geyser_vent_distance(wheel_zone, wheel.position.x);
         if (distance >= 0.0f && distance < kVentReach) {
@@ -978,7 +979,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       wheel_force += contact.normal * contact.normal_force;
       const float bounce = wheel_zone.params.bounce;
       if (bounce > 0.0f && normal_vel < 0.0f) {
-        // Hard ground returns part of the impact instead of swallowing it.
+
         const float restitution = wheel.mass * bounce * (-normal_vel) / std::max(0.0001f, dt);
         wheel_force += contact.normal * std::min(restitution, 2200.0f);
       }
@@ -989,17 +990,17 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float top_gear_max_speed = gear_top_speed(kGearCount - 1);
       float speed_fade;
       if (!top_gear && driven_speed > gear_max_speed) {
-        // A gear runs out of revs: past the limiter the drivetrain stops
-        // pushing, so going faster means taking the next gear.
+
+
         speed_fade = 0.0f;
       } else if (!top_gear || driven_speed <= top_gear_max_speed) {
         speed_fade = 1.0f / (1.0f + std::max(0.0f, driven_speed) /
                                     std::max(3.0f, gear_max_speed * 3.5f));
       } else {
-        // Past the 8th gear's rated speed there is no hard wall: drive force
-        // keeps a logarithmically (not hyperbolically) decaying share, so
-        // overspeed is reachable but with fast-diminishing returns per unit
-        // of extra throttle rather than asymptoting to a fixed ceiling.
+
+
+
+
         const float base_fade = 1.0f / (1.0f + top_gear_max_speed /
                                                     (top_gear_max_speed * 3.5f));
         const float excess = driven_speed - top_gear_max_speed;
@@ -1010,9 +1011,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
       const float submerged_drive_coupling = 1.0f - 0.94f * liquid_immersion;
-      // The tipping cap above already keeps full throttle from looping the
-      // rover; this only trims the last of it once the nose is genuinely high,
-      // so acceleration stays intact and a ramp still launches.
+
+
+
       const float nose_up = state.body.angle;
       const float wheelie_guard =
           nose_up > 0.60f && state.body.angular_velocity > 0.0f
@@ -1073,8 +1074,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       traction_force += contact.tangent * applied_drive;
       contact.slip = std::abs(ctx.drive_force - applied_drive) /
                      (std::abs(ctx.drive_force) + 1.0f);
-      // Viscosity and sink are outputs of the entire latent chain, not a
-      // contribution from this zone alone.
+
+
       traction_force += contact.tangent *
                         (-state.latent_viscosity * 2.2f * ctx.wheel_speed);
       stats.energy_cost += (0.025f + state.latent_sink * 0.015f +
@@ -1140,8 +1141,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       if (control.brake > 0.0f) {
         wheel.angular_velocity = 0.0f;
       } else if (liquid_immersion > 0.35f) {
-        // A submerged wheel freewheels: animation follows actual rover motion
-        // instead of displaying engine-speed spin while the body is stuck.
+
+
         wheel.angular_velocity =
             std::abs(rolling_speed) <= 0.12f ? 0.0f : target_angular_velocity;
       } else if (driven_wheel && state.engine_running && !in_neutral &&
@@ -1159,9 +1160,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
             std::abs(rolling_speed) <= 0.12f ? 0.0f : target_angular_velocity;
       }
     } else {
-      // The exposed wheel animation is a contact measurement, not an engine
-      // tachometer.  With no ground at the tyre, it must stay still even if
-      // the drivetrain is applying torque in the air.
+
+
+
       wheel.angular_velocity = 0.0f;
     }
     wheel.angle += wheel.angular_velocity * dt;
@@ -1170,8 +1171,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       next_drivetrain_grounded = next_drivetrain_grounded || wheel.in_contact;
     }
     any_wheel_grounded = any_wheel_grounded || wheel.in_contact;
-    // Past the top gear's rated speed, holding overspeed costs energy at a
-    // cubic rate: a short tactical burst is affordable, sustaining it is not.
+
+
     const float top_gear_max_speed = gear_top_speed(kGearCount - 1);
     const float overspeed = std::max(0.0f, speed - top_gear_max_speed);
     const float overspeed_ratio = overspeed / std::max(1.0f, top_gear_max_speed * 0.5f);

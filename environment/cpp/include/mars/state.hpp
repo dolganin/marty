@@ -116,8 +116,8 @@ struct RoverState {
   int termination_reason = 0;
   float last_impact_speed = 0.0f;
   float last_landing_angle = 0.0f;
-  // Hidden world state. Mechanisms only modify these values; contact forces consume
-  // their clamped final values on the next physics step.
+
+
   float latent_traction = 1.0f;
   float latent_moisture = 0.25f;
   float latent_heat = 0.25f;
@@ -147,20 +147,20 @@ struct RoverState {
   float propeller_phase = 0.0f;
   float propeller_thrust = 0.0f;
   int jump_cooldown_steps = 0;
-  int suspension_jump_phase = 0;  // 1 preload/compress, 2 rebound/launch.
+  int suspension_jump_phase = 0;
   int suspension_jump_phase_steps = 0;
   float suspension_jump_charge = 0.0f;
-  // Normalised compression and its rate form a small, critically damped
-  // actuator.  Keeping the rate makes preload visibly and physically ramp up
-  // instead of changing the suspension rest length at a constant rate.
+
+
+
   float suspension_jump_preload_velocity = 0.0f;
-  int suspension_jump_mask = 3;  // 1 front, 2 rear, 3 both.
+  int suspension_jump_mask = 3;
   float roof_piston_extension = 0.0f;
-  int roof_piston_mask = 0;  // 1 front, 2 rear. Both is deliberately invalid.
+  int roof_piston_mask = 0;
   bool roof_piston_contact = false;
   float recovery_state = 0.0f;
   uint64_t world_seed = 0;
-  int route_branch = 0;  // 0 terrain, 1 lower water, 2 upper dry surface
+  int route_branch = 0;
   Vec2 render_camera_position{};
 };
 

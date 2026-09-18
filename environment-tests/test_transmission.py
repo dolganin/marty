@@ -27,6 +27,10 @@ def _flat_config(tmp_path) -> str:
                     "crater_count": 0,
                     "step_count": 0,
                 },
+                "physics": {
+                    "initial_energy": 20000.0,
+                    "energy_capacity": 20000.0,
+                },
             }
         ),
         encoding="utf-8",

@@ -21,10 +21,10 @@ void BatchEnv::reset_all(uint64_t seed, float* obs_out) {
   const int n = num_envs();
   const int observation_dim = obs_dim();
 #if defined(MARS_ROVER_HAS_OPENMP)
-  // A simulation step is deliberately small.  Letting OpenMP use every
-  // logical CPU made the per-tick barrier dominate on large workstations.
-  // Sixteen workers saturate this memory/cache-bound loop while retaining a
-  // useful batch speed-up and deterministic per-environment execution.
+
+
+
+
   const int parallel_threads = std::min(16, n);
 #pragma omp parallel for schedule(static) if (n >= 64) num_threads(parallel_threads)
 #endif

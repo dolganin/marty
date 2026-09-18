@@ -16,6 +16,7 @@ from _mars_rover_cpp import (
 
 
 DEFAULT_ENV_CONFIG = Path(__file__).resolve().parent / "configs" / "env.yaml"
+DEFAULT_RIG_CONFIG = Path(__file__).resolve().parent / "configs" / "rover_rig.yaml"
 
 
 def _load_mapping(path: str | Path) -> dict[str, Any]:
@@ -188,8 +189,7 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
                 ),
             )
 
-    if rig_path is not None:
-        cfg.rig = load_rover_rig(rig_path)
+    cfg.rig = load_rover_rig(DEFAULT_RIG_CONFIG if rig_path is None else rig_path)
 
     return cfg
 

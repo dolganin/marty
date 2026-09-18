@@ -39,11 +39,11 @@ struct TerrainConfig {
   float length = 512.0f;
   float safe_start_fraction = 0.02f;
   float difficulty_exponent = 0.7125f;
-  // Virtual source coordinate for curriculum sampling.  It lets a generated
-  // test world use the same distribution as a very distant part of a course.
+
+
   float difficulty_distance_offset = 0.0f;
   bool preserve_spawn_safety = true;
-  // Scales the held-out surface jaggedness; 0 disables it entirely.
+
   float jagged_scale = 1.0f;
 };
 
@@ -53,20 +53,21 @@ class Terrain {
   void generate(uint64_t seed);
 
   TerrainSample query(float x) const;
-  // Finds the highest collision surface reachable from a reference point.
-  // This permits an upper dry route and a lower water/floor route at one X.
+
+
   TerrainSample query_near(float x, float reference_y) const;
   void query_height_slope(float x, float& height, float& slope) const;
   void deform(float x, float radius, float amount);
   void add_height_at_index(int index, float amount);
+  void flatten_region(float begin_x, float end_x);
   float carve_basin(float begin_x, float end_x, float depth, uint64_t seed);
-  // One pond of a given bottom shape, dug down from a shared water level.
+
   void carve_pond(float begin_x, float end_x, float water_level, float depth,
                   int shape, uint64_t seed);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
   void add_surface(float begin_x, float end_x, float begin_height, float end_height);
-  // Finds stable ground beyond a non-solid gap. Used by the fixed-horizon
-  // recovery rule to place a fallen rover on the far edge of a pit.
+
+
   float next_solid_x(float x, float required_run) const;
   bool pit_recovery_x(float x, float body_y, float& recovery_x) const;
 

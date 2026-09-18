@@ -16,18 +16,18 @@ enum ControlBits : int {
   ControlToggleCharge = 1 << 10,
   ControlLidar = 1 << 11,
   ControlHeater = 1 << 12,
-  // Momentary suspension kick and persistent low-range / propeller modes.
+
   ControlJump = 1 << 13,
   ControlToggleClimb = 1 << 14,
   ControlTogglePropeller = 1 << 15,
-  ControlRoofPiston = 1 << 16,  // Reserved legacy bit; intentionally ignored.
+  ControlRoofPiston = 1 << 16,
   ControlJumpFront = 1 << 17,
   ControlJumpRear = 1 << 18,
   ControlRoofPistonFront = 1 << 19,
   ControlRoofPistonRear = 1 << 20,
   ControlBallastBlow = 1 << 21,
   ControlBallastFlood = 1 << 22,
-  // Belly thruster: a rocket jet fired downwards to clear a gap or a ramp.
+
   ControlThruster = 1 << 23,
 };
 

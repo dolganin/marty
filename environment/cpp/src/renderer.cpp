@@ -145,9 +145,9 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  // Geysers: a quiet vent mouth that is always visible, and a column of water
-  // while the vent is erupting.  The phase is recomputed from the step index
-  // so the picture matches the force the physics applied this step.
+
+
+
   {
     const float left_x = camera_x - 4.0f;
     const float right_x = camera_x + static_cast<float>(width) / ppm + 4.0f;
@@ -164,7 +164,7 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
       const Vec2 surface = screen({vent_x, zone.liquid_level});
       draw_circle(rgb, width, height, static_cast<int>(mouth.x), static_cast<int>(mouth.y),
                   std::max(2, static_cast<int>(0.35f * ppm)), {28, 38, 44});
-      // Idle bubbles mark the vent without revealing when it will fire.
+
       for (int b = 0; b < 3; ++b) {
         const uint32_t h = hash_u32(static_cast<uint32_t>(
             static_cast<int>(vent_x) * 31 + b * 733 + state.step_index / 6));
@@ -185,12 +185,12 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
         for (int dx = -spread; dx <= spread; ++dx) {
           const uint32_t h = hash_u32(static_cast<uint32_t>(y * 131 + dx * 17 +
                                                            state.step_index * 7));
-          if ((h & 3u) == 0u) continue;  // ragged edges, not a solid bar
+          if ((h & 3u) == 0u) continue;
           put_pixel(rgb, width, height, static_cast<int>(surface.x) + dx, y,
                     mix(kWaterHighlight, {235, 245, 250}, 0.3f + 0.5f * (1.0f - t)));
         }
       }
-      // Spray thrown clear of the column top.
+
       for (int d = 0; d < 10; ++d) {
         const uint32_t h = hash_u32(static_cast<uint32_t>(
             d * 613 + static_cast<int>(vent_x) * 7 + state.step_index * 3));
@@ -201,7 +201,7 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
-  // Thruster jet: a cone of flame out of the belly while the rocket burns.
+
   if (state.thruster_thrust > 0.0f) {
     const Vec2 down = rotate({0.0f, -1.0f}, state.body.angle);
     const Vec2 side = rotate({1.0f, 0.0f}, state.body.angle);
@@ -251,8 +251,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
                 {25, 25, 25});
     draw_circle(rgb, width, height, static_cast<int>(wp.x), static_cast<int>(wp.y),
                 std::max(1, radius / 2), {120, 120, 120});
-    // The spoke is the only cue that the tyre turns at all, so it follows the
-    // wheel, not the chassis.
+
+
     const float spoke_angle = wheel.angle;
     const int sx = static_cast<int>(wp.x + std::cos(spoke_angle) * radius);
     const int sy = static_cast<int>(wp.y - std::sin(spoke_angle) * radius);
@@ -276,8 +276,8 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
       const bool in_water = wheel_zone.type == MechanicType::Liquid &&
           wheel_zone.liquid_level - ground.height >= 0.03f;
       if (in_water) {
-        // Foam originates at a real tyre/water contact and trails behind the
-        // actual motion; it replaces the old dust pixels in liquid.
+
+
         const int foam_count = std::clamp(1 + static_cast<int>(dust_speed * 4.0f), 1, 10);
         const Vec2 origin{wheel_position.x, wheel_zone.liquid_level - 0.015f};
         for (int p = 0; p < foam_count; ++p) {

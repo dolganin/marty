@@ -73,11 +73,11 @@ float sampled_moisture(MechanicType type, uint64_t seed) {
   }
 }
 
-}  // namespace
+}
 
 void apply_generation_influences(MechanicParams& p) {
-  // Topological order: temperature affects viscosity before viscosity affects
-  // resistance. Inputs targeting the same value are summed before log1p.
+
+
   apply_target(p, GenerationParameter::Traction);
   apply_target(p, GenerationParameter::Viscosity);
   apply_target(p, GenerationParameter::EnergyResistance);
@@ -85,25 +85,25 @@ void apply_generation_influences(MechanicParams& p) {
 
   p.moisture = clamp(p.moisture, 0.0f, 1.0f);
   p.sink_rate = clamp(p.sink_rate, 0.0f, 1.0f);
-  // Wide on purpose: gravity is a regime of its own, and overlapping layers
-  // must be able to reach the extremes instead of being clipped into sameness.
+
+
   p.gravity_mul = clamp(p.gravity_mul, 0.25f, 1.60f);
   p.wind_force = clamp(p.wind_force, -80.0f, 80.0f);
   p.ambient_temperature = clamp(p.ambient_temperature, -58.0f, 72.0f);
-  p.solar_charge_rate = clamp(p.solar_charge_rate, 0.0f, 3.0f);
+  p.solar_charge_rate = clamp(p.solar_charge_rate, 0.0f, 8.0f);
   p.lidar_energy_mul = clamp(p.lidar_energy_mul, 0.4f, 3.0f);
-  p.lidar_range_mul = clamp(p.lidar_range_mul, 0.35f, 1.5f);
+  p.lidar_range_mul = clamp(p.lidar_range_mul, 0.0f, 1.5f);
 }
 
 void prepare_generation_params(MechanicParams& p, MechanicType type, uint64_t seed) {
   p.moisture = sampled_moisture(type, seed);
-  // Biome ranges are authored in real post-shift Celsius; the window here is
-  // also the normalization window used by the influence graph.
+
+
   p.ambient_temperature = clamp(p.ambient_temperature, -58.0f, 72.0f);
   p.base_friction_mul = clamp(p.friction_mul, 0.12f, 1.45f);
-  // Previously dry zones used an exact zero. A small seeded carrier viscosity
-  // gives the negative temperature edge room to vary instead of immediately
-  // collapsing every such sample onto the zero safety bound.
+
+
+
   p.base_viscosity = p.viscosity > 0.0f
                          ? clamp(p.viscosity, 0.0f, 2.5f)
                          : 0.18f + 0.18f * biome_random01(seed, 0x56495343ULL);
@@ -141,8 +141,8 @@ MechanicParams MechanicLayout::thermal_at(float x, const MechanicZone& current) 
 int MechanicLayout::active_layers(
     float x, std::array<const MechanicZone*, kMaxActiveMechanisms>& out) const {
   int n = 0;
-  // The order is part of the seeded region and is deliberately not exposed in
-  // observations.  A 20 m feather keeps the mode change physical, not binary.
+
+
   for (int i = 0; i < layer_count && n < kMaxActiveMechanisms; ++i) {
     const auto& layer = layers[static_cast<size_t>(i)];
     if (x >= layer.begin_x && x <= layer.end_x) out[static_cast<size_t>(n++)] = &layer;

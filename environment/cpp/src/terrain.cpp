@@ -16,7 +16,7 @@ float seeded_unit(uint64_t seed, uint64_t stream) {
   return static_cast<float>(x >> 40U) * (1.0f / 16777216.0f);
 }
 
-}  // namespace
+}
 
 void Terrain::configure(const TerrainConfig& config) {
   dx_ = config.dx;
@@ -59,8 +59,8 @@ void Terrain::generate(uint64_t seed) {
   const auto progressive_position = [&]() {
     const float mixture = unit_dist(rng);
     const float u = unit_dist(rng);
-    // A mixture keeps a few modest early events, but strongly biases the
-    // obstacle budget toward the late course.
+
+
     const float t = mixture < 0.35f ? u : std::pow(u, 0.58f);
     return safe_end + 2.0f + t * std::max(1.0f, max_x - safe_end - 6.0f);
   };
@@ -84,14 +84,14 @@ void Terrain::generate(uint64_t seed) {
   for (int n = 0; n < generated_pit_count_; ++n) {
     const float cx = progressive_position();
     const float difficulty = difficulty_at(cx);
-    // Very deep traps are deliberately narrow: momentum or a charged spring
-    // can clear them, while crawling into one drops both axles into the bowl.
+
+
     const float pit_draw = unit_dist(rng);
     const bool deep_pit = pit_draw < 0.02f + 0.36f * difficulty * difficulty;
     const bool broad_pit = !deep_pit && pit_draw < 0.24f + 0.52f * difficulty;
-    // Narrow deep pits reward a charged jump; broad pits test sustained
-    // traction and balance.  Endgame is dense without becoming one repeated
-    // bowl-shaped obstacle.
+
+
+
     const float radius = deep_pit
         ? 0.58f + unit_dist(rng) * (0.22f + 0.30f * difficulty)
         : broad_pit
@@ -174,8 +174,8 @@ TerrainSample Terrain::query(float x) const {
 TerrainSample Terrain::query_near(float x, float reference_y) const {
   TerrainSample result = query(x);
   float selected_height = result.solid ? result.height : -1.0e9f;
-  // A surface is selected only when it is not materially above the reference
-  // point.  Falling beneath a bridge therefore lands on the lower branch.
+
+
   for (const auto& surface : surfaces_) {
     if (x < surface.begin_x || x > surface.end_x) continue;
     const float t = (x - surface.begin_x) /
@@ -232,6 +232,30 @@ void Terrain::deform(float x, float radius, float amount) {
 void Terrain::add_height_at_index(int index, float amount) {
   if (index < 0 || index >= static_cast<int>(heights_.size()) || !std::isfinite(amount)) return;
   heights_[static_cast<size_t>(index)] += amount;
+}
+
+void Terrain::flatten_region(float begin_x, float end_x) {
+  if (heights_.empty() || end_x <= begin_x) return;
+  const int first = std::clamp(static_cast<int>(std::ceil(begin_x * inv_dx_)), 0,
+                               static_cast<int>(heights_.size() - 1));
+  const int last = std::clamp(static_cast<int>(std::floor(end_x * inv_dx_)), first,
+                              static_cast<int>(heights_.size() - 1));
+  const float left = heights_[static_cast<size_t>(first)];
+  const float right = heights_[static_cast<size_t>(last)];
+  const float span = std::max(1, last - first);
+  for (int i = first; i <= last; ++i) {
+    const float t = static_cast<float>(i - first) / static_cast<float>(span);
+    const float edge = std::min(t, 1.0f - t);
+    const float blend = clamp(edge / 0.08f, 0.0f, 1.0f);
+    const float line = left + (right - left) * t;
+    heights_[static_cast<size_t>(i)] =
+        heights_[static_cast<size_t>(i)] * (1.0f - blend) + line * blend;
+  }
+  deep_pits_.erase(
+      std::remove_if(deep_pits_.begin(), deep_pits_.end(), [&](const auto& pit) {
+        return pit.center_x + pit.radius >= begin_x && pit.center_x - pit.radius <= end_x;
+      }),
+      deep_pits_.end());
 }
 
 float Terrain::carve_basin(float begin_x, float end_x, float depth, uint64_t seed) {
@@ -295,18 +319,18 @@ void Terrain::carve_pond(float begin_x, float end_x, float water_level, float de
     const float edge = std::min(t, 1.0f - t);
     float sink = 0.0f;
     switch (shape) {
-      case 0: {  // parabolic bowl: deep in the middle, easy to roll out of
+      case 0: {
         const float bowl = std::sin(t * 3.14159265f);
         sink = bowl * bowl;
         break;
       }
-      case 1: {  // flat trough with long gentle shores
+      case 1: {
         const float shore = 0.26f;
         const float ramp = clamp(edge / shore, 0.0f, 1.0f);
         sink = ramp * ramp * (3.0f - 2.0f * ramp);
         break;
       }
-      case 2: {  // shelves: rounded steps, climbable but not square blocks
+      case 2: {
         const float ramp = clamp(edge / 0.34f, 0.0f, 1.0f);
         const float scaled = ramp * terraces;
         const float step = std::floor(scaled);
@@ -315,7 +339,7 @@ void Terrain::carve_pond(float begin_x, float end_x, float water_level, float de
         sink = (step + eased) / terraces;
         break;
       }
-      default: {  // trap: near-vertical walls, no run-up out of it
+      default: {
         const float shore = 0.05f;
         sink = clamp(edge / shore, 0.0f, 1.0f);
         break;
@@ -325,8 +349,8 @@ void Terrain::carve_pond(float begin_x, float end_x, float water_level, float de
     heights_[static_cast<size_t>(i)] =
         std::min(heights_[static_cast<size_t>(i)], floor_height);
     if (shape == 3) {
-      // A lip standing proud of the water at the far shore: leaving the trap
-      // needs the propeller, the ballast or a suspension kick, not throttle.
+
+
       const float lip = (t - 0.94f) / 0.03f;
       if (std::abs(lip) < 1.0f) {
         const float crest = water_level + 0.55f * (1.0f - lip * lip);
@@ -343,9 +367,9 @@ void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
   const float run = std::max(dx_ * 2.0f, ramp_length);
   const auto smoothstep = [](float t) { return t * t * (3.0f - 2.0f * t); };
 
-  // Take-off: a smooth rise that flattens into a lip.  The old quadratic ramp
-  // was steepest right at the edge, so the rover hit a wall instead of leaving
-  // the ground.
+
+
+
   const float ramp_begin = std::max(0.0f, begin_x - run);
   const int ramp_first = std::max(0, static_cast<int>(std::floor(ramp_begin * inv_dx_)));
   const int ramp_last = std::min(static_cast<int>(heights_.size() - 1),
@@ -362,8 +386,8 @@ void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
                             static_cast<int>(std::floor(end_x * inv_dx_)));
   for (int i = first; i <= last; ++i) solid_[static_cast<size_t>(i)] = 0u;
 
-  // Landing: the far rim is raised to the take-off height and then runs back
-  // down.  Without it the gap ends in a vertical face that no jump can clear.
+
+
   const float landing_run = run * 1.6f;
   const int landing_first = std::max(0, static_cast<int>(std::ceil(end_x * inv_dx_)));
   const int landing_last = std::min(static_cast<int>(heights_.size() - 1),
@@ -402,8 +426,8 @@ float Terrain::next_solid_x(float x, float required_run) const {
 bool Terrain::pit_recovery_x(float x, float body_y, float& recovery_x) const {
   for (const auto& pit : deep_pits_) {
     if (x < pit.center_x - pit.radius || x > pit.center_x + pit.radius) continue;
-    // The body has crossed well below the remembered rim. Merely touching a
-    // slope is not a failure; committing into the deep bowl is.
+
+
     const float fall_threshold = pit.rim_height - std::max(0.35f, pit.depth * 0.18f);
     if (body_y >= fall_threshold) continue;
     recovery_x = next_solid_x(pit.center_x + pit.radius * 1.55f, 2.5f);
