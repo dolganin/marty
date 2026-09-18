@@ -195,7 +195,7 @@ def curated_candidates(count: int, *, batch: int) -> tuple[list[dict[str, Any]],
              "catalogue_offset": first})
 
 
-def _make_native_env(components: tuple[str, ...], *, max_steps: int):
+def _make_native_env(components: tuple[str, ...], *, max_steps: int, num_envs: int = 1):
     import _mars_rover_cpp as native
 
     cfg = load_env_config()
@@ -210,7 +210,7 @@ def _make_native_env(components: tuple[str, ...], *, max_steps: int):
         + [native.MechanicType.Normal] * (4 - len(components))
     )
     cfg.evaluation_stack_count = len(components)
-    batch = native.MarsRoverBatchEnv(1, cfg)
+    batch = native.MarsRoverBatchEnv(num_envs, cfg)
     return batch
 
 
@@ -311,29 +311,102 @@ def _load_agents(robust_model: Path | None, recurrent_model: Path | None):
     except ImportError as exc:
         raise RuntimeError("baseline dependencies are unavailable") from exc
 
-    robust = PPOAgent(PPO.load(robust_model, device="cpu"))
-    recurrent = RL2TransformerAgent.load(recurrent_model, device="cpu")
+    import torch
+
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    robust = PPOAgent(PPO.load(robust_model, device=device))
+    recurrent = RL2TransformerAgent.load(recurrent_model, device=device, max_steps=1200)
     return robust, recurrent
 
 
-def _agent_action(agent: Any) -> Callable[[np.ndarray, dict[str, Any], int], int]:
-    agent.reset(True)
+def _agent_trial_rows(
+    agent: Any,
+    components: tuple[str, ...],
+    seeds: range,
+    *,
+    episodes_per_trial: int = 2,
+    max_steps: int = 1200,
+) -> list[dict[str, Any]]:
+    """Evaluate all trial seeds in one native batch and preserve RL2 memory.
 
-    def act(obs: np.ndarray, _debug: dict[str, Any], _step: int) -> int:
-        return int(agent.act(obs))
+    The first episode is adaptation experience; filter 4 scores the second
+    episode.  Feed-forward PPO sees the identical courses but has no state to
+    carry across the episode boundary.
+    """
+    import torch
+    from mars_rover_agents.rl2_agent import RL2TransformerAgent
+    from mars_rover_agents.rl2_model import TransformerXLState, rl2_features
 
-    return act
+    seed_values = tuple(int(seed) for seed in seeds)
+    num_envs = len(seed_values)
+    batch = _make_native_env(components, max_steps=max_steps, num_envs=num_envs)
+    observations = np.zeros((num_envs, batch.obs_dim), dtype=np.float32)
+    rewards = np.zeros(num_envs, dtype=np.float32)
+    terminated = np.zeros(num_envs, dtype=np.uint8)
+    truncated = np.zeros(num_envs, dtype=np.uint8)
+    raw_actions = np.zeros(num_envs, dtype=np.int32)
+    action_macros = np.asarray(ACTION_MACROS, dtype=np.int32)
+    episode_rewards = np.zeros((num_envs, episodes_per_trial), dtype=np.float64)
+    recurrent = isinstance(agent, RL2TransformerAgent)
+    if recurrent:
+        if int(getattr(agent.model, "context_dim", 0)):
+            raise RuntimeError("batched stack screening does not support explicit RL2 context")
+        device = agent.device
+        state = agent.model.initial_state(num_envs, device)
+        previous_actions = np.full(num_envs, -1, dtype=np.int64)
+        previous_rewards = np.zeros(num_envs, dtype=np.float32)
+        previous_dones = np.ones(num_envs, dtype=bool)
+    else:
+        model = agent._model
 
+    for episode in range(episodes_per_trial):
+        trial_start = episode == 0
+        for env_index, seed in enumerate(seed_values):
+            episode_seed = seed + episode * 1_000_003
+            batch.reset_at(env_index, episode_seed, trial_start, observations[env_index])
+        active = np.ones(num_envs, dtype=bool)
+        for _step in range(max_steps):
+            if recurrent:
+                features = rl2_features(
+                    observations, previous_actions, previous_rewards, previous_dones,
+                    device=device,
+                )
+                old_state = state
+                with torch.no_grad():
+                    logits, _values, next_state = agent.model.forward_step(features, state)
+                    action_indices = torch.argmax(logits, dim=-1).detach().cpu().numpy()
+                active_device = torch.as_tensor(active, dtype=torch.bool, device=device)
+                keep = active_device.view(-1, 1, 1)
+                state = TransformerXLState(
+                    memories=[torch.where(keep, new, old)
+                              for new, old in zip(next_state.memories, old_state.memories)],
+                    valid=torch.where(active_device.view(-1, 1), next_state.valid, old_state.valid),
+                )
+            else:
+                action_indices, _ = model.predict(observations, deterministic=True)
+                action_indices = np.asarray(action_indices, dtype=np.int64).reshape(num_envs)
+            raw_actions[:] = action_macros[action_indices]
+            raw_actions[~active] = 0
+            batch.step(raw_actions, observations, rewards, terminated, truncated)
+            episode_rewards[active, episode] += rewards[active]
+            dones = np.logical_or(terminated != 0, truncated != 0)
+            if recurrent:
+                previous_actions[active] = action_indices[active]
+                previous_rewards[active] = rewards[active]
+                previous_dones[active] = dones[active]
+            active &= ~dones
+            if not bool(active.any()):
+                break
+        if recurrent:
+            previous_dones[:] = True
 
-def _agent_rows(agent: Any, components: tuple[str, ...], seeds: range) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for seed in seeds:
-        action = _agent_action(agent)
-        rows.append(_run_policy(
-            components, seed=seed, max_steps=3000, action_fn=action,
-            observe=lambda reward, done: agent.observe(reward, done, {}),
-        ))
-    return rows
+    return [
+        {
+            "reward": float(episode_rewards[index, -1]),
+            "episode_rewards": episode_rewards[index].tolist(),
+        }
+        for index in range(num_envs)
+    ]
 
 
 def _split_for(candidate: Candidate, accepted: list[dict[str, Any]]) -> str:
@@ -347,17 +420,33 @@ def _split_for(candidate: Candidate, accepted: list[dict[str, Any]]) -> str:
     return "train" if len(train) < 2 * max(1, len(test)) else "test"
 
 
-def _existing_stack_records(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+def _existing_stack_records(
+    manifest: dict[str, Any], accepted_dir: Path | None = None,
+) -> list[dict[str, Any]]:
+    audited: dict[tuple[str, ...], dict[str, Any]] = {}
+    if accepted_dir is not None and accepted_dir.is_dir():
+        for path in accepted_dir.glob("stack_*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                audited[tuple(payload["components"])] = payload
+            except (KeyError, TypeError, json.JSONDecodeError):
+                continue
     records: list[dict[str, Any]] = []
     for index, stack in enumerate(manifest.get("frozen_stacks", []), start=1):
         split = {"held_out": "test", "anchor": "anchor"}.get(stack.get("split"), "train")
-        records.append({
+        record = {
             "name": f"existing_stack_{index:02d}",
             "components": list(stack["mechanisms"]),
             "split": split,
             "characteristics": {},
             "existing": True,
-        })
+        }
+        prior = audited.get(tuple(stack["mechanisms"]))
+        if prior is not None:
+            record.update(prior)
+            record["split"] = split
+            record["existing"] = True
+        records.append(record)
     return records
 
 
@@ -412,8 +501,8 @@ def _filter_candidate(
     # Compare exactly the same ten worlds.  Different seed ranges made the
     # old signed comparison measure terrain luck rather than policy behavior.
     evaluation_seeds = range(4000, 4010)
-    robust_rows = _agent_rows(robust, candidate.components, evaluation_seeds)
-    recurrent_rows = _agent_rows(recurrent, candidate.components, evaluation_seeds)
+    robust_rows = _agent_trial_rows(robust, candidate.components, evaluation_seeds)
+    recurrent_rows = _agent_trial_rows(recurrent, candidate.components, evaluation_seeds)
     robust_reward = float(np.mean([row["reward"] for row in robust_rows]))
     recurrent_reward = float(np.mean([row["reward"] for row in recurrent_rows]))
     signed_gap = (recurrent_reward - robust_reward) / max(recurrent_reward, 1.0e-6)

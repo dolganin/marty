@@ -17,8 +17,9 @@ class MarsRoverVecEnv:
         rig_path: str | None = None,
         biome_split: int | None = None,
         fixed_biome_id: int | None = None,
+        config_override=None,
     ):
-        config = load_env_config(config_path, rig_path)
+        config = config_override or load_env_config(config_path, rig_path)
         if biome_split is not None:
             config.biome_split = int(biome_split)
         if fixed_biome_id is not None:

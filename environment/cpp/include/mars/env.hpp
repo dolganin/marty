@@ -25,6 +25,7 @@ struct EnvConfig {
   int biome_split = 1;
   int fixed_biome_id = -1;
   bool debug = false;
+  bool force_endgame_difficulty = false;
 
 
 

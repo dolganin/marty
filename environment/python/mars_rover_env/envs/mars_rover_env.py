@@ -31,13 +31,14 @@ class MarsRoverEnv(gym.Env):
         fixed_biome_id: int | None = None,
         chain_biomes: bool | None = None,
         chain_zone_count: int | None = None,
+        config_override=None,
     ):
         super().__init__()
         self.render_mode = render_mode
         self._render_width = int(render_width)
         self._render_height = int(render_height)
         self._rgb = np.zeros((self._render_height, self._render_width, 3), dtype=np.uint8)
-        self._config = load_env_config(config_path, rig_path)
+        self._config = config_override or load_env_config(config_path, rig_path)
         if biome_split is not None:
             self._config.biome_split = int(biome_split)
         if fixed_biome_id is not None:

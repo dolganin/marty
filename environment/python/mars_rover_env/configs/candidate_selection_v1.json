@@ -1,0 +1,35 @@
+{
+  "selection_version": "candidate-agent-dedup-v1",
+  "catalog_version": "candidate-worlds-v2",
+  "model": {
+    "algorithm": "PPO",
+    "training_environment": "simple normal world",
+    "initial_steps": 1048576,
+    "additional_steps": 4194304,
+    "total_steps": 5242880,
+    "simple_control_mean_m": 1265.11
+  },
+  "evaluation": {
+    "candidate_count": 60,
+    "common_seed_count": 8,
+    "seconds_per_world": 300,
+    "parallel_worlds": 480,
+    "candidate_mean_m": 13.63,
+    "candidate_median_m": 8.63
+  },
+  "deduplication": {
+    "input_similarity_pairs": 23,
+    "pairs_rejected_as_not_similar_by_agent": 18,
+    "agent_response_similar_pairs": 5,
+    "confirmed_redundant_pairs": 0,
+    "automatically_deprioritized_candidates": [],
+    "unresolved": [
+      {"pair": ["frozen_bog", "silt_channel"], "reason": "different_mechanics_same_agent_failure_mode"},
+      {"pair": ["silt_channel", "sand_bog"], "reason": "different_mechanics_same_agent_failure_mode"},
+      {"pair": ["dust_glass", "grip_compromise"], "reason": "different_mechanics_same_agent_failure_mode"},
+      {"pair": ["grip_compromise", "sandbar"], "reason": "different_mechanics_same_agent_failure_mode"},
+      {"pair": ["cheap_scout", "radar_tax"], "reason": "protected_lidar_ab_contrast_agent_did_not_use_lidar"}
+    ]
+  },
+  "decision_ru": "Агент снял подозрение в дублировании с 18 пар. Оставшиеся пять нельзя безопасно объединять: четыре содержат разные механики, на которых PPO одинаково застревает, а одна является намеренным A/B-тестом цены лидара. Каталог не сокращён автоматически."
+}

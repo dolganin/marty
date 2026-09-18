@@ -198,6 +198,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("episodes_per_trial", &mars::EnvConfig::episodes_per_trial)
       .def_readwrite("biome_split", &mars::EnvConfig::biome_split)
       .def_readwrite("fixed_biome_id", &mars::EnvConfig::fixed_biome_id)
+      .def_readwrite("force_endgame_difficulty", &mars::EnvConfig::force_endgame_difficulty)
       .def_readwrite("chain_biomes", &mars::EnvConfig::chain_biomes)
       .def_readwrite("chain_zone_count", &mars::EnvConfig::chain_zone_count)
       .def_readwrite("chain_segment_min_length", &mars::EnvConfig::chain_segment_min_length)
@@ -287,7 +288,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["distance_m"] = std::max(0.0f, state.body.position.x - 1.0f);
              d["best_distance_m"] = std::max(0.0f, env.best_progress() - 1.0f);
              d["course_difficulty"] = env.terrain().difficulty_at(state.body.position.x);
-             d["endgame_test_world"] = env.config().biome_split == 2;
+             d["endgame_test_world"] = env.config().biome_split == 2 ||
+                                         env.config().force_endgame_difficulty;
              d["safe_start_m"] = env.terrain().safe_start_fraction() * env.terrain().length();
              d["generated_pit_count"] = env.terrain().generated_pit_count();
              d["generated_step_count"] = env.terrain().generated_step_count();

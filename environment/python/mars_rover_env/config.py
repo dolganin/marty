@@ -73,6 +73,9 @@ def load_env_config(config_path: str | Path | None = None, rig_path: str | Path 
             cfg.episodes_per_trial = int(env.get("episodes_per_trial", cfg.episodes_per_trial))
             cfg.biome_split = int(env.get("biome_split", cfg.biome_split))
             cfg.fixed_biome_id = int(env.get("fixed_biome_id", cfg.fixed_biome_id))
+            cfg.force_endgame_difficulty = bool(
+                env.get("force_endgame_difficulty", cfg.force_endgame_difficulty)
+            )
             cfg.chain_biomes = bool(env.get("chain_biomes", cfg.chain_biomes))
             cfg.chain_zone_count = int(env.get("chain_zone_count", cfg.chain_zone_count))
             cfg.chain_segment_min_length = float(

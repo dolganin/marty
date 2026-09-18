@@ -14,7 +14,7 @@ Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physic
 
 void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   rng_.seed(seed);
-  endgame_test_world_ = config_.biome_split == 2;
+  endgame_test_world_ = config_.biome_split == 2 || config_.force_endgame_difficulty;
   const int next_episode_in_trial = trial_start ? 0 : state_.episode_in_trial + 1;
   if (trial_start || !has_trial_mechanic_seed_) {
     trial_mechanic_seed_ = seed;

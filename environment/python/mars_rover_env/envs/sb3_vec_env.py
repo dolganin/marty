@@ -21,6 +21,7 @@ class MarsRoverSb3VecEnv(VecEnv):
         biome_split: int = 1,
         seed: int = 0,
         fixed_biome_id: int | None = None,
+        config_override=None,
     ):
 
 
@@ -28,8 +29,9 @@ class MarsRoverSb3VecEnv(VecEnv):
         self.native = MarsRoverVecEnv(
             num_envs,
             config_path=config_path,
-            biome_split=biome_split,
+            biome_split=None if config_override is not None else biome_split,
             fixed_biome_id=fixed_biome_id,
+            config_override=config_override,
         )
         self.action_macros = np.asarray(action_macros, dtype=np.int32)
         observation_space = gym.spaces.Box(

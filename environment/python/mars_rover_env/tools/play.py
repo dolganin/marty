@@ -6,6 +6,27 @@ import time
 from pathlib import Path
 
 from mars_rover_env import MarsRoverEnv
+from mars_rover_env.candidates import candidate_config, candidates
+
+
+_MECHANIC_LABELS = {
+    "normal": "обычный грунт", "sand": "песок", "ice": "лёд",
+    "mud": "грязь", "wind": "ветер", "low_gravity": "низкая гравитация",
+    "crust": "разрушаемая корка", "liquid": "вода",
+}
+_ACTION_LABELS = {
+    "lidar": "лидар", "jump": "прыжок подвески", "climb": "режим взбирания",
+    "pistons": "пистоны", "propeller": "пропеллер", "ballast": "балласт",
+    "awd": "полный привод", "drive_layout": "смена привода",
+    "low_gear": "пониженная передача", "gear_control": "работа передачами",
+    "throttle_control": "дозирование газа", "brake": "тормоз",
+    "body_tilt": "наклон корпуса", "jump_timing": "выбор момента прыжка",
+    "landing_control": "контроль приземления", "momentum": "сохранение импульса",
+    "energy_management": "управление энергией", "solar": "солнечная панель",
+    "avoid_stopping": "не останавливаться", "route_planning": "планирование пути",
+    "slow_approach": "осторожный подход", "speed_control": "контроль скорости",
+    "memory": "запоминание рельефа", "lidar_discipline": "экономное применение лидара",
+}
 
 
 def _ppm_bytes(rgb) -> bytes:
@@ -19,7 +40,9 @@ class ManualPlayer:
 
         self._tk = tk
         self.root = tk.Tk()
-        self.root.title("Mars Rover Manual Control")
+        self.candidate = getattr(args, "candidate_record", None)
+        suffix = f" - {self.candidate.name}" if self.candidate else ""
+        self.root.title(f"Mars Rover Manual Control{suffix}")
         self._fullscreen = bool(args.fullscreen)
         self._sidebar_width = 500
         if self._fullscreen:
@@ -33,10 +56,12 @@ class ManualPlayer:
         self.env = MarsRoverEnv(
             config_path=args.config,
             rig_path=args.rig,
-            biome_split={"train": 1, "test": 2}[args.split],
+            biome_split=(None if getattr(args, "candidate_config", None) is not None
+                         else {"train": 1, "test": 2}[args.split]),
             render_mode="debug_rgb_array" if args.debug else "rgb_array",
             render_width=render_width,
             render_height=render_height,
+            config_override=getattr(args, "candidate_config", None),
         )
         self.seed = args.seed
         self.obs, self.info = self.env.reset(seed=self.seed)
@@ -46,6 +71,7 @@ class ManualPlayer:
         self.frame_ms = max(1, int(1000 / args.fps))
         self.restart_notice = ""
         self.last_reward = 0.0
+        self._candidate_seed_index = getattr(args, "candidate_seed_index", 0)
 
         self.canvas = tk.Canvas(self.root, width=render_width, height=render_height,
                                 highlightthickness=0, bg="#000000")
@@ -59,7 +85,7 @@ class ManualPlayer:
         tk.Label(sidebar, text="ROVER TELEMETRY", bg="#171717", fg="#ffffff",
                  font=("Consolas", 14, "bold")).pack(anchor="w", pady=(0, 8))
         self.hud_labels: list[tk.Label] = []
-        for _ in range(24):
+        for _ in range(25):
             label = tk.Label(sidebar, anchor="w", justify="left", bg="#171717", fg="#f4f4f4",
                              font=("Consolas", 9, "bold"))
             label.pack(fill="x", pady=0)
@@ -88,7 +114,7 @@ class ManualPlayer:
             ("ballast_up", "Y  BLOW BALLAST / FLOAT"),
             ("ballast_down", "U  FLOOD BALLAST / SINK"),
             ("restart", "R  RESET SAME WORLD"),
-            ("randomize", "T  RANDOM NEW WORLD"),
+            ("randomize", "T  NEXT CANDIDATE SEED / RANDOM WORLD"),
         )):
             label = tk.Label(controls, text=text, bg="#252525", fg="#eeeeee",
                              font=("Consolas", 8, "bold"), padx=3, pady=2)
@@ -126,8 +152,16 @@ class ManualPlayer:
         elif key == "t":
             # Reroll into a brand new random world (fresh seed, trial boundary
             # so hidden mechanics resample too) without leaving the debugger.
-            self.seed = random.randint(0, 2**31 - 1)
-            self.restart_notice = f"RANDOMIZED WORLD: seed={self.seed}"
+            if self.candidate:
+                self._candidate_seed_index = (self._candidate_seed_index + 1) % len(self.candidate.seeds)
+                self.seed = self.candidate.seeds[self._candidate_seed_index]
+                self.restart_notice = (
+                    f"CANDIDATE SEED {self._candidate_seed_index + 1}/"
+                    f"{len(self.candidate.seeds)}: seed={self.seed}"
+                )
+            else:
+                self.seed = random.randint(0, 2**31 - 1)
+                self.restart_notice = f"RANDOMIZED WORLD: seed={self.seed}"
             self.obs, self.info = self.env.reset(seed=self.seed, options={"trial_start": True})
             self.last_reward = 0.0
         elif key in {"escape", "q"}:
@@ -352,7 +386,13 @@ class ManualPlayer:
             debug.get("roof_piston_mask", 3), "BOTH"
         )
 
+        candidate_text = (
+            f"CANDIDATE {self.candidate.name} r{self.candidate.revision}  "
+            f"SEED {self._candidate_seed_index + 1}/{len(self.candidate.seeds)}"
+            if self.candidate else "CANDIDATE --"
+        )
         lines = [
+            (candidate_text, "#ffd166" if self.candidate else "#888888"),
             (f"FPS {self.fps_value:5.1f}", "#f4f4f4"),
             (f"SEED {debug.get('seed', 0)}  TIME {debug.get('trial_time_left', 0.0):5.1f}s", "#f4f4f4"),
             (f"SPD {debug['speed_kmh']:5.1f} km/h", "#f4f4f4"),
@@ -463,8 +503,34 @@ class ManualPlayer:
         )
 
     def run(self) -> None:
+        if self.candidate:
+            self.show_candidate_briefing()
         self.update()
         self.root.mainloop()
+
+    def show_candidate_briefing(self) -> None:
+        from tkinter import messagebox
+
+        item = self.candidate
+        mechanics = ", ".join(_MECHANIC_LABELS.get(name, name) for name in item.mechanics)
+        actions = ", ".join(_ACTION_LABELS.get(name, name) for name in item.helpful_actions)
+        support = "полностью поддерживается" if item.support == "implemented" else "поддерживается частично"
+        limitation = f"\n\nОграничение:\n{item.limitation}" if item.limitation else ""
+        text = (
+            f"{item.description}\n\n"
+            f"Механики: {mechanics}\n"
+            f"Что может помочь: {actions}\n"
+            f"Физика: {support}\n"
+            f"Seed {self._candidate_seed_index + 1}/{len(item.seeds)}: {self.seed}"
+            f"{limitation}\n\n"
+            "R — повторить этот мир. T — следующий закреплённый seed."
+        )
+        self.root.update_idletasks()
+        messagebox.showinfo(
+            title=f"Кандидат: {item.name} (ревизия {item.revision})",
+            message=text,
+            parent=self.root,
+        )
 
 
 def main() -> None:
@@ -486,7 +552,29 @@ def main() -> None:
         "--split", choices=("train", "test"), default="train",
         help="train uses the progressive course; test starts in the held-out endgame world",
     )
+    parser.add_argument("--candidate", help="run a provisional candidate by stable name")
+    parser.add_argument("--candidate-seed-index", type=int, default=1,
+                        help="1-based seed index for --candidate")
+    parser.add_argument("--list-candidates", action="store_true")
     args = parser.parse_args()
+    catalogue = candidates()
+    if args.list_candidates:
+        for item in catalogue.values():
+            marker = "PARTIAL" if item.support != "implemented" else "READY"
+            print(f"{item.name:<22} {marker:<7}  {item.description}")
+        return
+    args.candidate_record = None
+    args.candidate_config = None
+    if args.candidate:
+        if args.candidate not in catalogue:
+            parser.error(f"unknown candidate {args.candidate!r}; use --list-candidates")
+        args.candidate_record = catalogue[args.candidate]
+        if not 1 <= args.candidate_seed_index <= len(args.candidate_record.seeds):
+            parser.error(f"--candidate-seed-index must be 1..{len(args.candidate_record.seeds)}")
+        args.candidate_seed_index -= 1
+        args.candidate_config = candidate_config(args.candidate_record, args.config, args.rig)
+        if args.seed is None:
+            args.seed = args.candidate_record.seeds[args.candidate_seed_index]
     if args.seed is None:
         args.seed = random.randint(0, 2**31 - 1)
         print(f"No --seed given; using random seed={args.seed} (pass --seed to pin a world)")
