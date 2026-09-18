@@ -53,6 +53,9 @@ class Terrain {
   void deform(float x, float radius, float amount);
   void add_height_at_index(int index, float amount);
   float carve_basin(float begin_x, float end_x, float depth, uint64_t seed);
+  // One pond of a given bottom shape, dug down from a shared water level.
+  void carve_pond(float begin_x, float end_x, float water_level, float depth,
+                  int shape, uint64_t seed);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
   void add_surface(float begin_x, float end_x, float begin_height, float end_height);
 

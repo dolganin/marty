@@ -797,19 +797,28 @@ void Env::finalize_mechanic_layout() {
     }
     const float depth = pending_basin_depth_[static_cast<size_t>(slot)];
     if (depth >= 0.0f) {
-      const float world_end =
-          std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x);
-      zone.liquid_level = terrain_.carve_basin(
-          std::max(0.0f, zone.begin_x), world_end, depth, zone.terrain_seed);
-      // A raised, dry crossing is a separate collision surface; missing the
-      // ramp leaves the rover on the lower water route, where the propeller is
-      // useful but expensive.
-      const float left = std::max(0.0f, zone.begin_x) + 9.0f;
-      const float right = world_end - 9.0f;
-      if (right - left > 24.0f) {
-        const float h0 = terrain_.query(left).height + 0.85f;
-        const float h1 = terrain_.query(right).height + 0.85f;
-        terrain_.add_surface(left, right, h0, h1);
+      // A chain of separate ponds rather than one basin stretched over the
+      // whole zone: an unbounded bowl has shores so shallow that the rover
+      // never gets wet.  All ponds in a zone share one water level, and their
+      // bottoms differ - one of them is a trap that cannot be driven out of.
+      const float field_begin = std::max(0.0f, zone.begin_x) + 8.0f;
+      const float field_end =
+          std::min(std::min(std::max(terrain_.length(), config_.terrain.length), zone.end_x),
+                   field_begin + 620.0f);
+      const float level = terrain_.query(field_begin + 6.0f).height;
+      zone.liquid_level = level;
+      int pond_index = 0;
+      for (float pond_begin = field_begin; pond_begin + 26.0f < field_end; ++pond_index) {
+        const uint64_t pond_seed = zone.terrain_seed + 7919ULL * static_cast<uint64_t>(pond_index);
+        const float length = 42.0f + 48.0f * biome_random01(pond_seed, 31);
+        const float pond_end = std::min(field_end, pond_begin + length);
+        // Every third pond is the trap, the rest cycle through the open shapes.
+        const int shape = pond_index % 3 == 2 ? 3 : static_cast<int>(
+                              biome_random01(pond_seed, 32) * 3.0f) % 3;
+        terrain_.carve_pond(pond_begin, pond_end, level,
+                            depth * (0.7f + 0.6f * biome_random01(pond_seed, 33)),
+                            shape, pond_seed);
+        pond_begin = pond_end + 14.0f + 26.0f * biome_random01(pond_seed, 34);
       }
     }
     if (zone.params.ledge_gap_width > 0.0f && zone.params.ledge_spacing > 0.0f) {

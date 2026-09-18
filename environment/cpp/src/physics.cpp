@@ -274,8 +274,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.projected_upshift_rpm = next_gear_rpm;
   state.upshift_speed_ok = upshift_speed_ok;
   state.upshift_recommended = upshift_recommended;
-  state.can_shift_up = can_shift_up;
-  state.can_shift_down = can_shift_down;
+  state.can_shift_up = can_shift_up && !state.climb_mode;
+  state.can_shift_down = can_shift_down && !state.climb_mode;
   state.should_shift_down = state.gear_index > 0 && state.engine_rpm < minimum_loaded_rpm;
   if (state.shift_up_buffer_steps > 0 && can_shift_up) {
     const float target_rpm = road_rpm_for_gear(state.gear_index + 1);
@@ -440,7 +440,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float battery_fraction = clamp(
       state.energy / std::max(1.0f, config_.energy_capacity), 0.0f, 1.0f);
   const float reserve_power = 0.006f + 0.994f * std::sqrt(battery_fraction);
-  const float climb_torque = state.climb_mode ? 1.75f : 1.0f;
+  // Climb mode drives spikes out of the tyres: huge grip, a crawl instead of
+  // speed, a locked gearbox, and a rover that the wind can no longer push.
+  const float climb_torque = state.climb_mode ? 0.85f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
   state.solar_charge_rate = state.charging_active ? state.latent_solar_rate * 10.0f : 0.0f;
@@ -550,7 +552,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.geyser_period = geyser_zone.params.geyser_period;
   state.geyser_strength = geyser_strength;
   Vec2 body_force{0.0f, state.body.mass * gravity};
-  body_force.x += state.latent_wind_force;
+  const bool spiked_in = state.climb_mode && state.drivetrain_grounded;
+  body_force.x += state.latent_wind_force * (spiked_in ? 0.2f : 1.0f);
+  if (spiked_in) {
+    // Anchored to the ground, the rover carries a smaller share of its weight
+    // and bleeds off any speed it had built up.
+    body_force.y += state.body.mass * -gravity * 0.4f;
+    body_force.x -= state.body.velocity.x * state.body.mass * 1.6f;
+  }
   // Without stored energy the drivetrain cannot keep a rover planing forever
   // on an old impulse. Excess speed is bled away into the stalled drivetrain;
   // the remaining cap is deliberately only a slow crawl.
@@ -943,7 +952,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       ctx.dt = dt;
       ctx.wheel_radius = wheel.radius;
       ctx.base_friction = config_.wheel_friction * state.latent_traction *
-                          (state.climb_mode ? 1.18f : 1.0f);
+                          (state.climb_mode ? 2.40f : 1.0f);
       ctx.drive_force = drive_force;
       ctx.immersion = liquid_immersion;
 

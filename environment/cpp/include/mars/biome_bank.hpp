@@ -1142,7 +1142,7 @@ class GaleDarkFlats final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.70f + 0.20f * biome_random01(s);
-    p.wind_force = -(34.0f + 24.0f * biome_random01(s, 1));
+    p.wind_force = -(18.0f + 16.0f * biome_random01(s, 1));
     p.energy_drain_mul = 1.7f + 0.5f * biome_random01(s, 2);
     p.solar_charge_rate = 0.02f + 0.04f * biome_random01(s, 3);
     p.ambient_temperature = -52.0f + 14.0f * biome_random01(s, 4);

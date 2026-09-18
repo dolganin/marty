@@ -45,6 +45,7 @@ class ManualPlayer:
         self.root.title(f"Mars Rover Manual Control{suffix}")
         self._fullscreen = bool(args.fullscreen)
         self._sidebar_width = 500
+        self._render_scale = max(1, int(getattr(args, "render_scale", 1)))
         if self._fullscreen:
             self.root.attributes("-fullscreen", True)
             render_width = max(640, self.root.winfo_screenwidth() - self._sidebar_width - 16)
@@ -53,6 +54,11 @@ class ManualPlayer:
             render_width = int(args.width)
             render_height = int(args.height)
 
+        # Rendering fewer pixels and letting Tk zoom them is the cheapest way to
+        # cut the per-frame cost: both the C++ fill and the PPM upload shrink
+        # quadratically with the scale.
+        render_width = max(160, render_width // self._render_scale)
+        render_height = max(90, render_height // self._render_scale)
         self.env = MarsRoverEnv(
             config_path=args.config,
             rig_path=args.rig,
@@ -285,6 +291,8 @@ class ManualPlayer:
 
         rgb = self.env.render()
         self.photo = self._tk.PhotoImage(data=_ppm_bytes(rgb), format="PPM")
+        if self._render_scale > 1:
+            self.photo = self.photo.zoom(self._render_scale)
         if self.image_id is None:
             self.image_id = self.canvas.create_image(0, 0, image=self.photo, anchor="nw")
         else:
@@ -559,6 +567,8 @@ def main() -> None:
     parser.add_argument("--list-candidates", action="store_true")
     parser.add_argument("--biome", help="fill the whole course with one biome, by catalog id")
     parser.add_argument("--list-biomes", action="store_true")
+    parser.add_argument("--render-scale", type=int, default=1, choices=(1, 2, 3),
+                        help="render at 1/N resolution and upscale; 2-3 cost far less CPU")
     args = parser.parse_args()
     if args.list_biomes:
         from _mars_rover_cpp import biome_catalog

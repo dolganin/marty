@@ -13,6 +13,8 @@ param(
     [switch]$ListCandidates,
     [string]$Biome = "",
     [switch]$ListBiomes,
+    [ValidateRange(1, 3)]
+    [int]$RenderScale = 1,
     [ValidateSet("train", "test")]
     [string]$Split = "train"
 )
@@ -34,6 +36,7 @@ if ($Candidate) { $PlayArgs += @("--candidate", $Candidate, "--candidate-seed-in
 if ($ListCandidates) { $PlayArgs += "--list-candidates" }
 if ($Biome) { $PlayArgs += @("--biome", $Biome) }
 if ($ListBiomes) { $PlayArgs += "--list-biomes" }
+if ($RenderScale -gt 1) { $PlayArgs += @("--render-scale", $RenderScale) }
 $PlayArgs += @("--split", $Split)
 
 & $Python @PlayArgs

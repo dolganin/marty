@@ -175,10 +175,9 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
                 {25, 25, 25});
     draw_circle(rgb, width, height, static_cast<int>(wp.x), static_cast<int>(wp.y),
                 std::max(1, radius / 2), {120, 120, 120});
-    // The axle is fixed to the rover chassis.  Only the tyre is driven by
-    // wheel.angle; keeping this visual reference in body space prevents the
-    // hub/axle from appearing to spin together with the wheel.
-    const float spoke_angle = state.body.angle;
+    // The spoke is the only cue that the tyre turns at all, so it follows the
+    // wheel, not the chassis.
+    const float spoke_angle = wheel.angle;
     const int sx = static_cast<int>(wp.x + std::cos(spoke_angle) * radius);
     const int sy = static_cast<int>(wp.y - std::sin(spoke_angle) * radius);
     draw_line(rgb, width, height, static_cast<int>(wp.x), static_cast<int>(wp.y), sx, sy,

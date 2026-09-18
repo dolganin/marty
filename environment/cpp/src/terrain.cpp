@@ -274,6 +274,62 @@ float Terrain::carve_basin(float begin_x, float end_x, float depth, uint64_t see
   return water_level;
 }
 
+void Terrain::carve_pond(float begin_x, float end_x, float water_level, float depth,
+                         int shape, uint64_t seed) {
+  if (heights_.empty() || end_x <= begin_x || depth <= 0.0f) return;
+  const int first = std::max(0, static_cast<int>(std::floor(begin_x * inv_dx_)));
+  const int last = std::min(static_cast<int>(heights_.size() - 1),
+                            static_cast<int>(std::ceil(end_x * inv_dx_)));
+  const float inv_width = 1.0f / (end_x - begin_x);
+  const float terraces = 3.0f + std::floor(seeded_unit(seed, 51) * 3.0f);
+  for (int i = first; i <= last; ++i) {
+    const float x = static_cast<float>(i) * dx_;
+    const float t = clamp((x - begin_x) * inv_width, 0.0f, 1.0f);
+    const float edge = std::min(t, 1.0f - t);
+    float sink = 0.0f;
+    switch (shape) {
+      case 0: {  // parabolic bowl: deep in the middle, easy to roll out of
+        const float bowl = std::sin(t * 3.14159265f);
+        sink = bowl * bowl;
+        break;
+      }
+      case 1: {  // flat trough with long gentle shores
+        const float shore = 0.26f;
+        const float ramp = clamp(edge / shore, 0.0f, 1.0f);
+        sink = ramp * ramp * (3.0f - 2.0f * ramp);
+        break;
+      }
+      case 2: {  // shelves: rounded steps, climbable but not square blocks
+        const float ramp = clamp(edge / 0.34f, 0.0f, 1.0f);
+        const float scaled = ramp * terraces;
+        const float step = std::floor(scaled);
+        const float local = scaled - step;
+        const float eased = local * local * (3.0f - 2.0f * local);
+        sink = (step + eased) / terraces;
+        break;
+      }
+      default: {  // trap: near-vertical walls, no run-up out of it
+        const float shore = 0.05f;
+        sink = clamp(edge / shore, 0.0f, 1.0f);
+        break;
+      }
+    }
+    const float floor_height = water_level - depth * sink;
+    heights_[static_cast<size_t>(i)] =
+        std::min(heights_[static_cast<size_t>(i)], floor_height);
+    if (shape == 3) {
+      // A lip standing proud of the water at the far shore: leaving the trap
+      // needs the propeller, the ballast or a suspension kick, not throttle.
+      const float lip = (t - 0.94f) / 0.03f;
+      if (std::abs(lip) < 1.0f) {
+        const float crest = water_level + 0.55f * (1.0f - lip * lip);
+        heights_[static_cast<size_t>(i)] =
+            std::max(heights_[static_cast<size_t>(i)], crest);
+      }
+    }
+  }
+}
+
 void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
                           float ramp_height) {
   if (heights_.empty() || end_x <= begin_x) return;
