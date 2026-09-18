@@ -101,6 +101,14 @@ def test_clutch_separates_engine_rpm_from_vehicle_speed(tmp_path) -> None:
     env.close()
 
 
+def test_taller_base_speed_reaches_a_dynamic_first_gear_pace(tmp_path) -> None:
+    env = _running_env(tmp_path)
+    for _ in range(900):
+        env.step(GAS)
+    assert env.debug_info()["speed_kmh"] > 8.0
+    env.close()
+
+
 def test_a_tall_gear_lugs_the_engine_at_walking_speed(tmp_path) -> None:
     env = _running_env(tmp_path)
     for _ in range(900):

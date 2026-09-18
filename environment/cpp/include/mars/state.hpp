@@ -109,6 +109,8 @@ struct RoverState {
   bool landing_event = false;
   bool landing_fatal = false;
   bool fatal_error = false;
+  bool pit_recovery_event = false;
+  int pit_recovery_count = 0;
 
 
   int termination_reason = 0;

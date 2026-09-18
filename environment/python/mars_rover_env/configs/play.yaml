@@ -17,7 +17,7 @@ env:
 
 terrain:
   # sample_count*dx=~20000m physical extent - a 600s run driving flat-out at
-  # top-gear speed the whole time covers ~8100m, so this stays comfortably
+  # top-gear speed the whole time covers ~10500m, so this stays comfortably
   # ahead of even an unrealistic best case instead of clamping to a flat
   # plateau past the array bound (see Terrain::query, terrain.cpp).
   sample_count: 111112

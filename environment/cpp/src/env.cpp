@@ -49,10 +49,10 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
         scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
     scaled_terrain.difficulty_distance_offset = physical_length * 32.0f;
     scaled_terrain.preserve_spawn_safety = false;
-    scaled_terrain.crater_count = std::max(120, scaled_terrain.crater_count * 6);
-    scaled_terrain.step_count = std::max(150, scaled_terrain.step_count * 8);
-    scaled_terrain.amplitude = std::max(1.10f, scaled_terrain.amplitude * 1.60f);
-    scaled_terrain.roughness = std::max(0.80f, scaled_terrain.roughness * 1.50f);
+    scaled_terrain.crater_count = std::max(240, scaled_terrain.crater_count * 10);
+    scaled_terrain.step_count = std::max(240, scaled_terrain.step_count * 12);
+    scaled_terrain.amplitude = std::max(1.75f, scaled_terrain.amplitude * 2.50f);
+    scaled_terrain.roughness = std::max(1.10f, scaled_terrain.roughness * 2.10f);
   }
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
@@ -72,6 +72,7 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
 
 StepOutput Env::step(int action, float* obs_out) {
   state_.previous_x = state_.body.position.x;
+  state_.pit_recovery_event = false;
   update_world_latents();
   const auto stats = physics_.step(config_.rig, terrain_, state_, action, mechanic_layout_);
 
@@ -96,18 +97,28 @@ StepOutput Env::step(int action, float* obs_out) {
         const auto& wheel = state_.wheels[static_cast<size_t>(i)];
         const float travel_speed = std::abs(state_.body.velocity.x);
         const float tread_speed = std::abs(wheel.angular_velocity) * wheel.radius;
-        const float speed_relief = 1.0f / (1.0f + 0.42f * travel_speed);
-        const float digging = 1.0f + 1.8f * clamp(wheel.slip, 0.0f, 2.0f) +
-                              0.08f * tread_speed;
+        const float speed_relief = 1.0f / (1.0f + 0.18f * travel_speed);
+        const float digging = 1.0f + 2.6f * clamp(c.slip, 0.0f, 2.0f) +
+                              0.55f * c.drive_effort + 0.10f * tread_speed;
         const float difficulty = terrain_.difficulty_at(c.x);
         deform_scale = zone.params.sink_rate * (0.45f + 1.35f * difficulty) *
-                       speed_relief * digging;
+                       speed_relief * digging *
+                       (0.08f + 0.92f * clamp(c.drive_effort, 0.0f, 1.0f));
       } else if (zone.type == MechanicType::Mud) {
         deform_scale = 0.012f + zone.params.viscosity * 0.003f;
       }
       if (deform_scale > 0.0f) {
-        terrain_.deform(c.x, state_.wheels[static_cast<size_t>(i)].radius * 1.5f,
-                        deform_scale * c.penetration);
+        float amount = deform_scale * c.penetration;
+        if (zone.type == MechanicType::Sand && c.drive_effort > 0.05f) {
+          // Direct time-based rutting is the missing accumulation term: the
+          // old penetration-only rule converged as the ground followed the
+          // tyre, so spinning in place merely polished the profile.
+          amount += zone.params.sink_rate * config_.physics.dt *
+                    (0.25f + 0.95f * c.drive_effort +
+                     2.10f * clamp(c.slip, 0.0f, 1.5f));
+        }
+        terrain_.deform(c.x, state_.wheels[static_cast<size_t>(i)].radius * 1.15f,
+                        amount);
       }
     }
   }
@@ -131,6 +142,21 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   const bool stuck = false;
   trial_steps_used_ += 1;
+  float pit_recovery_x = 0.0f;
+  const bool fell_into_generated_pit =
+      terrain_.pit_recovery_x(state_.body.position.x, state_.body.position.y, pit_recovery_x);
+  if (fell_into_generated_pit ||
+      state_.body.position.y < config_.termination.fatal_fall_y) {
+    if (!fell_into_generated_pit) {
+      pit_recovery_x = terrain_.next_solid_x(state_.body.position.x, 2.5f);
+    }
+    recover_from_pit(pit_recovery_x);
+    if (trial_step_budget() > 0) {
+      const int penalty_steps = std::max(
+          1, static_cast<int>(std::lround(10.0f / std::max(0.0001f, config_.physics.dt))));
+      trial_steps_used_ = std::min(trial_step_budget(), trial_steps_used_ + penalty_steps);
+    }
+  }
   StepOutput out{};
   out.terminated = false;
   out.truncated = trial_exhausted();
@@ -873,6 +899,35 @@ float Env::trial_time_left() const {
     return -1.0f;
   }
   return static_cast<float>(std::max(0, budget - trial_steps_used_)) * config_.physics.dt;
+}
+
+void Env::recover_from_pit(float recovery_x) {
+  const float recovery_y = terrain_.query(recovery_x).height + 1.0f;
+  state_.body.position = {recovery_x, recovery_y};
+  state_.body.velocity = {};
+  state_.body.angle = 0.0f;
+  state_.body.angular_velocity = 0.0f;
+  state_.render_camera_position = state_.body.position;
+  for (int i = 0; i < state_.wheel_count; ++i) {
+    const auto& wr = config_.rig.wheels[static_cast<size_t>(i)];
+    auto& wheel = state_.wheels[static_cast<size_t>(i)];
+    wheel.position = state_.body.position + wr.local_anchor +
+                     Vec2{0.0f, -wr.suspension.rest_length};
+    wheel.velocity = {};
+    wheel.angular_velocity = 0.0f;
+    wheel.in_contact = false;
+    wheel.normal_force = 0.0f;
+    wheel.slip = 0.0f;
+  }
+  state_.previous_x = recovery_x;  // Never reward distance granted by recovery.
+  state_.airborne = false;
+  state_.has_grounded = false;
+  state_.airborne_steps = 0;
+  state_.landing_event = false;
+  state_.landing_fatal = false;
+  state_.fatal_error = false;
+  state_.pit_recovery_event = true;
+  ++state_.pit_recovery_count;
 }
 
 bool Env::is_flipped() const {

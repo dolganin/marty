@@ -7,7 +7,10 @@ namespace mars {
 namespace {
 
 constexpr float kGearRatios[] = {4.20f, 3.10f, 2.35f, 1.80f, 1.40f, 1.10f, 0.86f, 0.68f};
-constexpr float kGearMaxSpeeds[] = {2.0f, 3.0f, 4.2f, 5.6f, 7.2f, 9.0f, 11.0f, 13.5f};
+// The old range topped out at 13.5 m/s and made conservative crawling the
+// dominant strategy.  A 30% taller road-speed envelope makes momentum useful
+// on train and makes carrying too much of it into held-out hazards dangerous.
+constexpr float kGearMaxSpeeds[] = {2.6f, 3.9f, 5.5f, 7.3f, 9.4f, 11.7f, 14.3f, 17.5f};
 constexpr float kMinimumLoadedRpm[] = {800.0f, 1400.0f, 1900.0f, 2600.0f,
                                        3000.0f, 3300.0f, 3500.0f, 3700.0f};
 constexpr float kGearEnergyMul[] = {1.00f, 1.12f, 1.28f, 1.48f,
@@ -221,7 +224,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   // This calibrated effective ratio retains a gradual loaded RPM rise at
   // launch while keeping the useful shift window inside the rover's actual
   // low-speed range.
-  constexpr float kEffectiveDrivelineRatio = 2.25f;
+  constexpr float kEffectiveDrivelineRatio = 1.73f;
   const auto road_rpm_for_gear = [&](int gear_index) {
     if (gear_index < 0 || gear_index >= kGearCount) return kIdleRpm;
     return shift_speed / driven_wheel_radius * kGearRatios[gear_index] *
@@ -232,7 +235,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
           ? kBasePostShiftRpm[state.gear_index] +
                 std::abs(control.throttle) * 1000.0f + drivetrain_load * 1200.0f
           : 2500.0f;
-  const float minimum_post_shift_rpm = 1700.0f + drivetrain_load * 800.0f;
+  // Taller road gearing needs a slightly wider usable shift window. Keep the
+  // slope-sensitive floor, but do not make third gear unreachable on flat
+  // ground merely because the rover now covers more distance per revolution.
+  const float minimum_post_shift_rpm = 1400.0f + drivetrain_load * 700.0f;
   float next_gear_rpm = kIdleRpm;
   float recommended_upshift_rpm = 0.0f;
   float minimum_upshift_rpm = 0.0f;
@@ -440,9 +446,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   const float battery_fraction = clamp(
       state.energy / std::max(1.0f, config_.energy_capacity), 0.0f, 1.0f);
   const float reserve_power = 0.006f + 0.994f * std::sqrt(battery_fraction);
-  // Climb mode drives spikes out of the tyres: huge grip, a crawl instead of
-  // speed, a locked gearbox, and a rover that the wind can no longer push.
-  const float climb_torque = state.climb_mode ? 0.85f : 1.0f;
+  // Climb mode drives spikes out of the tyres. It remains expensive and locks
+  // shifting, but no longer turns every adverse surface into a safe crawl.
+  const float climb_torque = state.climb_mode ? 1.05f : 1.0f;
 
   const auto& body_zone = mechanics.at(state.body.position.x);
   state.solar_charge_rate = state.charging_active ? state.latent_solar_rate * 10.0f : 0.0f;
@@ -558,7 +564,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     // Anchored to the ground, the rover carries a smaller share of its weight
     // and bleeds off any speed it had built up.
     body_force.y += state.body.mass * -gravity * 0.4f;
-    body_force.x -= state.body.velocity.x * state.body.mass * 1.6f;
+    body_force.x -= state.body.velocity.x * state.body.mass * 0.75f;
   }
   // Without stored energy the drivetrain cannot keep a rover planing forever
   // on an old impulse. Excess speed is bled away into the stalled drivetrain;
@@ -879,6 +885,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     }
     WheelContact contact{};
     contact.wheel_index = i;
+    float deformation_drive_effort = 0.0f;
 
 
 
@@ -972,6 +979,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float limit = std::max(ctx.minimum_drive_limit,
                                    contact.normal_force * ctx.base_friction);
       const float applied_drive = clamp(ctx.drive_force, -limit, limit);
+      deformation_drive_effort = driven_wheel
+                                     ? clamp(std::abs(ctx.drive_force) /
+                                                 std::max(1.0f, limit),
+                                             0.0f, 4.0f)
+                                     : 0.0f;
       traction_force += contact.tangent * applied_drive;
       contact.slip = std::abs(ctx.drive_force - applied_drive) /
                      (std::abs(ctx.drive_force) + 1.0f);
@@ -1003,6 +1015,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     deformation_contact.active = contact.active;
     deformation_contact.x = contact.point.x;
     deformation_contact.penetration = contact.penetration;
+    deformation_contact.drive_effort = deformation_drive_effort;
+    deformation_contact.slip = contact.slip;
 
     wheel.velocity += wheel_force * wheel.inv_mass * dt;
     wheel.velocity *= (1.0f - config_.linear_damping);

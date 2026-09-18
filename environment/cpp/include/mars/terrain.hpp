@@ -21,6 +21,13 @@ struct TerrainSurface {
   float end_height = 0.0f;
 };
 
+struct TerrainPit {
+  float center_x = 0.0f;
+  float radius = 0.0f;
+  float rim_height = 0.0f;
+  float depth = 0.0f;
+};
+
 struct TerrainConfig {
   int sample_count = 2048;
   float dx = 0.25f;
@@ -58,6 +65,10 @@ class Terrain {
                   int shape, uint64_t seed);
   void carve_ledge(float begin_x, float end_x, float ramp_length, float ramp_height);
   void add_surface(float begin_x, float end_x, float begin_height, float end_height);
+  // Finds stable ground beyond a non-solid gap. Used by the fixed-horizon
+  // recovery rule to place a fallen rover on the far edge of a pit.
+  float next_solid_x(float x, float required_run) const;
+  bool pit_recovery_x(float x, float body_y, float& recovery_x) const;
 
   int sample_count() const { return static_cast<int>(heights_.size()); }
   float dx() const { return dx_; }
@@ -73,6 +84,7 @@ class Terrain {
   std::vector<float> heights_;
   std::vector<uint8_t> solid_;
   std::vector<TerrainSurface> surfaces_;
+  std::vector<TerrainPit> deep_pits_;
   float dx_ = 0.25f;
   float inv_dx_ = 4.0f;
   float base_height_ = 0.0f;

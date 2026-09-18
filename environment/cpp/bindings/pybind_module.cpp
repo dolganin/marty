@@ -307,6 +307,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                d["jagged_amplitude"] = zone.jagged_amplitude;
              }
              d["y"] = state.body.position.y;
+             d["ground_height"] = env.terrain().query(state.body.position.x).height;
              d["vx"] = state.body.velocity.x;
              d["vy"] = state.body.velocity.y;
              d["angle"] = state.body.angle;
@@ -318,6 +319,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["landing_event"] = state.landing_event;
              d["landing_fatal"] = state.landing_fatal;
              d["fatal_error"] = state.fatal_error;
+             d["pit_recovery_event"] = state.pit_recovery_event;
+             d["pit_recovery_count"] = state.pit_recovery_count;
              d["impact_speed"] = state.last_impact_speed;
              d["landing_angle"] = state.last_landing_angle;
              d["episode_in_trial"] = state.episode_in_trial;

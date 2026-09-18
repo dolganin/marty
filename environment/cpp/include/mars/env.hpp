@@ -12,7 +12,7 @@
 namespace mars {
 
 inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v15-correlated-zones-profile-curriculum";
+    "mars-env-v16-high-speed-ruts-pit-recovery";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -94,6 +94,7 @@ class Env {
   bool is_stuck() const;
   void update_world_latents();
   float course_difficulty(float x) const;
+  void recover_from_pit(float recovery_x);
 
   EnvConfig config_{};
   Terrain terrain_{};

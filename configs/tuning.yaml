@@ -75,7 +75,7 @@ physics:
   gravity: -3.71
   # Базовое сцепление до множителей биома.
   wheel_friction: 1.2
-  motor_torque: 91.125
+  motor_torque: 115.0
   final_drive_ratio: 4.5
   engine_inertia: 0.48
   engine_drag_torque: 7.0

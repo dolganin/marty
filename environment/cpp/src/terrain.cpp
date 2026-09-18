@@ -33,6 +33,7 @@ void Terrain::configure(const TerrainConfig& config) {
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
   solid_.assign(static_cast<size_t>(config.sample_count), 1u);
   surfaces_.clear();
+  deep_pits_.clear();
 }
 
 void Terrain::generate(uint64_t seed) {
@@ -101,6 +102,12 @@ void Terrain::generate(uint64_t seed) {
         : broad_pit
             ? amplitude_ * (0.24f + difficulty * (0.42f + 0.58f * unit_dist(rng)))
             : amplitude_ * (0.08f + difficulty * (0.45f + 0.85f * unit_dist(rng)));
+    if (deep_pit) {
+      const int center_index = std::clamp(static_cast<int>(std::lround(cx * inv_dx_)), 0,
+                                          static_cast<int>(heights_.size() - 1));
+      deep_pits_.push_back(
+          {cx, radius, heights_[static_cast<size_t>(center_index)], depth});
+    }
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;
@@ -353,6 +360,38 @@ void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
 void Terrain::add_surface(float begin_x, float end_x, float begin_height, float end_height) {
   if (end_x - begin_x < dx_ || !std::isfinite(begin_height) || !std::isfinite(end_height)) return;
   surfaces_.push_back({begin_x, end_x, begin_height, end_height});
+}
+
+float Terrain::next_solid_x(float x, float required_run) const {
+  if (heights_.empty()) return x;
+  const float run = std::max(dx_, required_run);
+  const int run_samples = std::max(1, static_cast<int>(std::ceil(run * inv_dx_)));
+  const int first = std::clamp(static_cast<int>(std::floor(x * inv_dx_)), 0,
+                               static_cast<int>(heights_.size() - 1));
+  for (int i = first; i + run_samples < static_cast<int>(solid_.size()); ++i) {
+    bool stable = true;
+    for (int j = 0; j <= run_samples; ++j) {
+      if (solid_[static_cast<size_t>(i + j)] == 0u) {
+        stable = false;
+        break;
+      }
+    }
+    if (stable) return static_cast<float>(i) * dx_ + 0.5f * run;
+  }
+  return std::min(length(), std::max(0.0f, x) + run);
+}
+
+bool Terrain::pit_recovery_x(float x, float body_y, float& recovery_x) const {
+  for (const auto& pit : deep_pits_) {
+    if (x < pit.center_x - pit.radius || x > pit.center_x + pit.radius) continue;
+    // The body has crossed well below the remembered rim. Merely touching a
+    // slope is not a failure; committing into the deep bowl is.
+    const float fall_threshold = pit.rim_height - std::max(0.35f, pit.depth * 0.18f);
+    if (body_y >= fall_threshold) continue;
+    recovery_x = next_solid_x(pit.center_x + pit.radius * 1.55f, 2.5f);
+    return true;
+  }
+  return false;
 }
 
 float Terrain::height_at_index(int i) const {

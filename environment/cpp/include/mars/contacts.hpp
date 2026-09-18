@@ -26,6 +26,11 @@ struct DeformationContact {
   bool active = false;
   float x = 0.0f;
   float penetration = 0.0f;
+  // Normalised demand on the available contact patch.  Sand consumes this
+  // separately from geometric penetration so sustained throttle digs a rut
+  // even after the tyre has settled onto the newly lowered surface.
+  float drive_effort = 0.0f;
+  float slip = 0.0f;
 };
 
 using DeformationContactArray = std::array<DeformationContact, kMaxWheels>;

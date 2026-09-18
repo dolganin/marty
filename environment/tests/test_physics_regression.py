@@ -90,9 +90,9 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     first = _trace()
     second = _trace()
     assert first == second
-    # Rebaselined after the flat battery began stopping the engine and the
-    # geyser fields joined debug_info.
-    assert _fingerprint(first) == "76463f9baeb6a1341cd11a93bbf1fdddc04a0513575ad3c84fea0e083b90c525"
+    # Rebaselined for the v16 taller gearing, powered sand rutting and pit
+    # recovery telemetry. Equality above still independently checks replay.
+    assert _fingerprint(first) == "231ff28d6cb24fd40bc82d0bc1b59d989555a8995f48c33ea5603983e0dbee52"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():
@@ -191,8 +191,8 @@ def test_held_out_split_is_a_full_endgame_world_while_train_stays_progressive():
     # Endgame terrain has no five-metre flattened spawn strip: unlike train,
     # it is generated entirely from the maximum-distance distribution.
     assert test_debug["safe_start_m"] == 0.0
-    assert test_debug["generated_pit_count"] >= 120
-    assert test_debug["generated_step_count"] >= 150
+    assert test_debug["generated_pit_count"] >= 240
+    assert test_debug["generated_step_count"] >= 240
     assert test_debug["terrain_surprise_mode"] > 0
 
 

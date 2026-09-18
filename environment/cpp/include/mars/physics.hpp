@@ -13,7 +13,7 @@ struct PhysicsConfig {
   float dt = 1.0f / 60.0f;
   float gravity = -3.71f;
   float wheel_friction = 1.2f;
-  float motor_torque = 91.125f;
+  float motor_torque = 115.0f;
   float final_drive_ratio = 4.5f;
   float engine_inertia = 0.48f;
   float engine_drag_torque = 7.0f;
