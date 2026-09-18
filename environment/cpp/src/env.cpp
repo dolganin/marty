@@ -655,6 +655,19 @@ void Env::finalize_mechanic_layout() {
         1.0f + std::max(0.0f, config_.terrain_profile_frequency_growth) * zone_difficulty;
     zone.terrain_profile = profile;
     zone.terrain_frequency_scale = frequency_scale;
+    // Jaggedness is a held-out surface modifier: train courses stay smooth, so
+    // a policy that only ever learned clean ground meets it for the first time
+    // in the endgame world.  The kind is drawn per zone, the size grows with
+    // the difficulty ramp.
+    zone.jagged_mode = 0;
+    zone.jagged_amplitude = 0.0f;
+    const float jagged_scale = std::max(0.0f, config_.terrain.jagged_scale);
+    if (endgame_test_world_ && jagged_scale > 0.0f) {
+      zone.jagged_mode = 1 + static_cast<int>(biome_random01(zone.terrain_seed, 61) * 4.0f) % 4;
+      zone.jagged_amplitude =
+          jagged_scale * (0.6f + 0.8f * biome_random01(zone.terrain_seed, 62)) *
+          (0.25f + 0.75f * zone_difficulty);
+    }
     const int first_sample = std::max(
         0, static_cast<int>(std::ceil(std::max(0.0f, zone.begin_x) / terrain_.dx())));
     const int last_sample = std::min(
@@ -708,6 +721,38 @@ void Env::finalize_mechanic_layout() {
                                 clamp((zone.end_x - world_x) / 18.0f, 0.0f, 1.0f);
       terrain_.add_height_at_index(sample, palette_delta * region_edge *
                                            (0.18f + 0.82f * difficulty));
+      if (zone.jagged_mode > 0) {
+        float jagged = 0.0f;
+        switch (zone.jagged_mode) {
+          case 1: {  // washboard: regular ripples that punish carrying speed
+            const float wavelength = 0.85f + 0.45f * biome_random01(zone.terrain_seed, 63);
+            jagged = 0.045f * std::sin(6.2831853f * local_x / wavelength + phase);
+            break;
+          }
+          case 2: {  // scree: a different spike under every wheel placement
+            jagged = (biome_random01(zone.terrain_seed,
+                                     700 + static_cast<uint64_t>(sample)) -
+                      0.5f) * 0.11f;
+            break;
+          }
+          case 3: {  // sawtooth: climbing against the teeth costs more than with them
+            const float wavelength = 1.6f + 1.2f * biome_random01(zone.terrain_seed, 64);
+            const float f = local_x / wavelength - std::floor(local_x / wavelength);
+            jagged = (f - 0.5f) * 0.14f;
+            break;
+          }
+          default: {  // rubble: rare boulders instead of a continuous texture
+            const float cell = 3.0f;
+            const uint64_t block = static_cast<uint64_t>(std::floor(local_x / cell));
+            if (biome_random01(zone.terrain_seed, 900 + block) > 0.72f) {
+              const float t = local_x / cell - std::floor(local_x / cell);
+              jagged = 0.26f * std::sin(3.14159265f * t);
+            }
+            break;
+          }
+        }
+        terrain_.add_height_at_index(sample, jagged * zone.jagged_amplitude);
+      }
       const float delta = biome.terrain_height_delta(local_x, zone.terrain_seed);
       if (std::isfinite(delta)) {
         terrain_.add_height_at_index(

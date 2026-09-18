@@ -11,6 +11,8 @@ param(
     [ValidateRange(1, 4)]
     [int]$CandidateSeed = 1,
     [switch]$ListCandidates,
+    [string]$Biome = "",
+    [switch]$ListBiomes,
     [ValidateSet("train", "test")]
     [string]$Split = "train"
 )
@@ -30,6 +32,8 @@ if ($Debug) { $PlayArgs += "--debug" }
 if ($Fullscreen) { $PlayArgs += "--fullscreen" }
 if ($Candidate) { $PlayArgs += @("--candidate", $Candidate, "--candidate-seed-index", $CandidateSeed) }
 if ($ListCandidates) { $PlayArgs += "--list-candidates" }
+if ($Biome) { $PlayArgs += @("--biome", $Biome) }
+if ($ListBiomes) { $PlayArgs += "--list-biomes" }
 $PlayArgs += @("--split", $Split)
 
 & $Python @PlayArgs

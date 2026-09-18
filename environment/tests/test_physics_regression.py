@@ -90,9 +90,9 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     first = _trace()
     second = _trace()
     assert first == second
-    # Rebaselined after ledge carving stopped being bounded by the retired
-    # finish line and max_steps became a real guard for clockless configs.
-    assert _fingerprint(first) == "34fb4cc4e0668369f93037e9436c37d25253f5e425c8cc520d32901ab8e5dac6"
+    # Rebaselined after the flat battery began stopping the engine and the
+    # geyser fields joined debug_info.
+    assert _fingerprint(first) == "76463f9baeb6a1341cd11a93bbf1fdddc04a0513575ad3c84fea0e083b90c525"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():
@@ -228,16 +228,32 @@ def test_pistons_are_strictly_individual_and_legacy_both_bit_is_inert():
     assert rear["roof_piston_mask"] == 2 and rear["roof_piston_extension"] > 0.0
 
 
-def test_propeller_cannot_reverse_thrust():
-    env = MarsRoverVecEnv(1, biome_split=2)
-    env.reset(2)  # fixed seed begins in a deep liquid zone.
-    for _ in range(150):
+def _submerged_env(tmp_path, seeds=range(60)):
+    """A single-biome test world that is actually a body of water.
+
+    Chaining is switched off so the whole course is the drawn biome: which
+    world a seed yields shifts whenever the bank gains a biome.
+    """
+    config = tmp_path / "single_zone.yaml"
+    config.write_text("env:\n  chain_biomes: false\n", encoding="utf-8")
+    for seed in seeds:
+        env = MarsRoverVecEnv(1, config_path=str(config), biome_split=2)
+        env.reset(seed)
+        for _ in range(600):
+            env.step_uint8(np.array([CONTROL_GAS], dtype=np.int32))
+            if env.debug_info(0)["water_depth"] > 0.5:
+                return env
+    raise AssertionError("no liquid test world within the scanned seeds")
+
+
+def test_propeller_cannot_reverse_thrust(tmp_path):
+    env = _submerged_env(tmp_path)
+    env.step_uint8(np.array([CONTROL_GAS | CONTROL_TOGGLE_PROPELLER], dtype=np.int32))
+    thrust = 0.0
+    for _ in range(300):
         env.step_uint8(np.array([CONTROL_GAS], dtype=np.int32))
-    for step in range(45):
-        env.step_uint8(np.array([
-            CONTROL_GAS | (CONTROL_TOGGLE_PROPELLER if step == 0 else 0)
-        ], dtype=np.int32))
-    assert env.debug_info(0)["propeller_thrust"] > 0.0
+        thrust = max(thrust, env.debug_info(0)["propeller_thrust"])
+    assert thrust > 0.0
 
     env.step_uint8(np.array([CONTROL_GAS | CONTROL_REVERSE], dtype=np.int32))
     assert env.debug_info(0)["propeller_thrust"] == 0.0

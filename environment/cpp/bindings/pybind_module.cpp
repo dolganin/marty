@@ -83,7 +83,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("safe_start_fraction", &mars::TerrainConfig::safe_start_fraction)
       .def_readwrite("difficulty_exponent", &mars::TerrainConfig::difficulty_exponent)
       .def_readwrite("difficulty_distance_offset", &mars::TerrainConfig::difficulty_distance_offset)
-      .def_readwrite("preserve_spawn_safety", &mars::TerrainConfig::preserve_spawn_safety);
+      .def_readwrite("preserve_spawn_safety", &mars::TerrainConfig::preserve_spawn_safety)
+      .def_readwrite("jagged_scale", &mars::TerrainConfig::jagged_scale);
 
   py::class_<mars::PhysicsConfig>(m, "PhysicsConfig")
       .def(py::init<>())
@@ -277,6 +278,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                       ? std::max(0.0f, zone.liquid_level -
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
+             d["geyser_active"] = state.geyser_active;
+             d["gravity_schedule_level"] = state.gravity_schedule_level;
+             d["bounce"] = zone.params.bounce;
+             d["geyser_period"] = state.geyser_period;
+             d["geyser_strength"] = state.geyser_strength;
              d["drive_fuel_rate"] = state.drive_fuel_rate;
              d["energy_cost_rate"] = state.energy_cost_rate;
              d["energy_gain_rate"] = state.energy_gain_rate;
@@ -295,6 +301,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["generated_step_count"] = env.terrain().generated_step_count();
              d["terrain_profile"] = zone.terrain_profile;
              d["terrain_frequency_scale"] = zone.terrain_frequency_scale;
+             {
+               static const char* kJagged[] = {"none", "washboard", "scree", "sawtooth", "rubble"};
+               d["jagged_mode"] = kJagged[std::clamp(zone.jagged_mode, 0, 4)];
+               d["jagged_amplitude"] = zone.jagged_amplitude;
+             }
              d["y"] = state.body.position.y;
              d["vx"] = state.body.velocity.x;
              d["vy"] = state.body.velocity.y;

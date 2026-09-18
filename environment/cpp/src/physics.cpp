@@ -1,4 +1,5 @@
 #include "mars/physics.hpp"
+#include "mars/biome_bank.hpp"
 
 #include <cmath>
 
@@ -356,8 +357,14 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   state.engine_cold_locked =
       state.engine_temperature < config_.cold_start_temperature;
+  // A flat battery stops the engine: there is no spark or starter without
+  // stored energy.  The rover then coasts and can only recover by charging.
+  const bool battery_empty = state.energy <= 0.0f;
+  if (state.engine_running && battery_empty) {
+    state.engine_running = false;
+  }
   if (!state.engine_running && control.ignition && (in_neutral || clutch_pedal_down) &&
-      !state.engine_overheated &&
+      !state.engine_overheated && !battery_empty &&
       !state.engine_cold_locked) {
     state.engine_running = true;
     state.engine_rpm = std::max(state.engine_rpm, 700.0f);
@@ -502,7 +509,46 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.engine_stalled = !state.engine_running;
 
 
-  const float gravity = config_.gravity * state.latent_gravity_multiplier;
+  float gravity = config_.gravity * state.latent_gravity_multiplier;
+  // Geysers belong to the water they erupt through, so they are read from the
+  // terrain zone like the liquid level itself, not from the layer latents.
+  // A short burst every geyser_period seconds, with no cue before it.
+  constexpr float kGeyserBurstSeconds = 0.35f;
+  const auto& geyser_zone = mechanics.at(state.body.position.x);
+  // Scheduled gravity: hold one seeded level per step, then cross-fade into the
+  // next one.  A schedule cannot be extrapolated from a formula the way a wave
+  // can, so the current level has to be read off the rover's own behaviour.
+  const float schedule_step = geyser_zone.params.gravity_schedule_step;
+  if (schedule_step > 0.0f) {
+    const float elapsed = static_cast<float>(state.step_index) * dt;
+    const float slot = elapsed / schedule_step;
+    const uint64_t index = static_cast<uint64_t>(slot);
+    const auto level = [&](uint64_t i) {
+      const float u = biome_random01(geyser_zone.terrain_seed, 1300 + i);
+      return geyser_zone.params.gravity_schedule_low +
+             (geyser_zone.params.gravity_schedule_high -
+              geyser_zone.params.gravity_schedule_low) * u;
+    };
+    const float blend = clamp((slot - static_cast<float>(index)) * 6.0f, 0.0f, 1.0f);
+    const float current = level(index);
+    const float previous = index == 0 ? current : level(index - 1);
+    const float smooth = blend * blend * (3.0f - 2.0f * blend);
+    state.gravity_schedule_level = previous + (current - previous) * smooth;
+    gravity *= state.gravity_schedule_level;
+  } else {
+    state.gravity_schedule_level = 1.0f;
+  }
+  const int geyser_period_steps =
+      geyser_zone.params.geyser_period > 0.0f
+          ? std::max(1, static_cast<int>(std::lround(geyser_zone.params.geyser_period / dt)))
+          : 0;
+  const int geyser_burst_steps =
+      std::max(1, static_cast<int>(std::lround(kGeyserBurstSeconds / dt)));
+  const float geyser_strength = geyser_zone.params.geyser_strength;
+  state.geyser_active = geyser_period_steps > 0 && geyser_strength > 0.0f &&
+                        (state.step_index % geyser_period_steps) < geyser_burst_steps;
+  state.geyser_period = geyser_zone.params.geyser_period;
+  state.geyser_strength = geyser_strength;
   Vec2 body_force{0.0f, state.body.mass * gravity};
   body_force.x += state.latent_wind_force;
   // Without stored energy the drivetrain cannot keep a rover planing forever
@@ -705,6 +751,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       wheel_force += wheel.velocity *
                      (-wheel.mass * liquid_immersion * (0.55f + water_speed * 0.85f));
       wheel_force.y += wheel.mass * -gravity * 0.48f * liquid_immersion;
+      if (state.geyser_active) {
+        const float lifted_mass =
+            wheel.mass + state.body.mass / static_cast<float>(std::max(1, state.wheel_count));
+        wheel_force.y +=
+            lifted_mass * -gravity * geyser_strength * liquid_immersion;
+      }
     }
     const bool driven_wheel = is_driven_wheel(i);
     const bool jump_selected = state.suspension_jump_mask == 3 ||
@@ -837,6 +889,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float normal_force = stable_penetration * 1400.0f + impact_speed * 55.0f;
       contact.normal_force = clamp(normal_force, 0.0f, 700.0f);
       wheel_force += contact.normal * contact.normal_force;
+      const float bounce = wheel_zone.params.bounce;
+      if (bounce > 0.0f && normal_vel < 0.0f) {
+        // Hard ground returns part of the impact instead of swallowing it.
+        const float restitution = wheel.mass * bounce * (-normal_vel) / std::max(0.0001f, dt);
+        wheel_force += contact.normal * std::min(restitution, 2200.0f);
+      }
 
       const float axle_speed = dot(anchor_velocity, contact.tangent);
       const float driven_speed = axle_speed * control.throttle;

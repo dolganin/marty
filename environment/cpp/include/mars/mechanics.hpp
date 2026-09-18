@@ -59,6 +59,17 @@ struct MechanicParams {
   float solar_charge_rate = 1.0f;
   float lidar_energy_mul = 1.0f;
   float lidar_range_mul = 1.0f;
+  // Geysers: a zone with strength > 0 erupts every geyser_period seconds and
+  // throws whatever floats above it upwards.
+  float geyser_strength = 0.0f;
+  float geyser_period = 0.0f;
+  // Hard ground: restitution added at wheel contact, 0 keeps the soft default.
+  float bounce = 0.0f;
+  // Scheduled gravity: the zone holds one seeded level per schedule_step
+  // seconds and then switches, so the level has to be tracked, not derived.
+  float gravity_schedule_low = 0.0f;
+  float gravity_schedule_high = 0.0f;
+  float gravity_schedule_step = 0.0f;
 
   // Sampled values retained so overlapping layers can be combined first and
   // passed through the influence graph exactly once.
@@ -98,6 +109,9 @@ struct MechanicZone {
   float terrain_surprise_strength = 0.0f;
   int terrain_profile = 0;
   float terrain_frequency_scale = 1.0f;
+  // Surface jaggedness: a held-out modifier, see Env::finalize_mechanic_layout.
+  int jagged_mode = 0;
+  float jagged_amplitude = 0.0f;
   MechanicParams params{};
   float liquid_level = -1.0e9f;
 };

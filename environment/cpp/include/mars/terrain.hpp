@@ -36,6 +36,8 @@ struct TerrainConfig {
   // test world use the same distribution as a very distant part of a course.
   float difficulty_distance_offset = 0.0f;
   bool preserve_spawn_safety = true;
+  // Scales the held-out surface jaggedness; 0 disables it entirely.
+  float jagged_scale = 1.0f;
 };
 
 class Terrain {

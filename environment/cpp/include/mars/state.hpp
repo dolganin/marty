@@ -131,6 +131,10 @@ struct RoverState {
   float latent_solar_rate = 1.0f;
   float latent_lidar_energy_multiplier = 1.0f;
   float latent_lidar_range_multiplier = 1.0f;
+  float geyser_strength = 0.0f;
+  float geyser_period = 0.0f;
+  bool geyser_active = false;
+  float gravity_schedule_level = 1.0f;
   int active_layer_count = 0;
   float active_layer_weight = 0.0f;
   bool climb_mode = false;

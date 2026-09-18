@@ -58,6 +58,7 @@ class ManualPlayer:
             rig_path=args.rig,
             biome_split=(None if getattr(args, "candidate_config", None) is not None
                          else {"train": 1, "test": 2}[args.split]),
+            fixed_biome_id=getattr(args, "fixed_biome_id", None),
             render_mode="debug_rgb_array" if args.debug else "rgb_array",
             render_width=render_width,
             render_height=render_height,
@@ -556,7 +557,16 @@ def main() -> None:
     parser.add_argument("--candidate-seed-index", type=int, default=1,
                         help="1-based seed index for --candidate")
     parser.add_argument("--list-candidates", action="store_true")
+    parser.add_argument("--biome", help="fill the whole course with one biome, by catalog id")
+    parser.add_argument("--list-biomes", action="store_true")
     args = parser.parse_args()
+    if args.list_biomes:
+        from _mars_rover_cpp import biome_catalog
+
+        split_names = {0: "builtin", 1: "train", 2: "test"}
+        for item in biome_catalog():
+            print(f"{item['id']:<26} {split_names.get(item['split'], '?'):<8} {item['skill_stratum']}")
+        return
     catalogue = candidates()
     if args.list_candidates:
         for item in catalogue.values():
@@ -565,6 +575,15 @@ def main() -> None:
         return
     args.candidate_record = None
     args.candidate_config = None
+    args.fixed_biome_id = None
+    if args.biome:
+        from _mars_rover_cpp import biome_catalog
+
+        match = next((item for item in biome_catalog() if item["id"] == args.biome), None)
+        if match is None:
+            parser.error(f"unknown biome {args.biome!r}; use --list-biomes")
+        args.fixed_biome_id = int(match["index"])
+        args.split = {0: "train", 1: "train", 2: "test"}.get(int(match["split"]), "train")
     if args.candidate:
         if args.candidate not in catalogue:
             parser.error(f"unknown candidate {args.candidate!r}; use --list-candidates")
