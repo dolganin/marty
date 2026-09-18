@@ -279,6 +279,13 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
              d["geyser_active"] = state.geyser_active;
+             {
+               float vent_x = 0.0f;
+               const float vent_distance =
+                   mars::geyser_vent_distance(zone, state.body.position.x, &vent_x);
+               d["geyser_vent_distance"] = vent_distance;
+               d["geyser_vent_x"] = vent_distance >= 0.0f ? vent_x : 0.0f;
+             }
              d["gravity_schedule_level"] = state.gravity_schedule_level;
              d["bounce"] = zone.params.bounce;
              d["geyser_period"] = state.geyser_period;

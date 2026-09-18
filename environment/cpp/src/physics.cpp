@@ -557,6 +557,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                         (state.step_index % geyser_period_steps) < geyser_burst_steps;
   state.geyser_period = geyser_zone.params.geyser_period;
   state.geyser_strength = geyser_strength;
+  state.geyser_phase =
+      state.geyser_active
+          ? clamp(1.0f - static_cast<float>(state.step_index % std::max(1, geyser_period_steps)) /
+                             static_cast<float>(geyser_burst_steps),
+                  0.0f, 1.0f)
+          : 0.0f;
   Vec2 body_force{0.0f, state.body.mass * gravity};
   const bool spiked_in = state.climb_mode && state.drivetrain_grounded;
   body_force.x += state.latent_wind_force * (spiked_in ? 0.2f : 1.0f);
@@ -767,10 +773,17 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                      (-wheel.mass * liquid_immersion * (0.55f + water_speed * 0.85f));
       wheel_force.y += wheel.mass * -gravity * 0.48f * liquid_immersion;
       if (state.geyser_active) {
-        const float lifted_mass =
-            wheel.mass + state.body.mass / static_cast<float>(std::max(1, state.wheel_count));
-        wheel_force.y +=
-            lifted_mass * -gravity * geyser_strength * liquid_immersion;
+        // The lift belongs to a vent, not to the whole pond: a rover parked
+        // between two vents only feels the wash.
+        constexpr float kVentReach = 4.2f;
+        const float distance = geyser_vent_distance(wheel_zone, wheel.position.x);
+        if (distance >= 0.0f && distance < kVentReach) {
+          const float falloff = 1.0f - distance / kVentReach;
+          const float lifted_mass =
+              wheel.mass + state.body.mass / static_cast<float>(std::max(1, state.wheel_count));
+          wheel_force.y += lifted_mass * -gravity * geyser_strength *
+                           liquid_immersion * falloff * falloff;
+        }
       }
     }
     const bool driven_wheel = is_driven_wheel(i);

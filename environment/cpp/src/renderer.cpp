@@ -145,6 +145,62 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
+  // Geysers: a quiet vent mouth that is always visible, and a column of water
+  // while the vent is erupting.  The phase is recomputed from the step index
+  // so the picture matches the force the physics applied this step.
+  {
+    const float left_x = camera_x - 4.0f;
+    const float right_x = camera_x + static_cast<float>(width) / ppm + 4.0f;
+    const float burst = state.geyser_phase;
+    for (float probe = left_x; probe < right_x; probe += 2.0f) {
+      const auto& zone = env.mechanic_at(probe);
+      if (zone.type != MechanicType::Liquid) continue;
+      float vent_x = 0.0f;
+      if (geyser_vent_distance(zone, probe, &vent_x) < 0.0f) continue;
+      if (vent_x < left_x || vent_x > right_x) continue;
+      const float floor_height = terrain.query(vent_x).height;
+      if (zone.liquid_level - floor_height < 0.4f) continue;
+      const Vec2 mouth = screen({vent_x, floor_height});
+      const Vec2 surface = screen({vent_x, zone.liquid_level});
+      draw_circle(rgb, width, height, static_cast<int>(mouth.x), static_cast<int>(mouth.y),
+                  std::max(2, static_cast<int>(0.35f * ppm)), {28, 38, 44});
+      // Idle bubbles mark the vent without revealing when it will fire.
+      for (int b = 0; b < 3; ++b) {
+        const uint32_t h = hash_u32(static_cast<uint32_t>(
+            static_cast<int>(vent_x) * 31 + b * 733 + state.step_index / 6));
+        const float rise = static_cast<float>((state.step_index / 3 + b * 17) % 40) / 40.0f;
+        const int bx = static_cast<int>(mouth.x) + static_cast<int>((h & 7u)) - 3;
+        const int by = static_cast<int>(mouth.y + (surface.y - mouth.y) * rise);
+        put_pixel(rgb, width, height, bx, by, kWaterHighlight);
+      }
+      if (burst <= 0.0f) continue;
+      const float column_height = (2.5f + 4.5f * burst) * ppm;
+      const int top = static_cast<int>(surface.y - column_height);
+      const int half = std::max(1, static_cast<int>((0.25f + 0.35f * burst) * ppm));
+      for (int y = top; y < static_cast<int>(mouth.y); ++y) {
+        const float t = clamp((static_cast<float>(y) - top) /
+                                  std::max(1.0f, mouth.y - static_cast<float>(top)),
+                              0.0f, 1.0f);
+        const int spread = std::max(1, static_cast<int>(half * (0.35f + 0.65f * t)));
+        for (int dx = -spread; dx <= spread; ++dx) {
+          const uint32_t h = hash_u32(static_cast<uint32_t>(y * 131 + dx * 17 +
+                                                           state.step_index * 7));
+          if ((h & 3u) == 0u) continue;  // ragged edges, not a solid bar
+          put_pixel(rgb, width, height, static_cast<int>(surface.x) + dx, y,
+                    mix(kWaterHighlight, {235, 245, 250}, 0.3f + 0.5f * (1.0f - t)));
+        }
+      }
+      // Spray thrown clear of the column top.
+      for (int d = 0; d < 10; ++d) {
+        const uint32_t h = hash_u32(static_cast<uint32_t>(
+            d * 613 + static_cast<int>(vent_x) * 7 + state.step_index * 3));
+        const int sx = static_cast<int>(surface.x) + static_cast<int>((h % 41u)) - 20;
+        const int sy = top - static_cast<int>((h >> 8) % 24u);
+        put_pixel(rgb, width, height, sx, sy, {225, 240, 248});
+      }
+    }
+  }
+
   if (body_style.particles.ambient_particles > 0) {
 
 

@@ -90,9 +90,9 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     first = _trace()
     second = _trace()
     assert first == second
-    # Rebaselined for the v16 taller gearing, powered sand rutting and pit
-    # recovery telemetry. Equality above still independently checks replay.
-    assert _fingerprint(first) == "231ff28d6cb24fd40bc82d0bc1b59d989555a8995f48c33ea5603983e0dbee52"
+    # Rebaselined after geysers moved onto fixed vents and gained an eruption
+    # phase in the debug state. Equality above still checks replay on its own.
+    assert _fingerprint(first) == "cc2e333084cb2ace65fd68d984807cf738250e80567d953ba79558ffb89f265b"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():

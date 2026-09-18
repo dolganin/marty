@@ -82,6 +82,33 @@ inline float biome_random01(uint64_t seed, uint64_t stream = 0) noexcept {
   return static_cast<float>(x >> 40U) * (1.0f / 16777216.0f);
 }
 
+// Geyser vents sit at fixed, seeded positions inside a zone: the rhythm is
+// hidden, the place is not.  Physics and the renderer must agree on them, so
+// both derive the layout from the zone instead of storing it.
+inline float geyser_vent_spacing(const MechanicZone& zone) noexcept {
+  return 11.0f + 7.0f * biome_random01(zone.terrain_seed, 77);
+}
+
+inline float geyser_first_vent(const MechanicZone& zone) noexcept {
+  return std::max(0.0f, zone.begin_x) + 4.0f +
+         4.0f * biome_random01(zone.terrain_seed, 78);
+}
+
+// Distance from x to the closest vent, or a negative value when the zone has
+// no geysers at all.
+inline float geyser_vent_distance(const MechanicZone& zone, float x,
+                                  float* vent_x = nullptr) noexcept {
+  if (zone.params.geyser_period <= 0.0f || zone.params.geyser_strength <= 0.0f) {
+    return -1.0f;
+  }
+  const float spacing = geyser_vent_spacing(zone);
+  const float first = geyser_first_vent(zone);
+  const float index = std::round((x - first) / spacing);
+  const float centre = first + std::max(0.0f, index) * spacing;
+  if (vent_x) *vent_x = centre;
+  return std::abs(x - centre);
+}
+
 class Biome {
  public:
   virtual ~Biome() = default;
