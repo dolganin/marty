@@ -47,7 +47,7 @@ struct PhysicsConfig {
   float near_sense_range = 3.0f;
   float brake_strength = 20.0f;
   float body_tilt_torque = 8.0f;
-  float linear_damping = 0.01f;
+  float linear_damping = 0.005f;
   float angular_damping = 0.02f;
   float safe_landing_speed = 4.0f;
   float safe_landing_angle = 0.55f;

@@ -116,7 +116,7 @@ physics:
   brake_strength: 20.0
   body_tilt_torque: 8.0
   # env.yaml их не задаёт, это дефолты движка (в play.yaml они другие).
-  linear_damping: 0.01
+  linear_damping: 0.005
   angular_damping: 0.02
 
   # --- Приземления после прыжков с уступов ---

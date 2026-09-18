@@ -90,9 +90,9 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     first = _trace()
     second = _trace()
     assert first == second
-    # Rebaselined after geysers moved onto fixed vents and gained an eruption
-    # phase in the debug state. Equality above still checks replay on its own.
-    assert _fingerprint(first) == "cc2e333084cb2ace65fd68d984807cf738250e80567d953ba79558ffb89f265b"
+    # Rebaselined after the limp brake became battery-gated and linear damping
+    # dropped to 0.005, which sets the flat-ground speed ceiling.
+    assert _fingerprint(first) == "3d3eff9f6d3f421b4bde41817dea10f8dd7d790aa6d32caf6c48779d8741c09e"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():
@@ -127,7 +127,7 @@ def test_shift_uses_a_loaded_rpm_window_and_consumes_energy():
         env.step_uint8(np.array([CONTROL_GAS], dtype=np.int32))
     before = env.debug_info(0)
     assert before["gear"] == 1
-    assert before["engine_rpm"] < 5000.0  # no instant redline from launch.
+    assert before["engine_rpm"] < 7000.0  # quick, but still short of the limiter.
 
     env.step_uint8(np.array([CONTROL_GAS | CONTROL_SHIFT_UP], dtype=np.int32))
     shifted = env.debug_info(0)

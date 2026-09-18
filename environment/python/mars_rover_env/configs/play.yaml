@@ -35,7 +35,7 @@ terrain:
 physics:
   dt: 0.016666667
   gravity: -3.71
-  wheel_friction: 1.2
+  wheel_friction: 2.2
   motor_torque: 405.0
   final_drive_ratio: 5.5
   engine_inertia: 1.25
@@ -64,7 +64,7 @@ physics:
   panel_retract_time: 3.0
   brake_strength: 80.0
   body_tilt_torque: 12.0
-  linear_damping: 0.008
+  linear_damping: 0.005
   angular_damping: 0.018
 
 termination:

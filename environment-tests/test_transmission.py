@@ -60,10 +60,17 @@ def test_upshift_needs_the_clutch_and_lowers_the_projected_rpm(tmp_path) -> None
     assert before["engine_rpm"] > before["next_gear_rpm"]
 
     env.step(CLUTCH | SHIFT_UP)
+    assert env.debug_info()["gear"] == 2
+    # Let the clutch close again: during the cut the road speed dips and the
+    # projected rpm is not comparable.
+    for _ in range(60):
+        env.step(GAS)
     after = env.debug_info()
-    assert after["gear"] == 2
-    # The same road speed spins the taller gear more slowly.
-    assert after["next_gear_rpm"] < before["next_gear_rpm"]
+    # Compare rpm per unit of road speed: the rover keeps accelerating between
+    # the two samples, so the raw numbers are not taken at the same speed.
+    before_rate = before["next_gear_rpm"] / max(0.1, before["speed_kmh"])
+    after_rate = after["next_gear_rpm"] / max(0.1, after["speed_kmh"])
+    assert after_rate < before_rate
     env.close()
 
 
