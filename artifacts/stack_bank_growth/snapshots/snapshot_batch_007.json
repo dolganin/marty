@@ -1,0 +1,1646 @@
+{
+  "accepted_in_batch": [],
+  "base_bank_version": "sha256:c3331c8f1ce7b3abb3b42cfb61b14c8555c7b18eb2dcb2fda962152a560563dd",
+  "batch": 7,
+  "candidates": [
+    {
+      "batch": 7,
+      "code_hash": "sha256:b9883dbd7b78ee95a9e4f9ed9032e26459318dc6f3c12d8b20fc09ac0c1503e4",
+      "components": [
+        "sand",
+        "mud",
+        "liquid",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0006332864761352539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:14.368608Z",
+      "id": "candidate_001",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:82e1f53543b5e3c4d4250970597e2ac94c3198b3395c558d3bedd03335ad077f",
+      "components": [
+        "sand",
+        "mud",
+        "liquid",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0011821284294128418,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:14.761748Z",
+      "id": "candidate_002",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:e0d7e3ae868d07e9ebfd311a049a3f7e3872f7cb2f1ba5895087662039e1ea20",
+      "components": [
+        "sand",
+        "wind",
+        "ice",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:15.157269Z",
+      "id": "candidate_003",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:6695fb66314146a3711a242c9cd2ee25ee097a6c5009ab25a5f3b3ab0a531ecf",
+      "components": [
+        "sand",
+        "wind",
+        "ice",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.04835100402832031,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.1817763916015625,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:15.543100Z",
+      "id": "candidate_004",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:33b1cdad9135788c6c9017d960dbfc9e039996a56e6ab31a17206568662e2e74",
+      "components": [
+        "sand",
+        "wind",
+        "ice",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.03808550071716309,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.19858700256347656,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:16.095059Z",
+      "id": "candidate_005",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:1c98ddd40198687e722817a211021beb1a8aaaa05fc532b98fa1aedb4cf8cfb0",
+      "components": [
+        "sand",
+        "wind",
+        "mud",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:16.672174Z",
+      "id": "candidate_006",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:81dc3ffb600f649123401f39288502dfd55a77f9dfb2a28e6fc421eed340eb1b",
+      "components": [
+        "sand",
+        "wind",
+        "mud",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.035078349304199216,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.11923307495117189,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:17.058901Z",
+      "id": "candidate_007",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:6db3dae67776ef41561f9c85b2ec170fc65ae5893fc5444f987ca44814c41db2",
+      "components": [
+        "sand",
+        "wind",
+        "mud",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:17.609930Z",
+      "id": "candidate_008",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:b67ff48f8da38e3bd344e3b98da7182b17f050fe00882dbc538c4a8079c14b5f",
+      "components": [
+        "sand",
+        "wind",
+        "mud",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:17.994477Z",
+      "id": "candidate_009",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:a8d32b711df3ed4bcd610870785567c6fb86ad33aa868b899a7481444aadcf48",
+      "components": [
+        "sand",
+        "wind",
+        "low_gravity",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.04765696830749512,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.18215770568847656,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:18.385147Z",
+      "id": "candidate_010",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3087a767cc0ce198d38e321af6e1c0e46d525d51fe6ebbd0f24d2ffa06250459",
+      "components": [
+        "sand",
+        "wind",
+        "low_gravity",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.034636071014404295,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.11996486511230468,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:18.939092Z",
+      "id": "candidate_011",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "boundary_distance": 0.29718448195387986,
+      "code_hash": "sha256:96a642a7ee7626e332bf17a7cb1ce25f72aa0edd51639dabe104828f5e14141d",
+      "components": [
+        "sand",
+        "wind",
+        "low_gravity",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": {
+          "gap": 0.0028155180461201393,
+          "passed": false,
+          "reason": "gap <= 0.30",
+          "recurrent_reward": 74.62776915956292,
+          "robust_reward": 74.41765332875248,
+          "signed_gap": 0.0028155180461201393
+        },
+        "nontriviality": {
+          "mean_progress": 0.03556372604370117,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.25412999267578124,
+          "passed": true,
+          "reason": null
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:22:19.501332Z",
+      "id": "candidate_012",
+      "rejection_reason": "discriminative_power",
+      "rejection_stage": 4,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:64b9536d3fc6671fe27725802bc8dab259c911335b6cad348efff15b233a57cf",
+      "components": [
+        "sand",
+        "wind",
+        "low_gravity",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0422143497467041,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.14837546844482422,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:23:20.881308Z",
+      "id": "candidate_013",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3305f4028b3e5076c433ac8056fd48acdf4e0e517538081e16dbc30f772b1675",
+      "components": [
+        "sand",
+        "wind",
+        "crust",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0380797176361084,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.19790636901855468,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:23:21.451002Z",
+      "id": "candidate_014",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:818e6b8d4a6a05eb7cd819999453b8b8b98eb3150962d12f8c103f836561ae5b",
+      "components": [
+        "sand",
+        "wind",
+        "crust",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:23:22.069091Z",
+      "id": "candidate_015",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "boundary_distance": 0.29730618024458905,
+      "code_hash": "sha256:76f174c6e72def8c4373717cef017c4ef61d80310904697bde8470f4865ac030",
+      "components": [
+        "sand",
+        "wind",
+        "crust",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": {
+          "gap": 0.0026938197554109643,
+          "passed": false,
+          "reason": "gap <= 0.30",
+          "recurrent_reward": 74.23284202629584,
+          "robust_reward": 74.0328721299451,
+          "signed_gap": 0.0026938197554109643
+        },
+        "nontriviality": {
+          "mean_progress": 0.035420195770263674,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.25482768249511717,
+          "passed": true,
+          "reason": null
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:23:22.463188Z",
+      "id": "candidate_016",
+      "rejection_reason": "discriminative_power",
+      "rejection_stage": 4,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:0d3028ada87337a569d8b71b012ee905ddb32014c99486434cef41b66763080d",
+      "components": [
+        "sand",
+        "wind",
+        "crust",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.034120357131958004,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.16810804901123047,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:23.781421Z",
+      "id": "candidate_017",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:cc020b841e1d7d0a809347228794fb468b13abda54ae3e8c554df202103372d6",
+      "components": [
+        "sand",
+        "wind",
+        "liquid",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.032699343109130856,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:24.349710Z",
+      "id": "candidate_018",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:ef09b9ac4dc7b662def767f04c3e7d38d55191b9df1d81a925690ed4fd55defd",
+      "components": [
+        "sand",
+        "wind",
+        "liquid",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.02845735855102539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:24.745541Z",
+      "id": "candidate_019",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:76da4d99d3caa2220f6d1c2e3efdcd99cb8fa72fd9af5355d9bbfc487c805bf4",
+      "components": [
+        "sand",
+        "wind",
+        "liquid",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.04146923217773437,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.15615762786865234,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:25.133169Z",
+      "id": "candidate_020",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:1a15b28b2739b0bd6395a7bd39367f2588ce4a7f2244f9efc521f01f183866dd",
+      "components": [
+        "sand",
+        "wind",
+        "liquid",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.03306243667602539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:25.697033Z",
+      "id": "candidate_021",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:4b5d3371f547d0d1e69209215e53d25d2c6b53ee085cf44d3ebe2650a20cf9c9",
+      "components": [
+        "sand",
+        "low_gravity",
+        "ice",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:26.089052Z",
+      "id": "candidate_022",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3246d09045a899df6d6a67809c187a7d98b57f3ade4a2f28c4b1f4100a8db250",
+      "components": [
+        "sand",
+        "low_gravity",
+        "ice",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.04186769714355469,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.1664587707519531,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:26.490003Z",
+      "id": "candidate_023",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:ac72a8ec4ec4d85e81aa95ab21303883f2e9cd09c6ac3e8ab95bcfd2a1e50e9e",
+      "components": [
+        "sand",
+        "low_gravity",
+        "ice",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0009148599624633789,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:27.055757Z",
+      "id": "candidate_024",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:e86a28fef28d025d15fd9c033d4f4af25e38ba2776798ac9374c3acfb7f882be",
+      "components": [
+        "sand",
+        "low_gravity",
+        "ice",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0008583871841430664,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:27.448966Z",
+      "id": "candidate_025",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:ec8156541a83c5782ccd562f7549bb732e92358886fba42c250d11f476f00b60",
+      "components": [
+        "sand",
+        "low_gravity",
+        "mud",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:27.837584Z",
+      "id": "candidate_026",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:bb6d162e28ce730656af7925ca9ffb930940b6a6e0084c6469fc14746d398af0",
+      "components": [
+        "sand",
+        "low_gravity",
+        "mud",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.029783568572998048,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:28.230543Z",
+      "id": "candidate_027",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:f06588bb3344b7a50bf04a229381a77b9516ae087c835123eeeb72206b7ce607",
+      "components": [
+        "sand",
+        "low_gravity",
+        "mud",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:28.620529Z",
+      "id": "candidate_028",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:6e48ae8b2da64b8697210d64061c1022fa1f7b9f355740e64aae78a82d1307ea",
+      "components": [
+        "sand",
+        "low_gravity",
+        "mud",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:29.016122Z",
+      "id": "candidate_029",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:ad1a92c278f3fe717801ab802bc02d0186e7ae21c024918c001dfdc51eb7cced",
+      "components": [
+        "sand",
+        "low_gravity",
+        "wind",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.045038333129882806,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.17519519958496094,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:29.407643Z",
+      "id": "candidate_030",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:c229a143c803fdbdd20efab23b3e77df1b3ca370b0830f50fb7399d3b3aac9bb",
+      "components": [
+        "sand",
+        "low_gravity",
+        "wind",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.031724821853637696,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:29.965015Z",
+      "id": "candidate_031",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3629a519f759e248f1b9fd2fc2589a1dd8257f84b3cb218adc126f07bdebd949",
+      "components": [
+        "sand",
+        "low_gravity",
+        "wind",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.031439798736572266,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:30.350440Z",
+      "id": "candidate_032",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3d8cfde8c2eeb139288bbe5ccb16dafd67531aec189fe194b198c1f900cd4267",
+      "components": [
+        "sand",
+        "low_gravity",
+        "wind",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.03650261383056641,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.14250725402832032,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:30.739750Z",
+      "id": "candidate_033",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3509554ae316c897466b9e4547bf92e68be5d10052424f7a0397491ff88b3c60",
+      "components": [
+        "sand",
+        "low_gravity",
+        "crust",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0009153646469116213,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:31.292942Z",
+      "id": "candidate_034",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:201c471fd9ebab03a1e13f9f5f8b86628fdf740b68d674f9074c10b4a6342e4d",
+      "components": [
+        "sand",
+        "low_gravity",
+        "crust",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007631401062011719,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:31.681374Z",
+      "id": "candidate_035",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:da7cde8105dbb50163e4404018489cf70530a36c3f6920ccce3b03f15f80ddbe",
+      "components": [
+        "sand",
+        "low_gravity",
+        "crust",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.030004439926147465,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:32.066406Z",
+      "id": "candidate_036",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:14e00045f6c5958c5f7f70b0e77863b85bfd7babc5131dd78d8205afefb4631f",
+      "components": [
+        "sand",
+        "low_gravity",
+        "crust",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0008636916160583496,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:32.457536Z",
+      "id": "candidate_037",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:b71d06c226e890b6b47b4132b4a74ed1642ad7e566be84c9c343f2a8415d143e",
+      "components": [
+        "sand",
+        "low_gravity",
+        "liquid",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0008411295890808105,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:32.843486Z",
+      "id": "candidate_038",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:c4e53b73d6e3d1b3649299f32cf024cd9b87b25dd8b232a97e932c4286f459af",
+      "components": [
+        "sand",
+        "low_gravity",
+        "liquid",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:33.230186Z",
+      "id": "candidate_039",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:dae3a680ffd81f424bb04e7e9b52537ade98ac30db48464ae76ed7cbb68a090a",
+      "components": [
+        "sand",
+        "low_gravity",
+        "liquid",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.03492175979614258,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.14615324096679688,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:33.618175Z",
+      "id": "candidate_040",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:a0ae43c6434c894b7d813842d180c929467b81f4a8a13929d751dc25acd28c08",
+      "components": [
+        "sand",
+        "low_gravity",
+        "liquid",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0008461161613464354,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:34.175323Z",
+      "id": "candidate_041",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:f97019f8ea335c72735b5f8fffc3ad14b2c8656076ce06b34087c980fdc9356c",
+      "components": [
+        "sand",
+        "crust",
+        "ice",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0011833695411682128,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:34.565706Z",
+      "id": "candidate_042",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:e5ab54b3fc4d7f1cac1d09506b4cec9b22dc10ece85a6b759469e90e482b80ff",
+      "components": [
+        "sand",
+        "crust",
+        "ice",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.03222525634765625,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:34.950789Z",
+      "id": "candidate_043",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:d83c3cd63e9432c5fc92ae0702887eee996ccdbd61101370b49d5a2be1dde182",
+      "components": [
+        "sand",
+        "crust",
+        "ice",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0007591823577880859,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:35.338187Z",
+      "id": "candidate_044",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:9c47ec1558608297f30be561b93034f01e8c5abeb12add816c0abfa40ef8d274",
+      "components": [
+        "sand",
+        "crust",
+        "ice",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0013700174331665038,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:35.731658Z",
+      "id": "candidate_045",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:80002611d39f869fcccfb34c7e8e02f53a61c5697d7853325aad09b411c0938d",
+      "components": [
+        "sand",
+        "crust",
+        "mud",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0011821284294128418,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:36.128239Z",
+      "id": "candidate_046",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:c055ca3f660af6b3ef5bf33d849d884b1df42acad97bf23bb21cb4b9c2f42f18",
+      "components": [
+        "sand",
+        "crust",
+        "mud",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.024945035552978518,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:36.526400Z",
+      "id": "candidate_047",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:9d2fdcd4a9f29d7233ee7831ad18c2502a1feb1ca6a6278057ad9530a04e6d8c",
+      "components": [
+        "sand",
+        "crust",
+        "mud",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0006332864761352539,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:36.920721Z",
+      "id": "candidate_048",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "code_hash": "sha256:3c1ce3066227b944a90400f06e0e3b288314bd00257d81497d89e3763eb723b9",
+      "components": [
+        "sand",
+        "crust",
+        "mud",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "mean_progress": 0.0011821284294128418,
+          "min_latent_cosine_distance": null,
+          "passed": false,
+          "reason": "random progress outside [0.05, 0.95] on every seed"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:37.350996Z",
+      "id": "candidate_049",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 7,
+      "boundary_distance": 0.29893217175480047,
+      "code_hash": "sha256:10a9bc2a79e95111d838bf968127e82eb84b1e95f37967480be4479eb8ffda21",
+      "components": [
+        "sand",
+        "crust",
+        "wind",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": {
+          "gap": 0.0010678282451995183,
+          "passed": false,
+          "reason": "gap <= 0.30",
+          "recurrent_reward": 54.630271837282635,
+          "robust_reward": 54.57193608997186,
+          "signed_gap": 0.0010678282451995183
+        },
+        "nontriviality": {
+          "mean_progress": 0.03393003158569337,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.2067912353515625,
+          "passed": true,
+          "reason": null
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T09:24:37.743552Z",
+      "id": "candidate_050",
+      "rejection_reason": "discriminative_power",
+      "rejection_stage": 4,
+      "verdict": "rejected"
+    }
+  ],
+  "created_at": "2026-09-18T09:25:38.608733Z"
+}

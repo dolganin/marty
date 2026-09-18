@@ -1,0 +1,46 @@
+{
+  "accepted_name": "stack_crust_sand",
+  "batch": 4,
+  "code_hash": "sha256:cbc93b88efc10d9f8e450ccf0c1b46cd0c00cb5140faf31cdedc6cb344d8d6d6",
+  "components": [
+    "crust",
+    "sand"
+  ],
+  "filters": {
+    "discriminative_power": {
+      "gap": 1.0096065670614955,
+      "passed": true,
+      "reason": null,
+      "recurrent_reward": -0.6827467526069085,
+      "robust_reward": 71.07083604750369,
+      "signed_gap": -1.0096065670614955
+    },
+    "nontriviality": {
+      "max_latent_activity": 0.8037018983048474,
+      "mean_progress": 0.004481891441345215,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.2492430877685547,
+      "passed": true,
+      "reason": null
+    },
+    "uniqueness": {
+      "nearest_l2": 0.5455397509946402,
+      "passed": true,
+      "reason": null
+    },
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:04:05.369621Z",
+  "id": "candidate_020",
+  "rejection_reason": null,
+  "rejection_stage": null,
+  "verdict": "accepted"
+}

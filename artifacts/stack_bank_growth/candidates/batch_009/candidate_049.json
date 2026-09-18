@@ -1,0 +1,35 @@
+{
+  "batch": 9,
+  "code_hash": "sha256:fbaf021e1334744766bc070b39dffc3dffd9f9b1636e9112f3dbd0ecf260efeb",
+  "components": [
+    "ice",
+    "low_gravity",
+    "wind",
+    "sand"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "mean_progress": 0.04506866836547852,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.1754051483154297,
+      "passed": false,
+      "reason": "outside scripted [0.2, 0.7]"
+    },
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:28:54.752910Z",
+  "id": "candidate_049",
+  "rejection_reason": "solvability",
+  "rejection_stage": 3,
+  "verdict": "rejected"
+}

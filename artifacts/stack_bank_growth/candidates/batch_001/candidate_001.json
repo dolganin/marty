@@ -1,0 +1,40 @@
+{
+  "batch": 1,
+  "boundary_distance": 1.1315738087065175,
+  "code_hash": "sha256:d086b40bce6b1aed838baa7972becce426e4c561c10520712446cbb1a5830e44",
+  "components": [
+    "ice",
+    "wind"
+  ],
+  "filters": {
+    "discriminative_power": {
+      "gap": -0.8315738087065174,
+      "passed": false,
+      "reason": "gap <= 0.30",
+      "recurrent_reward": 41.940065392304675,
+      "robust_reward": 76.81632530798387
+    },
+    "nontriviality": {
+      "mean_progress": 0.03808397941589355,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.27538020324707035,
+      "passed": true,
+      "reason": null
+    },
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T08:50:19.929194Z",
+  "id": "candidate_001",
+  "rejection_reason": "discriminative_power",
+  "rejection_stage": 4,
+  "verdict": "rejected"
+}

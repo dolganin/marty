@@ -10,7 +10,7 @@
     "crust",
     "liquid"
   ],
-  "bank_version": "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83",
+  "bank_version": "sha256:c3331c8f1ce7b3abb3b42cfb61b14c8555c7b18eb2dcb2fda962152a560563dd",
   "behavioral_dedup_epsilon": 0.0971,
   "biomes": [
     {
@@ -198,11 +198,67 @@
         "crust"
       ],
       "split": "held_out"
+    },
+    {
+      "mechanisms": [
+        "ice",
+        "wind"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "sand",
+        "crust"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "wind",
+        "ice"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "crust",
+        "wind"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "crust",
+        "low_gravity"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "crust",
+        "sand"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "mud",
+        "wind"
+      ],
+      "split": "train"
+    },
+    {
+      "mechanisms": [
+        "ice",
+        "wind",
+        "low_gravity"
+      ],
+      "split": "train"
     }
   ],
   "quota_per_stratum": 2,
-  "reference_version": "sha256:7dbfd1af838b60b7fe5ead486686b12c2fe5274a2790ef3837dc449bda3e29e1",
   "schema_version": 4,
-  "test_version": "sha256:c78421a6bece4867513f3d1801a3977ad63b7d8c89d47374af9be5ee8db32c40",
-  "train_version": "sha256:e30dc0089549e28a40ce50c4ae466a8e0ddd1e5ca6d41da8c02dd588b07ec80f"
+  "test_version": "sha256:0950ff4f757d3193ee96616f36435832e310bb214b07e71643266b7ef6327ee3",
+  "train_version": "sha256:ee18f26cad73c06e610ab84b44f3f6c3286650f57b8ed94f1a7b37bc9a52d029"
 }

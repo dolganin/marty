@@ -1,0 +1,43 @@
+{
+  "characteristics": {
+    "discriminative_gap": 0.32334024941822503,
+    "feature_vector": [
+      0.18486869037151338,
+      0.5566427946090698,
+      0.8652948379516602,
+      -57.996115112304686,
+      0.03470742879182794,
+      0.010641598598860956,
+      0.04352314266721145,
+      68.69018691078186,
+      60.78855041376009,
+      41.13316536120256
+    ],
+    "latent_mean": [
+      0.18486869037151338,
+      0.5566427946090698,
+      0.8652948379516602,
+      -57.996115112304686
+    ],
+    "mean_gravity_mul": 0.5566427946090698,
+    "mean_temperature": -57.996115112304686,
+    "mean_traction": 0.18486869037151338,
+    "mean_viscosity": 0.8652948379516602,
+    "reward_recurrent": 41.13316536120256,
+    "reward_robust": 60.78855041376009,
+    "signed_discriminative_gap": -0.32334024941822503,
+    "variance_traction": 0.03470742879182794
+  },
+  "code_path": "accepted/stack_ice_wind_low_gravity.cpp",
+  "components": [
+    "ice",
+    "wind",
+    "low_gravity"
+  ],
+  "included_at_batch": 4,
+  "name": "stack_ice_wind_low_gravity",
+  "sibling_candidates": [
+    "candidate_025"
+  ],
+  "split": "train"
+}

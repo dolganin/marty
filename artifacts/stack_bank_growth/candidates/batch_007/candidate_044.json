@@ -1,0 +1,31 @@
+{
+  "batch": 7,
+  "code_hash": "sha256:d83c3cd63e9432c5fc92ae0702887eee996ccdbd61101370b49d5a2be1dde182",
+  "components": [
+    "sand",
+    "crust",
+    "ice",
+    "low_gravity"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "mean_progress": 0.0007591823577880859,
+      "min_latent_cosine_distance": null,
+      "passed": false,
+      "reason": "random progress outside [0.05, 0.95] on every seed"
+    },
+    "solvability": null,
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:24:35.338187Z",
+  "id": "candidate_044",
+  "rejection_reason": "nontriviality",
+  "rejection_stage": 2,
+  "verdict": "rejected"
+}

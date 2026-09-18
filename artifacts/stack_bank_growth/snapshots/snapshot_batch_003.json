@@ -1,0 +1,1679 @@
+{
+  "accepted_in_batch": [
+    {
+      "characteristics": {
+        "discriminative_gap": 0.7220960665061799,
+        "feature_vector": [
+          0.1921231210231781,
+          1.0,
+          0.5519951045513153,
+          -56.269711303710935,
+          0.05311960775865652,
+          0.0,
+          0.031746602262180054,
+          107.11032985282377,
+          76.81632530798387,
+          44.606295085401506
+        ],
+        "latent_mean": [
+          0.1921231210231781,
+          1.0,
+          0.5519951045513153,
+          -56.269711303710935
+        ],
+        "mean_gravity_mul": 1.0,
+        "mean_temperature": -56.269711303710935,
+        "mean_traction": 0.1921231210231781,
+        "mean_viscosity": 0.5519951045513153,
+        "reward_recurrent": 44.606295085401506,
+        "reward_robust": 76.81632530798387,
+        "signed_discriminative_gap": -0.7220960665061799,
+        "variance_traction": 0.05311960775865652
+      },
+      "code_path": "accepted/stack_ice_wind.cpp",
+      "components": [
+        "ice",
+        "wind"
+      ],
+      "included_at_batch": 3,
+      "name": "stack_ice_wind",
+      "sibling_candidates": [
+        "candidate_001"
+      ],
+      "split": "train"
+    },
+    {
+      "characteristics": {
+        "discriminative_gap": 103.46156100584226,
+        "feature_vector": [
+          0.4496972024440765,
+          1.0,
+          0.4242571175098419,
+          20.54960231781006,
+          0.01634569663046862,
+          0.0,
+          0.016828085800197144,
+          119.05470122376059,
+          70.94755463537271,
+          -0.6924309364301735
+        ],
+        "latent_mean": [
+          0.4496972024440765,
+          1.0,
+          0.4242571175098419,
+          20.54960231781006
+        ],
+        "mean_gravity_mul": 1.0,
+        "mean_temperature": 20.54960231781006,
+        "mean_traction": 0.4496972024440765,
+        "mean_viscosity": 0.4242571175098419,
+        "reward_recurrent": -0.6924309364301735,
+        "reward_robust": 70.94755463537271,
+        "signed_discriminative_gap": -103.46156100584226,
+        "variance_traction": 0.01634569663046862
+      },
+      "code_path": "accepted/stack_sand_crust.cpp",
+      "components": [
+        "sand",
+        "crust"
+      ],
+      "included_at_batch": 3,
+      "name": "stack_sand_crust",
+      "sibling_candidates": [
+        "candidate_019"
+      ],
+      "split": "train"
+    }
+  ],
+  "base_bank_version": "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83",
+  "batch": 3,
+  "candidates": [
+    {
+      "accepted_name": "stack_ice_wind",
+      "batch": 3,
+      "code_hash": "sha256:d086b40bce6b1aed838baa7972becce426e4c561c10520712446cbb1a5830e44",
+      "components": [
+        "ice",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": {
+          "gap": 0.7220960665061799,
+          "passed": true,
+          "reason": null,
+          "recurrent_reward": 44.606295085401506,
+          "robust_reward": 76.81632530798387,
+          "signed_gap": -0.7220960665061799
+        },
+        "nontriviality": {
+          "max_latent_activity": 0.4414420969480114,
+          "mean_progress": 0.03808397941589355,
+          "min_latent_cosine_distance": null,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.27538020324707035,
+          "passed": true,
+          "reason": null
+        },
+        "uniqueness": {
+          "nearest_l2": null,
+          "passed": true,
+          "reason": null
+        },
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:56:50.560667Z",
+      "id": "candidate_001",
+      "rejection_reason": null,
+      "rejection_stage": null,
+      "verdict": "accepted"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:c5a950d6ef4a6435aafffbd80d45e3ec80891d089281e382f462771a7a41f63f",
+      "components": [
+        "wind",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.43216419392233457,
+          "mean_progress": 0.03553266448974609,
+          "min_latent_cosine_distance": 9.035600634366148e-08,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:35.584444Z",
+      "id": "candidate_002",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:ac966b1ac264adbe3f60b58fe852438a54a31cf27ad0fc6c554310ff36929bf1",
+      "components": [
+        "sand",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5313534454176836,
+          "mean_progress": 0.0016659229278564453,
+          "min_latent_cosine_distance": 0.0016019515800417272,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:35.975992Z",
+      "id": "candidate_003",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:f9267d935ff425ca061123a1a4c7d53ff8fd7bf89047a4f0eaa1d48415a7982f",
+      "components": [
+        "ice",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5666170938421006,
+          "mean_progress": 0.0016663257598876953,
+          "min_latent_cosine_distance": 0.004101050617022262,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:36.377623Z",
+      "id": "candidate_004",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:6200f884e442796cc4defa1d127102863a81e5ea58aaed9e6e293cfa41801cdb",
+      "components": [
+        "mud",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5955327294872333,
+          "mean_progress": 0.0014434258460998537,
+          "min_latent_cosine_distance": 0.0016735297254444337,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:36.775533Z",
+      "id": "candidate_005",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:eb25061adfb9dcdd1f2f4516a780d9a3a0487f54dc6a93b3b7c06783b194325c",
+      "components": [
+        "low_gravity",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6012272868452511,
+          "mean_progress": 0.0014307873725891112,
+          "min_latent_cosine_distance": 0.002314567363786213,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:37.167238Z",
+      "id": "candidate_006",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:1b9e735972ebf7aa2d6464f6c23ba84f6374ebf6ca6ae3e3eb9d66ba304d8b2a",
+      "components": [
+        "crust",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.1784558928670596,
+          "mean_progress": 0.04064292411804199,
+          "min_latent_cosine_distance": 0.0001781133091128817,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:37.560043Z",
+      "id": "candidate_007",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:0b546d4fffc4bd887e17105c9fd4861e7d7c22c39d146463e62dcb4ce8b25741",
+      "components": [
+        "wind",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.18279243380932747,
+          "mean_progress": 0.03928048095703125,
+          "min_latent_cosine_distance": 0.0003035416122409984,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:37.958534Z",
+      "id": "candidate_008",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:e4f8b9d2b9d2bb71b0624cf4ca4c17971b5b2427748c8a39735e173aa5e1cb69",
+      "components": [
+        "liquid",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6134496930452495,
+          "mean_progress": 0.0015039435386657713,
+          "min_latent_cosine_distance": 0.0010835509572855173,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:38.347047Z",
+      "id": "candidate_009",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:d13817d3e4b199cd65d7211c21553c632183b0d540a1d03b7958900d2121cb04",
+      "components": [
+        "ice",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6309244333797511,
+          "mean_progress": 0.0015185173034667969,
+          "min_latent_cosine_distance": 0.0017317910750751508,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:38.738141Z",
+      "id": "candidate_010",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:ca033ef9607ce9c4f60b077c99985fae9eee7b51e9a88ab3eb630440e3804e00",
+      "components": [
+        "sand",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5091277282150274,
+          "mean_progress": 0.0032663801193237307,
+          "min_latent_cosine_distance": 0.00525909047159534,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:39.136251Z",
+      "id": "candidate_011",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:796e69e16eb9cc2ccb56f8f513b1a9005bf86cb8a31b72e2cd194e53e4034d4d",
+      "components": [
+        "low_gravity",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5571107600549124,
+          "mean_progress": 0.0031507195472717285,
+          "min_latent_cosine_distance": 0.03966475579346873,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:39.530925Z",
+      "id": "candidate_012",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:a49642de67f81d6ca41bcfd7f4928e84eb53702ee172b5d15591d2117e9d3117",
+      "components": [
+        "mud",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6160685895357245,
+          "mean_progress": 0.0012032899856567383,
+          "min_latent_cosine_distance": 0.0011202545328160562,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:39.927173Z",
+      "id": "candidate_013",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:459b1ba94d91e2a784cc4acc1417f9358da73c52de9b605d63091a0bcc16bf57",
+      "components": [
+        "ice",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6136917095527809,
+          "mean_progress": 0.001208497142791748,
+          "min_latent_cosine_distance": 0.001471442883335894,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:40.317225Z",
+      "id": "candidate_014",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:e1f8e6498a040aadea2e5c192e7dd3dd2ed9349efc33044a203c3b55945cea99",
+      "components": [
+        "crust",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.34147459159966037,
+          "mean_progress": 0.004339076328277588,
+          "min_latent_cosine_distance": 0.0006070841037810748,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:40.711208Z",
+      "id": "candidate_015",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:476a7b38af74b3704224fb173972cb8dfca872119d7860e8191d5421e04bf84f",
+      "components": [
+        "low_gravity",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.3892566278970236,
+          "mean_progress": 0.0041608791351318355,
+          "min_latent_cosine_distance": 0.001244862380999301,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:41.110814Z",
+      "id": "candidate_016",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:27219ddbcf6f69d589d62a769e1d831c400d4082b0706f069a0e8ff6bca7af70",
+      "components": [
+        "liquid",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6481337942956338,
+          "mean_progress": 0.0013851752281188964,
+          "min_latent_cosine_distance": 0.0019011861538525965,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:41.497983Z",
+      "id": "candidate_017",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:f7e5782d964fd19605e8400a73b76bc51e8913e801aeebbca0495ee60c0bf995",
+      "components": [
+        "low_gravity",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6732666320722072,
+          "mean_progress": 0.0014039100646972657,
+          "min_latent_cosine_distance": 0.0037353376618871614,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:41.892121Z",
+      "id": "candidate_018",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "accepted_name": "stack_sand_crust",
+      "batch": 3,
+      "code_hash": "sha256:6463be71ecc81c6d6d9c9ce988a855ab77b61d64cd304ec4c57a73acd5ec24ba",
+      "components": [
+        "sand",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": {
+          "gap": 103.46156100584226,
+          "passed": true,
+          "reason": null,
+          "recurrent_reward": -0.6924309364301735,
+          "robust_reward": 70.94755463537271,
+          "signed_gap": -103.46156100584226
+        },
+        "nontriviality": {
+          "max_latent_activity": 0.8136592577109507,
+          "mean_progress": 0.004407632255554199,
+          "min_latent_cosine_distance": 1.9970160148585776,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.24596223754882812,
+          "passed": true,
+          "reason": null
+        },
+        "uniqueness": {
+          "nearest_l2": 0.5472835077081194,
+          "passed": true,
+          "reason": null
+        },
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:57:42.284361Z",
+      "id": "candidate_019",
+      "rejection_reason": null,
+      "rejection_stage": null,
+      "verdict": "accepted"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:cbc93b88efc10d9f8e450ccf0c1b46cd0c00cb5140faf31cdedc6cb344d8d6d6",
+      "components": [
+        "crust",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.8037018983048474,
+          "mean_progress": 0.004481891441345215,
+          "min_latent_cosine_distance": 2.675592758794032e-06,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:24.164575Z",
+      "id": "candidate_020",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:01378b352aff597fdb38d08750322c1630725143af1d5a2e7579645dfe57086f",
+      "components": [
+        "mud",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.566315521426902,
+          "mean_progress": 0.028169364166259765,
+          "min_latent_cosine_distance": 0.0007584331589122195,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:24.557450Z",
+      "id": "candidate_021",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:9fb85d47fae7bef11965329bcf0290c5f89182034ee517ad0a5bbc3be48a4e92",
+      "components": [
+        "wind",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5563330536561377,
+          "mean_progress": 0.027079153823852536,
+          "min_latent_cosine_distance": 0.0009372338850165418,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:24.947007Z",
+      "id": "candidate_022",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:57c24e4124b8c6420b339bae44e721d4d9b164fe8c82ae8a3c2ff9d856001d9a",
+      "components": [
+        "sand",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 1.0130477120058858,
+          "mean_progress": 0.001537931156158447,
+          "min_latent_cosine_distance": 0.00035574298132634574,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:25.341382Z",
+      "id": "candidate_023",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:d440f85560d43e0328d7faf7fd6e4615f3f5d476f953257079aa1158e6485c67",
+      "components": [
+        "liquid",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 1.0148441838113074,
+          "mean_progress": 0.00152756929397583,
+          "min_latent_cosine_distance": 0.00041883933757880243,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:25.741454Z",
+      "id": "candidate_024",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:f876bdff90239b5ff474b05e05923023a57f14c2fde6c6952fb148d6e3eb0b8a",
+      "components": [
+        "ice",
+        "wind",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5753240728409403,
+          "mean_progress": 0.04457966041564942,
+          "min_latent_cosine_distance": 4.646749473469214e-05,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:26.136804Z",
+      "id": "candidate_025",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:0b7829cd6615eda6786d2c24ca78754713f15d2c9cff97866b39b05d6ad9b61c",
+      "components": [
+        "low_gravity",
+        "wind",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5726356409094465,
+          "mean_progress": 0.04328695831298828,
+          "min_latent_cosine_distance": 4.644785319629641e-05,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:26.532263Z",
+      "id": "candidate_026",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:b8dd895ab01f87ae99c4d2d8ac33844389bb67dadec16f0d0a81329841178311",
+      "components": [
+        "sand",
+        "crust",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.788313168351832,
+          "mean_progress": 0.002314474391937256,
+          "min_latent_cosine_distance": 0.0009090571679853943,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:26.919876Z",
+      "id": "candidate_027",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:4b70dd00bc0ca733d5ee78d92b9f335d330c63b6c612edaf52ee39bef8edd7a0",
+      "components": [
+        "low_gravity",
+        "crust",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7848562293298038,
+          "mean_progress": 0.0022976324081420895,
+          "min_latent_cosine_distance": 0.0009979114876036421,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:27.313302Z",
+      "id": "candidate_028",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:ef97ef8e6e3eb121bc2030e50f3a5db5fdd0d0a8ded1fb619c92914945d86282",
+      "components": [
+        "mud",
+        "ice",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6325860483804626,
+          "mean_progress": 0.026218183517456056,
+          "min_latent_cosine_distance": 0.0006253994398753848,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:27.706029Z",
+      "id": "candidate_029",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:4c2414adb1d78e1c763d39b084f806bef97e778f50e624bb34c8ae06fd7dd4db",
+      "components": [
+        "wind",
+        "ice",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6340447278248952,
+          "mean_progress": 0.025951741027832032,
+          "min_latent_cosine_distance": 0.0006208072107807272,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:28.099941Z",
+      "id": "candidate_030",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:33d0f9da88f8fb6c6fe7055ed907a0630190684cea528be69f14025245368e7c",
+      "components": [
+        "liquid",
+        "wind",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6009244562020819,
+          "mean_progress": 0.03563271446228027,
+          "min_latent_cosine_distance": 0.00037561476648784176,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:28.494850Z",
+      "id": "candidate_031",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:187e11c8f3375158e9924512cdb782f9ee833331af558a0331d63fc332cfbf1b",
+      "components": [
+        "low_gravity",
+        "wind",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6019765850368526,
+          "mean_progress": 0.035226746749877934,
+          "min_latent_cosine_distance": 0.0003901916368413971,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:28.894553Z",
+      "id": "candidate_032",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:738af018d3c778cba8075b0fe97bcc1e8dd6f10ef6250212e481e06dcde99a38",
+      "components": [
+        "sand",
+        "mud",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7256635636009269,
+          "mean_progress": 0.0011864803314208985,
+          "min_latent_cosine_distance": 0.03941414196117665,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:29.286955Z",
+      "id": "candidate_033",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:e4cd2bf3e9f7df0e582bc2b9f1acd850b50e9a0fa8dec205978057100a211c11",
+      "components": [
+        "ice",
+        "mud",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7241276817272464,
+          "mean_progress": 0.0011864195823669435,
+          "min_latent_cosine_distance": 0.037509859288378355,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:29.681138Z",
+      "id": "candidate_034",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:fcb5128aebd62938660b4ab3f2c40767ee5232430baf66984d4e7ebd55255092",
+      "components": [
+        "crust",
+        "ice",
+        "low_gravity"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5552658886248469,
+          "mean_progress": 0.0008875252723693848,
+          "min_latent_cosine_distance": 7.917022936210216e-05,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:30.121873Z",
+      "id": "candidate_035",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:2af1d26a28c24e50abd2e52f9d95b6b0e9e46297292fd9837dc4b430bdfabdf0",
+      "components": [
+        "low_gravity",
+        "ice",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5509024608402177,
+          "mean_progress": 0.0009598644256591796,
+          "min_latent_cosine_distance": 8.013844953913551e-05,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:30.515776Z",
+      "id": "candidate_036",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:5f080fffd08f0d27b8760c9651114b5934ffd8b49ca64f53866e3a3884adaba1",
+      "components": [
+        "liquid",
+        "sand",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7767330864318706,
+          "mean_progress": 0.03188372344970704,
+          "min_latent_cosine_distance": 0.8936212737785064,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.18169903564453124,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:30.903683Z",
+      "id": "candidate_037",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:7440322d29f22adfcb42df7e1000835ddc9f5f73700a54b56b04430a7f028c33",
+      "components": [
+        "wind",
+        "sand",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7838835343331897,
+          "mean_progress": 0.030730787658691406,
+          "min_latent_cosine_distance": 0.5199458051935878,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.1674041778564453,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:31.459499Z",
+      "id": "candidate_038",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:6c5cb060955ffb19c18bb3c78de876147007609462123cacf759e7970ea595f6",
+      "components": [
+        "sand",
+        "ice",
+        "wind",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.5919286865609967,
+          "mean_progress": 0.033738050460815426,
+          "min_latent_cosine_distance": 0.0005401995214844302,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:32.023635Z",
+      "id": "candidate_039",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:f994d9f563337a63e0e3edd934741ad615039abbf706ce02a6fe83821d103631",
+      "components": [
+        "crust",
+        "wind",
+        "ice",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6132552255727557,
+          "mean_progress": 0.038227917098999024,
+          "min_latent_cosine_distance": 0.001072419184351081,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:32.412422Z",
+      "id": "candidate_040",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:b36ff569393a5ca6d7653f6ef0e2621b58dd98c150b53bbae4af8dfe8306fc97",
+      "components": [
+        "mud",
+        "low_gravity",
+        "wind",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.63951771875447,
+          "mean_progress": 0.029221855926513673,
+          "min_latent_cosine_distance": 0.001048285913821445,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:32.799396Z",
+      "id": "candidate_041",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:8101ed47dfcb895983a7f8965115e5880380765b9c3920ab1a8e7c3b700be24b",
+      "components": [
+        "crust",
+        "wind",
+        "low_gravity",
+        "mud"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6379799777772178,
+          "mean_progress": 0.031971409988403324,
+          "min_latent_cosine_distance": 0.0013137363256479073,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:33.187038Z",
+      "id": "candidate_042",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:22fe4cc857329acc8aad175fc37c76494f3bcc7e868816580b0c72934a0e0757",
+      "components": [
+        "liquid",
+        "ice",
+        "wind",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6629857257807497,
+          "mean_progress": 0.0298067008972168,
+          "min_latent_cosine_distance": 0.005010299170162935,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:33.577719Z",
+      "id": "candidate_043",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:8af8fc7aa17b0b85a28336b0cbf4a822508eec62a23d5e9062bbbaba66703f4b",
+      "components": [
+        "sand",
+        "wind",
+        "ice",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6695006525689612,
+          "mean_progress": 0.033758804702758785,
+          "min_latent_cosine_distance": 0.006114259395202715,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:33.968357Z",
+      "id": "candidate_044",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:b4bbae99f3c62d4b6fb5643a72cd4d85fa6146daf9df84d485ad6d9158ee6a61",
+      "components": [
+        "liquid",
+        "mud",
+        "low_gravity",
+        "crust"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.8219744235066107,
+          "mean_progress": 0.0006689435958862304,
+          "min_latent_cosine_distance": 0.9412133853230314,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.0195318660736084,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:34.366634Z",
+      "id": "candidate_045",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:3a657d0429286685b1dd95271d3926763f8682c8f17b0978c1f686378e58782c",
+      "components": [
+        "crust",
+        "low_gravity",
+        "mud",
+        "liquid"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.8394700500087974,
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": 0.31962674573721184,
+          "passed": true,
+          "reason": null
+        },
+        "solvability": {
+          "mean_progress": 0.019844760131835937,
+          "passed": false,
+          "reason": "outside scripted [0.2, 0.7]"
+        },
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:34.919578Z",
+      "id": "candidate_046",
+      "rejection_reason": "solvability",
+      "rejection_stage": 3,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:ed87de88ad3c30e4e49571fbebaca020d2e0e5f9a0983bb52dd0c2ffe3082d00",
+      "components": [
+        "sand",
+        "mud",
+        "low_gravity",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.7140468680730022,
+          "mean_progress": 0.0006689435958862304,
+          "min_latent_cosine_distance": 0.010290574220833681,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:35.476176Z",
+      "id": "candidate_047",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:cacebb098263d2b6f3ad61c3eaba4128703823d089192501047ee18128fafc63",
+      "components": [
+        "ice",
+        "low_gravity",
+        "mud",
+        "sand"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6972970166965976,
+          "mean_progress": 0.0007626282691955567,
+          "min_latent_cosine_distance": 0.007151902915844444,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:35.862863Z",
+      "id": "candidate_048",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:f83f4b79f4b7c55d3f7ec42b3f801f0799b26a0361e795002c46d7d8a395dc46",
+      "components": [
+        "wind",
+        "crust",
+        "liquid",
+        "ice"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.6217870238063499,
+          "mean_progress": 0.02895498657226563,
+          "min_latent_cosine_distance": 0.0017945466639956997,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:36.250092Z",
+      "id": "candidate_049",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    },
+    {
+      "batch": 3,
+      "code_hash": "sha256:4d33816cef01ec19003c6cb37d79f1399789ed37e60f2a8eff3cb57468ccf5ff",
+      "components": [
+        "ice",
+        "liquid",
+        "crust",
+        "wind"
+      ],
+      "filters": {
+        "discriminative_power": null,
+        "nontriviality": {
+          "max_latent_activity": 0.621073760657391,
+          "mean_progress": 0.028540543746948244,
+          "min_latent_cosine_distance": 0.0016580463252086064,
+          "passed": false,
+          "reason": "latent cosine distance < 0.15"
+        },
+        "solvability": null,
+        "uniqueness": null,
+        "validity": {
+          "passed": true,
+          "random_steps": 1000,
+          "reason": null
+        }
+      },
+      "generated_at": "2026-09-18T08:58:36.644676Z",
+      "id": "candidate_050",
+      "rejection_reason": "nontriviality",
+      "rejection_stage": 2,
+      "verdict": "rejected"
+    }
+  ],
+  "created_at": "2026-09-18T08:58:37.037977Z"
+}

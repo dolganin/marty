@@ -1,0 +1,36 @@
+{
+  "batch": 3,
+  "code_hash": "sha256:b4bbae99f3c62d4b6fb5643a72cd4d85fa6146daf9df84d485ad6d9158ee6a61",
+  "components": [
+    "liquid",
+    "mud",
+    "low_gravity",
+    "crust"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "max_latent_activity": 0.8219744235066107,
+      "mean_progress": 0.0006689435958862304,
+      "min_latent_cosine_distance": 0.9412133853230314,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.0195318660736084,
+      "passed": false,
+      "reason": "outside scripted [0.2, 0.7]"
+    },
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T08:58:34.366634Z",
+  "id": "candidate_045",
+  "rejection_reason": "solvability",
+  "rejection_stage": 3,
+  "verdict": "rejected"
+}

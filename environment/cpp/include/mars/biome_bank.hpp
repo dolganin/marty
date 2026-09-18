@@ -38,13 +38,21 @@ struct FrozenMechanismStack {
   BiomeSplit split = BiomeSplit::Builtin;
 };
 
-inline constexpr std::array<FrozenMechanismStack, 6> kFrozenMechanismStacks{{
+inline constexpr std::array<FrozenMechanismStack, 14> kFrozenMechanismStacks{{
     {{MechanicType::Normal, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Builtin},
     {{MechanicType::Sand, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
     {{MechanicType::Mud, MechanicType::Crust, MechanicType::Wind, MechanicType::Normal}, 3, BiomeSplit::Train},
     {{MechanicType::Ice, MechanicType::LowGravity, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
     {{MechanicType::Liquid, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Test},
     {{MechanicType::Sand, MechanicType::Mud, MechanicType::Wind, MechanicType::Crust}, 4, BiomeSplit::Test},
+    {{MechanicType::Ice, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Sand, MechanicType::Crust, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Wind, MechanicType::Ice, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Crust, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Crust, MechanicType::LowGravity, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Crust, MechanicType::Sand, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Mud, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
+    {{MechanicType::Ice, MechanicType::Wind, MechanicType::LowGravity, MechanicType::Normal}, 3, BiomeSplit::Train},
 }};
 
 struct BiomeColor { uint8_t r = 42, g = 35, b = 30; };
@@ -3530,7 +3538,7 @@ inline constexpr int kGeneratedBiomeBankEnd = 0;
 
 }
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:8fdf89b9ffe01dd016051eca2872a2819127d48cef6f47e617daa57727616e83";
+inline constexpr std::string_view kBiomeBankVersion = "sha256:c3331c8f1ce7b3abb3b42cfb61b14c8555c7b18eb2dcb2fda962152a560563dd";
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;

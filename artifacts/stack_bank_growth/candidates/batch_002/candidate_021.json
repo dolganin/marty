@@ -1,0 +1,30 @@
+{
+  "batch": 2,
+  "code_hash": "sha256:01378b352aff597fdb38d08750322c1630725143af1d5a2e7579645dfe57086f",
+  "components": [
+    "mud",
+    "wind"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "max_latent_activity": 0.0,
+      "mean_progress": 0.028169364166259765,
+      "min_latent_cosine_distance": null,
+      "passed": false,
+      "reason": "random probe has no latent response or runs through every seed"
+    },
+    "solvability": null,
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T08:56:00.827535Z",
+  "id": "candidate_021",
+  "rejection_reason": "nontriviality",
+  "rejection_stage": 2,
+  "verdict": "rejected"
+}

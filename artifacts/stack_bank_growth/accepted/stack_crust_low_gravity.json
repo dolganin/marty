@@ -1,0 +1,42 @@
+{
+  "characteristics": {
+    "discriminative_gap": 1.0061593078005193,
+    "feature_vector": [
+      0.7915992975234986,
+      0.568263590335846,
+      0.490070641040802,
+      -22.440892028808594,
+      0.0030445979164332717,
+      0.01469372813533274,
+      0.02337491964525944,
+      47.60943017310024,
+      69.07275985721886,
+      -0.4254403885919601
+    ],
+    "latent_mean": [
+      0.7915992975234986,
+      0.568263590335846,
+      0.490070641040802,
+      -22.440892028808594
+    ],
+    "mean_gravity_mul": 0.568263590335846,
+    "mean_temperature": -22.440892028808594,
+    "mean_traction": 0.7915992975234986,
+    "mean_viscosity": 0.490070641040802,
+    "reward_recurrent": -0.4254403885919601,
+    "reward_robust": 69.07275985721886,
+    "signed_discriminative_gap": -1.0061593078005193,
+    "variance_traction": 0.0030445979164332717
+  },
+  "code_path": "accepted/stack_crust_low_gravity.cpp",
+  "components": [
+    "crust",
+    "low_gravity"
+  ],
+  "included_at_batch": 4,
+  "name": "stack_crust_low_gravity",
+  "sibling_candidates": [
+    "candidate_015"
+  ],
+  "split": "train"
+}

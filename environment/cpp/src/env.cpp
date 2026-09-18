@@ -403,6 +403,11 @@ void Env::select_mechanic_layout(uint64_t seed) {
   const float safe_max = clamp(std::max(config_.difficulty_safe_fraction_min,
                                         config_.difficulty_safe_fraction_max), safe_min, 0.45f);
   difficulty_safe_fraction_ = endgame_test_world_ ? 0.0f : safe_min + (safe_max - safe_min) * u(rng_);
+  const FrozenMechanismStack evaluation_stack{
+      config_.evaluation_stack_types,
+      std::clamp(config_.evaluation_stack_count, 0, kMaxActiveMechanisms),
+      BiomeSplit::Builtin};
+  const bool force_evaluation_stack = evaluation_stack.count > 0;
   const auto build_layers = [&]() {
     mechanic_layout_.layer_count = 0;
     // Physical regions span 55–120m, with 1–4 rules simultaneously
@@ -439,9 +444,14 @@ void Env::select_mechanic_layout(uint64_t seed) {
            mechanic_layout_.layer_count < kMaxMechanicZones - kMaxActiveMechanisms) {
       const float end = begin + region_length(rng_);
       const float difficulty = course_difficulty((begin + end) * 0.5f);
-      const int stack_id = allowed[static_cast<size_t>(rng_() % static_cast<uint64_t>(allowed_count))];
-      const auto& approved = kFrozenMechanismStacks[static_cast<size_t>(stack_id)];
-      const bool calm_region = u(rng_) > difficulty;
+      const auto& approved = force_evaluation_stack
+          ? evaluation_stack
+          : kFrozenMechanismStacks[static_cast<size_t>(
+                allowed[static_cast<size_t>(rng_() % static_cast<uint64_t>(allowed_count))])];
+      // An offline candidate evaluation must exercise every proposed
+      // mechanism, including at the spawn region.  Production sampling keeps
+      // its difficulty-dependent calm regions because the override is off.
+      const bool calm_region = !force_evaluation_stack && u(rng_) > difficulty;
       const int stack = calm_region ? 1 : approved.count;
       for (int j = 0; j < stack && mechanic_layout_.layer_count < kMaxMechanicZones; ++j) {
         const MechanicType type = calm_region ? MechanicType::Normal

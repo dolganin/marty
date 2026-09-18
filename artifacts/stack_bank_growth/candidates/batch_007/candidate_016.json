@@ -1,0 +1,43 @@
+{
+  "batch": 7,
+  "boundary_distance": 0.29730618024458905,
+  "code_hash": "sha256:76f174c6e72def8c4373717cef017c4ef61d80310904697bde8470f4865ac030",
+  "components": [
+    "sand",
+    "wind",
+    "crust",
+    "low_gravity"
+  ],
+  "filters": {
+    "discriminative_power": {
+      "gap": 0.0026938197554109643,
+      "passed": false,
+      "reason": "gap <= 0.30",
+      "recurrent_reward": 74.23284202629584,
+      "robust_reward": 74.0328721299451,
+      "signed_gap": 0.0026938197554109643
+    },
+    "nontriviality": {
+      "mean_progress": 0.035420195770263674,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.25482768249511717,
+      "passed": true,
+      "reason": null
+    },
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:23:22.463188Z",
+  "id": "candidate_016",
+  "rejection_reason": "discriminative_power",
+  "rejection_stage": 4,
+  "verdict": "rejected"
+}

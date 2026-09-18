@@ -1,0 +1,42 @@
+{
+  "characteristics": {
+    "discriminative_gap": 0.7220960665061799,
+    "feature_vector": [
+      0.1921231210231781,
+      1.0,
+      0.5519951045513153,
+      -56.269711303710935,
+      0.05311960775865652,
+      0.0,
+      0.031746602262180054,
+      107.11032985282377,
+      76.81632530798387,
+      44.606295085401506
+    ],
+    "latent_mean": [
+      0.1921231210231781,
+      1.0,
+      0.5519951045513153,
+      -56.269711303710935
+    ],
+    "mean_gravity_mul": 1.0,
+    "mean_temperature": -56.269711303710935,
+    "mean_traction": 0.1921231210231781,
+    "mean_viscosity": 0.5519951045513153,
+    "reward_recurrent": 44.606295085401506,
+    "reward_robust": 76.81632530798387,
+    "signed_discriminative_gap": -0.7220960665061799,
+    "variance_traction": 0.05311960775865652
+  },
+  "code_path": "accepted/stack_ice_wind.cpp",
+  "components": [
+    "ice",
+    "wind"
+  ],
+  "included_at_batch": 3,
+  "name": "stack_ice_wind",
+  "sibling_candidates": [
+    "candidate_001"
+  ],
+  "split": "train"
+}

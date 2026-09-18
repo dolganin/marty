@@ -1,0 +1,46 @@
+{
+  "accepted_name": "stack_ice_wind",
+  "batch": 3,
+  "code_hash": "sha256:d086b40bce6b1aed838baa7972becce426e4c561c10520712446cbb1a5830e44",
+  "components": [
+    "ice",
+    "wind"
+  ],
+  "filters": {
+    "discriminative_power": {
+      "gap": 0.7220960665061799,
+      "passed": true,
+      "reason": null,
+      "recurrent_reward": 44.606295085401506,
+      "robust_reward": 76.81632530798387,
+      "signed_gap": -0.7220960665061799
+    },
+    "nontriviality": {
+      "max_latent_activity": 0.4414420969480114,
+      "mean_progress": 0.03808397941589355,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.27538020324707035,
+      "passed": true,
+      "reason": null
+    },
+    "uniqueness": {
+      "nearest_l2": null,
+      "passed": true,
+      "reason": null
+    },
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T08:56:50.560667Z",
+  "id": "candidate_001",
+  "rejection_reason": null,
+  "rejection_stage": null,
+  "verdict": "accepted"
+}

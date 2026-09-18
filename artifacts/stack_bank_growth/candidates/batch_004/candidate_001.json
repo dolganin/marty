@@ -1,0 +1,23 @@
+{
+  "batch": 4,
+  "code_hash": "sha256:d086b40bce6b1aed838baa7972becce426e4c561c10520712446cbb1a5830e44",
+  "components": [
+    "ice",
+    "wind"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": null,
+    "solvability": null,
+    "uniqueness": null,
+    "validity": {
+      "passed": false,
+      "reason": "duplicate frozen stack"
+    }
+  },
+  "generated_at": "2026-09-18T09:00:02.180234Z",
+  "id": "candidate_001",
+  "rejection_reason": "invalid",
+  "rejection_stage": 1,
+  "verdict": "rejected"
+}

@@ -1,0 +1,34 @@
+{
+  "batch": 4,
+  "code_hash": "sha256:e4f8b9d2b9d2bb71b0624cf4ca4c17971b5b2427748c8a39735e173aa5e1cb69",
+  "components": [
+    "liquid",
+    "ice"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "max_latent_activity": 0.6134496930452495,
+      "mean_progress": 0.0015039435386657713,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.05148892211914062,
+      "passed": false,
+      "reason": "outside scripted [0.2, 0.7]"
+    },
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:02:25.280627Z",
+  "id": "candidate_009",
+  "rejection_reason": "solvability",
+  "rejection_stage": 3,
+  "verdict": "rejected"
+}

@@ -1,0 +1,23 @@
+{
+  "batch": 5,
+  "code_hash": "sha256:e1f8e6498a040aadea2e5c192e7dd3dd2ed9349efc33044a203c3b55945cea99",
+  "components": [
+    "crust",
+    "low_gravity"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": null,
+    "solvability": null,
+    "uniqueness": null,
+    "validity": {
+      "passed": false,
+      "reason": "duplicate frozen stack"
+    }
+  },
+  "generated_at": "2026-09-18T09:18:14.029462Z",
+  "id": "candidate_015",
+  "rejection_reason": "invalid",
+  "rejection_stage": 1,
+  "verdict": "rejected"
+}

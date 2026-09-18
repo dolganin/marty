@@ -1,0 +1,30 @@
+{
+  "batch": 2,
+  "code_hash": "sha256:6463be71ecc81c6d6d9c9ce988a855ab77b61d64cd304ec4c57a73acd5ec24ba",
+  "components": [
+    "sand",
+    "crust"
+  ],
+  "filters": {
+    "discriminative_power": null,
+    "nontriviality": {
+      "max_latent_activity": 0.0,
+      "mean_progress": 0.004407632255554199,
+      "min_latent_cosine_distance": null,
+      "passed": false,
+      "reason": "random probe has no latent response or runs through every seed"
+    },
+    "solvability": null,
+    "uniqueness": null,
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T08:56:00.054600Z",
+  "id": "candidate_019",
+  "rejection_reason": "nontriviality",
+  "rejection_stage": 2,
+  "verdict": "rejected"
+}

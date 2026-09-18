@@ -210,6 +210,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       .def_readwrite("difficulty_exponent", &mars::EnvConfig::difficulty_exponent)
       .def_readwrite("terrain_profile_frequency_growth",
                      &mars::EnvConfig::terrain_profile_frequency_growth)
+      .def_readwrite("evaluation_stack_types", &mars::EnvConfig::evaluation_stack_types)
+      .def_readwrite("evaluation_stack_count", &mars::EnvConfig::evaluation_stack_count)
       .def_readwrite("debug", &mars::EnvConfig::debug);
 
   py::class_<mars::BatchEnv>(m, "MarsRoverBatchEnv")

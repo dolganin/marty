@@ -1,0 +1,46 @@
+{
+  "accepted_name": "stack_crust_low_gravity",
+  "batch": 4,
+  "code_hash": "sha256:e1f8e6498a040aadea2e5c192e7dd3dd2ed9349efc33044a203c3b55945cea99",
+  "components": [
+    "crust",
+    "low_gravity"
+  ],
+  "filters": {
+    "discriminative_power": {
+      "gap": 1.0061593078005193,
+      "passed": true,
+      "reason": null,
+      "recurrent_reward": -0.4254403885919601,
+      "robust_reward": 69.07275985721886,
+      "signed_gap": -1.0061593078005193
+    },
+    "nontriviality": {
+      "max_latent_activity": 0.34147459159966037,
+      "mean_progress": 0.004339076328277588,
+      "min_latent_cosine_distance": null,
+      "passed": true,
+      "reason": null
+    },
+    "solvability": {
+      "mean_progress": 0.26024241333007814,
+      "passed": true,
+      "reason": null
+    },
+    "uniqueness": {
+      "nearest_l2": 0.41405430347983907,
+      "passed": true,
+      "reason": null
+    },
+    "validity": {
+      "passed": true,
+      "random_steps": 1000,
+      "reason": null
+    }
+  },
+  "generated_at": "2026-09-18T09:02:29.411870Z",
+  "id": "candidate_015",
+  "rejection_reason": null,
+  "rejection_stage": null,
+  "verdict": "accepted"
+}
