@@ -9,7 +9,11 @@ namespace {
 // Six gears, not eight: the old ladder topped out at 126 km/h, which needs
 // 7 s of clean flat ground to reach and never happens on a real course.  The
 // top gear keeps its logarithmic overspeed tail past the rated speed.
-constexpr float kGearRatios[] = {4.75f, 3.64f, 2.79f, 2.14f, 1.64f, 1.26f};
+// Progressive spacing, as a real gearbox is laid out: a very short first for
+// launching without spinning the tyres, then steps that close up (1.80, 1.44,
+// 1.31, 1.24, 1.19).  Road speed at the limiter then rises in even increments
+// instead of doubling every couple of gears.
+constexpr float kGearRatios[] = {8.56f, 4.75f, 3.29f, 2.52f, 2.04f, 1.71f};
 // The old range topped out at 13.5 m/s and made conservative crawling the
 // dominant strategy.  A 30% taller road-speed envelope makes momentum useful
 // on train and makes carrying too much of it into held-out hazards dangerous.
