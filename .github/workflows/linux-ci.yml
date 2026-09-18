@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mars_rover
+        working-directory: environment
     strategy:
       matrix:
         python-version: ["3.10", "3.12"]
@@ -20,7 +20,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: mars_rover/pyproject.toml
+          cache-dependency-path: |
+            environment/pyproject.toml
+            baselines/pyproject.toml
       - name: Install native package
         env:
           MARS_ROVER_BUILD_TYPE: Release
@@ -29,5 +31,10 @@ jobs:
           python -m pip install --editable '.[dev]' --no-build-isolation
       - name: Diagnose installation
         run: python -m mars_rover_env.tools.doctor
-      - name: Run tests
+      - name: Install baselines
+        run: python -m pip install --editable '../baselines[dev]' --no-build-isolation
+      - name: Run environment tests
+        run: python -m pytest -q
+      - name: Run baseline tests
+        working-directory: baselines
         run: python -m pytest -q
