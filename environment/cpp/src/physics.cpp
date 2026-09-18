@@ -13,7 +13,7 @@ namespace {
 // launching without spinning the tyres, then steps that close up (1.80, 1.44,
 // 1.31, 1.24, 1.19).  Road speed at the limiter then rises in even increments
 // instead of doubling every couple of gears.
-constexpr float kGearRatios[] = {8.56f, 4.75f, 3.29f, 2.52f, 2.04f, 1.71f};
+constexpr float kGearRatios[] = {12.30f, 7.40f, 5.30f, 4.10f, 3.36f, 2.85f};
 // The old range topped out at 13.5 m/s and made conservative crawling the
 // dominant strategy.  A 30% taller road-speed envelope makes momentum useful
 // on train and makes carrying too much of it into held-out hazards dangerous.
@@ -235,7 +235,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   // This calibrated effective ratio retains a gradual loaded RPM rise at
   // launch while keeping the useful shift window inside the rover's actual
   // low-speed range.
-  constexpr float kEffectiveDrivelineRatio = 1.73f;
+  // True kinematics: with the clutch closed the engine turns exactly as fast as
+  // the wheels do.  The old 1.73 fudge made the shift window believe in road
+  // speeds five times higher than the drivetrain could actually produce.
+  constexpr float kEffectiveDrivelineRatio = 1.0f;
   // A rover on Mars weighs little, so a modern gearbox can feed the wheels more
   // force than the wheelbase can hold down: full throttle simply loops it onto
   // its back.  Cap the drive at the tipping moment instead.
@@ -972,7 +975,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const bool top_gear = state.gear_index == kGearCount - 1;
       const float top_gear_max_speed = gear_top_speed(kGearCount - 1);
       float speed_fade;
-      if (!top_gear || driven_speed <= top_gear_max_speed) {
+      if (!top_gear && driven_speed > gear_max_speed) {
+        // A gear runs out of revs: past the limiter the drivetrain stops
+        // pushing, so going faster means taking the next gear.
+        speed_fade = 0.0f;
+      } else if (!top_gear || driven_speed <= top_gear_max_speed) {
         speed_fade = 1.0f / (1.0f + std::max(0.0f, driven_speed) /
                                     std::max(3.0f, gear_max_speed * 3.5f));
       } else {

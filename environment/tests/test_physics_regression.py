@@ -90,9 +90,9 @@ def test_fixed_seed_trace_is_repeatable_and_matches_physics_baseline():
     first = _trace()
     second = _trace()
     assert first == second
-    # Rebaselined after the limp brake became battery-gated and linear damping
-    # dropped to 0.005, which sets the flat-ground speed ceiling.
-    assert _fingerprint(first) == "3d3eff9f6d3f421b4bde41817dea10f8dd7d790aa6d32caf6c48779d8741c09e"
+    # Rebaselined for kinematic engine coupling, the rev-limited gears and the
+    # six-speed progressive ladder.
+    assert _fingerprint(first) == "263a55410d72a09f1e7e7dbcbc7d0d06321fb873ba2f22dfcf180bd04743a5a4"
 
 
 def test_preload_has_inertia_and_release_uses_the_stored_compression():
@@ -127,7 +127,9 @@ def test_shift_uses_a_loaded_rpm_window_and_consumes_energy():
         env.step_uint8(np.array([CONTROL_GAS], dtype=np.int32))
     before = env.debug_info(0)
     assert before["gear"] == 1
-    assert before["engine_rpm"] < 7000.0  # quick, but still short of the limiter.
+    # First gear is deliberately short now, so three seconds of launch sits
+    # near the limiter; what must hold is that it never exceeds it.
+    assert before["engine_rpm"] <= 9000.0
 
     env.step_uint8(np.array([CONTROL_GAS | CONTROL_SHIFT_UP], dtype=np.int32))
     shifted = env.debug_info(0)
