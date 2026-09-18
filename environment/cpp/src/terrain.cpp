@@ -340,21 +340,39 @@ void Terrain::carve_pond(float begin_x, float end_x, float water_level, float de
 void Terrain::carve_ledge(float begin_x, float end_x, float ramp_length,
                           float ramp_height) {
   if (heights_.empty() || end_x <= begin_x) return;
-  const float ramp_begin = std::max(0.0f, begin_x - std::max(0.0f, ramp_length));
+  const float run = std::max(dx_ * 2.0f, ramp_length);
+  const auto smoothstep = [](float t) { return t * t * (3.0f - 2.0f * t); };
+
+  // Take-off: a smooth rise that flattens into a lip.  The old quadratic ramp
+  // was steepest right at the edge, so the rover hit a wall instead of leaving
+  // the ground.
+  const float ramp_begin = std::max(0.0f, begin_x - run);
   const int ramp_first = std::max(0, static_cast<int>(std::floor(ramp_begin * inv_dx_)));
   const int ramp_last = std::min(static_cast<int>(heights_.size() - 1),
                                  static_cast<int>(std::floor(begin_x * inv_dx_)));
   for (int i = ramp_first; i <= ramp_last; ++i) {
     const float x = static_cast<float>(i) * dx_;
     const float t = clamp((x - ramp_begin) / std::max(dx_, begin_x - ramp_begin), 0.0f, 1.0f);
-
-
-    heights_[static_cast<size_t>(i)] += ramp_height * t * t;
+    const float lift = t < 0.78f ? smoothstep(t / 0.78f) : 1.0f;
+    heights_[static_cast<size_t>(i)] += ramp_height * lift;
   }
+
   const int first = std::max(0, static_cast<int>(std::ceil(begin_x * inv_dx_)));
   const int last = std::min(static_cast<int>(heights_.size() - 1),
                             static_cast<int>(std::floor(end_x * inv_dx_)));
   for (int i = first; i <= last; ++i) solid_[static_cast<size_t>(i)] = 0u;
+
+  // Landing: the far rim is raised to the take-off height and then runs back
+  // down.  Without it the gap ends in a vertical face that no jump can clear.
+  const float landing_run = run * 1.6f;
+  const int landing_first = std::max(0, static_cast<int>(std::ceil(end_x * inv_dx_)));
+  const int landing_last = std::min(static_cast<int>(heights_.size() - 1),
+                                    static_cast<int>(std::floor((end_x + landing_run) * inv_dx_)));
+  for (int i = landing_first; i <= landing_last; ++i) {
+    const float x = static_cast<float>(i) * dx_;
+    const float t = clamp((x - end_x) / std::max(dx_, landing_run), 0.0f, 1.0f);
+    heights_[static_cast<size_t>(i)] += ramp_height * (1.0f - smoothstep(t));
+  }
 }
 
 void Terrain::add_surface(float begin_x, float end_x, float begin_height, float end_height) {

@@ -136,7 +136,8 @@ struct RoverState {
   float geyser_strength = 0.0f;
   float geyser_period = 0.0f;
   bool geyser_active = false;
-  float geyser_phase = 0.0f;  // 1 at the start of a burst, 0 when it dies out
+  float geyser_phase = 0.0f;
+  float thruster_thrust = 0.0f;
   float gravity_schedule_level = 1.0f;
   int active_layer_count = 0;
   float active_layer_weight = 0.0f;

@@ -279,6 +279,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
              d["geyser_active"] = state.geyser_active;
+             d["thruster_thrust"] = state.thruster_thrust;
              {
                float vent_x = 0.0f;
                const float vent_distance =

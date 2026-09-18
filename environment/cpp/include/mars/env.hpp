@@ -79,7 +79,7 @@ class Env {
   const MechanicLayout& mechanic_layout() const { return mechanic_layout_; }
 
   int obs_dim() const { return kObservationDim; }
-  int action_dim() const { return 1 << 23; }
+  int action_dim() const { return 1 << 24; }
 
   int trial_steps_used() const { return trial_steps_used_; }
   int trial_step_budget() const;

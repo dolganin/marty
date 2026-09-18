@@ -793,6 +793,19 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     stats.energy_cost += (0.16f + 0.72f * control.throttle) * dt;
   }
 
+  // Belly thruster: a rocket jet out of the underside.  It is the only way to
+  // clear a gap the ramps cannot launch you over, and it burns energy fast
+  // enough that holding it is never the cheap answer.
+  state.thruster_thrust = 0.0f;
+  if (control.thruster && state.energy > 0.0f) {
+    constexpr float kThrusterWeightRatio = 2.4f;
+    const float rover_weight = rover_mass * std::abs(gravity);
+    const float thrust = kThrusterWeightRatio * rover_weight;
+    body_force += rotate_body({0.0f, 1.0f}) * thrust;
+    state.thruster_thrust = thrust;
+    stats.energy_cost += 4.5f * dt;
+  }
+
   float next_drivetrain_slip = 0.0f;
   bool next_drivetrain_grounded = false;
   bool any_wheel_grounded = false;

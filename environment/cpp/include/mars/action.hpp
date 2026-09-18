@@ -27,6 +27,8 @@ enum ControlBits : int {
   ControlRoofPistonRear = 1 << 20,
   ControlBallastBlow = 1 << 21,
   ControlBallastFlood = 1 << 22,
+  // Belly thruster: a rocket jet fired downwards to clear a gap or a ramp.
+  ControlThruster = 1 << 23,
 };
 
 struct ControlInput {
@@ -50,6 +52,7 @@ struct ControlInput {
   bool ballast_flood = false;
   bool toggle_climb = false;
   bool toggle_propeller = false;
+  bool thruster = false;
 };
 
 inline ControlInput decode_discrete_action(int action, float tilt_torque) {
@@ -81,6 +84,7 @@ inline ControlInput decode_discrete_action(int action, float tilt_torque) {
   out.ballast_flood = (action & ControlBallastFlood) != 0;
   out.toggle_climb = (action & ControlToggleClimb) != 0;
   out.toggle_propeller = (action & ControlTogglePropeller) != 0;
+  out.thruster = (action & ControlThruster) != 0;
   return out;
 }
 

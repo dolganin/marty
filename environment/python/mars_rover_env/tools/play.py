@@ -197,7 +197,7 @@ class ManualPlayer:
     def action(self) -> int:
         gas = "right" in self.keys or "d" in self.keys
         reverse = "left" in self.keys or "a" in self.keys
-        brake = "down" in self.keys or "s" in self.keys or "space" in self.keys
+        brake = "down" in self.keys or "s" in self.keys
         clutch = "c" in self.keys or "shift_l" in self.keys or "shift_r" in self.keys
         tilt_left = "j" in self.keys
         tilt_right = "l" in self.keys
@@ -211,6 +211,7 @@ class ManualPlayer:
         propeller = "p" in self.keys
         ballast_up = "y" in self.keys
         ballast_down = "u" in self.keys
+        thruster = "space" in self.keys
 
         # Jump and piston use modifiers to select an edge. Lidar deliberately
         # has one direction only: forward along the course.
@@ -228,6 +229,8 @@ class ManualPlayer:
         roof_piston_front = piston_held and ctrl_held
         roof_piston_rear = piston_held and (alt_held or self._alt_i_held) and not ctrl_held
         action = 0
+        if thruster:
+            action |= 1 << 23
         if gas or reverse:
             action |= 1
         if brake:
@@ -461,7 +464,7 @@ class ManualPlayer:
         idle = "#252525"
         self.control_labels["gas"].configure(bg=active if ({"d", "right"} & self.keys) else idle)
         self.control_labels["brake"].configure(
-            bg=active if ({"s", "down", "space"} & self.keys) else idle
+            bg=active if ({"s", "down"} & self.keys) else idle
         )
         self.control_labels["clutch"].configure(bg=active if debug["clutch_down"] else idle)
         self.control_labels["ignition"].configure(

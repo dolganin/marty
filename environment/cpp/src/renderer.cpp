@@ -201,6 +201,26 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     }
   }
 
+  // Thruster jet: a cone of flame out of the belly while the rocket burns.
+  if (state.thruster_thrust > 0.0f) {
+    const Vec2 down = rotate({0.0f, -1.0f}, state.body.angle);
+    const Vec2 side = rotate({1.0f, 0.0f}, state.body.angle);
+    const Vec2 nozzle = state.body.position + down * 0.22f;
+    for (int i = 0; i < 90; ++i) {
+      const uint32_t h = hash_u32(static_cast<uint32_t>(i * 2657 + state.step_index * 61));
+      const float along = static_cast<float>(h % 1000u) / 1000.0f;
+      const float spread = (static_cast<float>((h >> 10) % 1000u) / 1000.0f - 0.5f) *
+                           (0.10f + 0.34f * along);
+      const Vec2 world = nozzle + down * (along * 1.5f) + side * spread;
+      const Vec2 screen_point = screen(world);
+      const Color hot{255, static_cast<uint8_t>(230 - 120 * along),
+                      static_cast<uint8_t>(140 - 120 * along)};
+      const Color cool{140, 120, 190};
+      put_pixel(rgb, width, height, static_cast<int>(screen_point.x),
+                static_cast<int>(screen_point.y), mix(hot, cool, along * along));
+    }
+  }
+
   if (body_style.particles.ambient_particles > 0) {
 
 

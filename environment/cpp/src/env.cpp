@@ -142,14 +142,10 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   const bool stuck = false;
   trial_steps_used_ += 1;
-  float pit_recovery_x = 0.0f;
-  const bool fell_into_generated_pit =
-      terrain_.pit_recovery_x(state_.body.position.x, state_.body.position.y, pit_recovery_x);
-  if (fell_into_generated_pit ||
-      state_.body.position.y < config_.termination.fatal_fall_y) {
-    if (!fell_into_generated_pit) {
-      pit_recovery_x = terrain_.next_solid_x(state_.body.position.x, 2.5f);
-    }
+  // Only a bottomless gap counts as a fall.  A crater has a floor, so the rover
+  // is expected to climb out of it on its own rather than be lifted clear.
+  if (state_.body.position.y < config_.termination.fatal_fall_y) {
+    const float pit_recovery_x = terrain_.next_solid_x(state_.body.position.x, 2.5f);
     recover_from_pit(pit_recovery_x);
     if (trial_step_budget() > 0) {
       const int penalty_steps = std::max(
@@ -274,7 +270,7 @@ void Env::build_observation(float* obs_out) const {
   obs_out[k++] = state_.lidar_cooldown_steps > 0
                      ? static_cast<float>(state_.lidar_cooldown_steps) * config_.physics.dt
                      : 0.0f;
-  obs_out[k++] = static_cast<float>(state_.previous_action) / 8388607.0f;
+  obs_out[k++] = static_cast<float>(state_.previous_action) / 16777215.0f;
   obs_out[k++] = state_.last_reward;
 
 
