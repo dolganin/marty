@@ -1,0 +1,6 @@
+build/
+*.so
+*.py[cod]
+__pycache__/
+*.egg-info/
+submission.zip
