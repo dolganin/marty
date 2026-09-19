@@ -60,6 +60,7 @@ class Terrain {
   void deform(float x, float radius, float amount);
   void add_height_at_index(int index, float amount);
   void flatten_region(float begin_x, float end_x);
+  void flatten_start(float flat_end_x, float blend_end_x, float height);
   float carve_basin(float begin_x, float end_x, float depth, uint64_t seed);
 
   void carve_pond(float begin_x, float end_x, float water_level, float depth,

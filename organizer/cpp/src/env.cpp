@@ -45,11 +45,11 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   if (endgame_test_world_) {
 
 
-    scaled_terrain.safe_start_fraction = 0.0f;
     const float physical_length = std::max(
         scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
+    scaled_terrain.safe_start_fraction = clamp(8.0f / physical_length, 0.0f, 0.45f);
     scaled_terrain.difficulty_distance_offset = physical_length * 32.0f;
-    scaled_terrain.preserve_spawn_safety = false;
+    scaled_terrain.preserve_spawn_safety = true;
     scaled_terrain.crater_count = std::max(420, scaled_terrain.crater_count * 16);
     scaled_terrain.step_count = std::max(420, scaled_terrain.step_count * 18);
     scaled_terrain.amplitude = std::max(3.25f, scaled_terrain.amplitude * 3.80f);
@@ -58,6 +58,14 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
   finalize_mechanic_layout();
+  if (endgame_test_world_) {
+    const auto& first_zone = mechanic_layout_.zones[0];
+    float start_height = terrain_.query(0.0f).height;
+    if (first_zone.type == MechanicType::Liquid) {
+      start_height = std::max(start_height, first_zone.liquid_level + 0.25f);
+    }
+    terrain_.flatten_start(8.0f, 12.0f, start_height);
+  }
   const float spawn_y = terrain_.query(1.0f).height + 1.0f;
   physics_.initialize_state(config_.rig, state_, {1.0f, spawn_y});
   state_.world_seed = seed;

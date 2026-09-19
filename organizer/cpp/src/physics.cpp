@@ -790,7 +790,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       propeller_zone.liquid_level >= propeller_hub.y - 0.03f;
   const bool propeller_upright = rotate_body({0.0f, 1.0f}).y >= 0.35f;
   if (state.propeller_deployment >= 0.99f && control.throttle > 0.0f &&
-      propeller_submerged && propeller_upright) {
+      propeller_upright) {
 
 
     const float rpm_threshold = 1800.0f;
@@ -801,7 +801,8 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     const float thrust = 108.0f * reserve_power * propeller_ready;
     body_force += rotate_body({thrust, 0.0f});
     state.propeller_thrust = thrust;
-    stats.energy_cost += (2.0f + 6.0f * control.throttle) * dt;
+    const float medium_cost = propeller_submerged ? 1.0f : 1.25f;
+    stats.energy_cost += medium_cost * (2.0f + 6.0f * control.throttle) * dt;
   }
 
 

@@ -258,6 +258,30 @@ void Terrain::flatten_region(float begin_x, float end_x) {
       deep_pits_.end());
 }
 
+void Terrain::flatten_start(float flat_end_x, float blend_end_x, float height) {
+  if (heights_.empty() || flat_end_x < 0.0f || blend_end_x <= flat_end_x) return;
+  const int last = std::min(
+      static_cast<int>(heights_.size() - 1),
+      static_cast<int>(std::ceil(blend_end_x * inv_dx_)));
+  for (int i = 0; i <= last; ++i) {
+    const float x = static_cast<float>(i) * dx_;
+    if (x <= flat_end_x) {
+      heights_[static_cast<size_t>(i)] = height;
+    } else {
+      const float t = clamp((x - flat_end_x) / (blend_end_x - flat_end_x), 0.0f, 1.0f);
+      const float blend = t * t * (3.0f - 2.0f * t);
+      heights_[static_cast<size_t>(i)] =
+          height * (1.0f - blend) + heights_[static_cast<size_t>(i)] * blend;
+    }
+    solid_[static_cast<size_t>(i)] = 1u;
+  }
+  deep_pits_.erase(
+      std::remove_if(deep_pits_.begin(), deep_pits_.end(), [&](const auto& pit) {
+        return pit.center_x - pit.radius <= blend_end_x;
+      }),
+      deep_pits_.end());
+}
+
 float Terrain::carve_basin(float begin_x, float end_x, float depth, uint64_t seed) {
   if (heights_.empty() || end_x <= begin_x || depth <= 0.0f) {
     return base_height_;
