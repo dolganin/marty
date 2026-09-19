@@ -1,6 +1,7 @@
 env:
   episodes_per_trial: 8
   debug: true
+  biome_split: 2
 
 
 
