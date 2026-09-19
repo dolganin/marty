@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 
@@ -12,14 +13,19 @@ from mars_rover_env.config import load_env_config
 
 
 EPISODE_SECONDS = 300.0
-SEEDS = (104729, 130363, 155921)
+BASE_SEED_COUNT = 15
+REPLICAS_PER_SCENARIO = 3
 CHAIN_GROUPS = 5
+BIOME_SCENARIOS = BASE_SEED_COUNT - CHAIN_GROUPS
+BIOME_RUNS = BIOME_SCENARIOS * REPLICAS_PER_SCENARIO
 
 
 def _test_biomes() -> list[dict]:
     biomes = [dict(item) for item in biome_catalog() if int(item["split"]) == 2]
-    if len(biomes) != 10:
-        raise RuntimeError(f"organizer build must contain exactly 10 test biomes, got {len(biomes)}")
+    if len(biomes) != BIOME_SCENARIOS:
+        raise RuntimeError(
+            f"organizer build must contain exactly {BIOME_SCENARIOS} test biomes, got {len(biomes)}"
+        )
     return biomes
 
 
@@ -34,20 +40,61 @@ def _config(*, fixed_biome_id: int | None):
     return config
 
 
+def _seed_file() -> Path:
+    configured = os.environ.get("MARS_ROVER_TEST_SEEDS_FILE")
+    if configured:
+        return Path(configured)
+    return Path(__file__).resolve().parents[2] / ".env"
+
+
+def _base_seeds() -> tuple[int, ...]:
+    path = _seed_file()
+    if not path.is_file():
+        raise RuntimeError(f"test seed file does not exist: {path}")
+    seed_list = None
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        key, separator, value = line.partition("=")
+        if key.strip() == "MARS_ROVER_TEST_SEEDS" and separator:
+            seed_list = value.strip()
+            break
+    if seed_list is None:
+        raise RuntimeError(f"{path} must define MARS_ROVER_TEST_SEEDS")
+    values = []
+    for value in seed_list.split(","):
+        try:
+            seed = int(value.strip(), 0)
+        except ValueError as error:
+            raise RuntimeError(f"invalid test seed in {path}: {value}") from error
+        if seed < 0 or seed > (1 << 64) - REPLICAS_PER_SCENARIO:
+            raise RuntimeError(f"test seed is out of range in {path}: {seed}")
+        values.append(seed)
+    if len(values) != BASE_SEED_COUNT:
+        raise RuntimeError(
+            f"{path} must contain exactly {BASE_SEED_COUNT} test seeds, got {len(values)}"
+        )
+    return tuple(values)
+
+
 def _suite():
     configs = []
     seeds = []
     labels = []
-    for biome in _test_biomes():
-        for seed in SEEDS:
-            configs.append(_config(fixed_biome_id=int(biome["index"])))
-            seeds.append(seed)
-            labels.append(f"biome:{biome['id']}")
-    for group in range(CHAIN_GROUPS):
-        for seed in SEEDS:
-            configs.append(_config(fixed_biome_id=None))
-            seeds.append(seed + 1_000_003 * (group + 1))
-            labels.append(f"chain:{group + 1}")
+    scenarios = [
+        (f"biome:{biome['id']}", int(biome["index"]))
+        for biome in _test_biomes()
+    ]
+    scenarios.extend((f"chain:{group + 1}", None) for group in range(CHAIN_GROUPS))
+    base_seeds = _base_seeds()
+    if len(scenarios) != len(base_seeds):
+        raise RuntimeError("test scenario and seed counts differ")
+    for (label, biome_id), base_seed in zip(scenarios, base_seeds, strict=True):
+        for offset in range(REPLICAS_PER_SCENARIO):
+            configs.append(_config(fixed_biome_id=biome_id))
+            seeds.append(base_seed + offset)
+            labels.append(label)
     return configs, seeds, labels
 
 
@@ -92,10 +139,13 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
         final_x[index] = float(batch.debug_info(int(index))["x"])
     wall_seconds = time.perf_counter() - started
     distances = final_x - starts
-    rows = [
-        {"scenario": labels[i], "seed": seeds[i], "distance": float(distances[i])}
-        for i in range(count)
-    ]
+    rows = [{
+        "scenario": labels[i],
+        "seed": seeds[i],
+        "base_seed": seeds[i] - i % REPLICAS_PER_SCENARIO,
+        "replica": i % REPLICAS_PER_SCENARIO,
+        "distance": float(distances[i]),
+    } for i in range(count)]
     result = {
         "score": float(np.mean(distances)),
         "episodes": count,
@@ -103,8 +153,8 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
         "simulated_seconds": count * EPISODE_SECONDS,
         "wall_seconds": wall_seconds,
         "realtime_speedup": count * EPISODE_SECONDS / max(wall_seconds, 1e-9),
-        "biome_mean": float(np.mean(distances[:30])),
-        "chain_mean": float(np.mean(distances[30:])),
+        "biome_mean": float(np.mean(distances[:BIOME_RUNS])),
+        "chain_mean": float(np.mean(distances[BIOME_RUNS:])),
         "results": rows,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)

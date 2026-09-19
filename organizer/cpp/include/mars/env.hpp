@@ -113,6 +113,7 @@ class Env {
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
   float difficulty_safe_fraction_ = 0.02f;
   bool endgame_test_world_ = false;
+  float sand_burial_ = 0.0f;
 };
 
 }

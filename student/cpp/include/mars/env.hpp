@@ -111,6 +111,7 @@ class Env {
   float best_progress_x_ = 0.0f;
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
   float difficulty_safe_fraction_ = 0.02f;
+  float sand_burial_ = 0.0f;
 };
 
 }

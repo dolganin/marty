@@ -15,6 +15,7 @@ Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physic
 void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   rng_.seed(seed);
   roof_contact_latched_ = false;
+  sand_burial_ = 0.0f;
   endgame_test_world_ = config_.biome_split == 2 || config_.force_endgame_difficulty;
   const int next_episode_in_trial = trial_start ? 0 : state_.episode_in_trial + 1;
   if (trial_start || !has_trial_mechanic_seed_) {
@@ -99,10 +100,23 @@ StepOutput Env::step(int action, float* obs_out) {
     const auto& c = stats.deformation_contacts[static_cast<size_t>(i)];
     if (c.active) {
       const auto& zone = mechanic_layout_.at(c.x);
+      const MechanicParams* sand_params = nullptr;
+      if (config_.biome_split == 2) {
+        if (zone.type == MechanicType::Sand) {
+          sand_params = &zone.params;
+        } else {
+          std::array<const MechanicZone*, kMaxActiveMechanisms> active{};
+          const int active_count = mechanic_layout_.active_layers(c.x, active);
+          for (int layer = 0; layer < active_count; ++layer) {
+            if (active[static_cast<size_t>(layer)]->type == MechanicType::Sand) {
+              sand_params = &active[static_cast<size_t>(layer)]->params;
+              break;
+            }
+          }
+        }
+      }
       float deform_scale = 0.0f;
-      if (zone.type == MechanicType::Crust) {
-        deform_scale = c.penetration > 0.008f ? 0.025f + zone.params.crust_deform * 2.0f : 0.0f;
-      } else if (zone.type == MechanicType::Sand) {
+      if (sand_params) {
         const auto& wheel = state_.wheels[static_cast<size_t>(i)];
         const float travel_speed = std::abs(state_.body.velocity.x);
         const float tread_speed = std::abs(wheel.angular_velocity) * wheel.radius;
@@ -110,19 +124,21 @@ StepOutput Env::step(int action, float* obs_out) {
         const float digging = 1.0f + 2.6f * clamp(c.slip, 0.0f, 2.0f) +
                               0.55f * c.drive_effort + 0.10f * tread_speed;
         const float difficulty = terrain_.difficulty_at(c.x);
-        deform_scale = zone.params.sink_rate * (0.45f + 1.35f * difficulty) *
+        deform_scale = sand_params->sink_rate * (0.45f + 1.35f * difficulty) *
                        speed_relief * digging *
                        (0.08f + 0.92f * clamp(c.drive_effort, 0.0f, 1.0f));
+      } else if (zone.type == MechanicType::Crust) {
+        deform_scale = c.penetration > 0.008f ? 0.025f + zone.params.crust_deform * 2.0f : 0.0f;
       } else if (zone.type == MechanicType::Mud) {
         deform_scale = 0.012f + zone.params.viscosity * 0.003f;
       }
       if (deform_scale > 0.0f) {
         float amount = deform_scale * c.penetration;
-        if (zone.type == MechanicType::Sand && c.drive_effort > 0.05f) {
+        if (sand_params && c.drive_effort > 0.05f) {
 
 
 
-          amount += zone.params.sink_rate * config_.physics.dt *
+          amount += sand_params->sink_rate * config_.physics.dt *
                     (0.25f + 0.95f * c.drive_effort +
                      2.10f * clamp(c.slip, 0.0f, 1.5f));
         }
@@ -346,6 +362,7 @@ void Env::update_world_latents() {
   const int n = mechanic_layout_.active_layers(state_.body.position.x, active);
   state_.active_layer_count = n;
   float weight_sum = 0.0f;
+  float sand_weight = 0.0f;
 
 
 
@@ -363,6 +380,7 @@ void Env::update_world_latents() {
     const float leave = clamp((z.end_x - state_.body.position.x) / feather, 0.0f, 1.0f);
     const float w = enter * enter * (3.0f - 2.0f * enter) * leave * leave * (3.0f - 2.0f * leave);
     weight_sum += w;
+    if (config_.biome_split == 1 && z.type == MechanicType::Sand) sand_weight += w;
     const auto& p = z.params;
     mixed.moisture += w * (p.moisture - 0.22f);
     mixed.sink_rate += w * p.sink_rate;
@@ -378,19 +396,28 @@ void Env::update_world_latents() {
     mixed.lidar_range_mul += w * (p.lidar_range_mul - 1.0f);
   }
   apply_generation_influences(mixed);
+  const float speed = std::abs(state_.body.velocity.x);
+  if (config_.biome_split == 1 && sand_weight > 0.0f) {
+    const float stillness = clamp((0.70f - speed) / 0.70f, 0.0f, 1.0f);
+    sand_burial_ = clamp(sand_burial_ + config_.physics.dt *
+        (0.060f * clamp(sand_weight, 0.0f, 1.0f) * stillness -
+         0.14f * speed), 0.0f, 1.0f);
+  } else {
+    sand_burial_ = std::max(0.0f, sand_burial_ - config_.physics.dt * 0.30f);
+  }
   const auto& current_zone = mechanic_layout_.at(state_.body.position.x);
   mixed.lidar_range_mul = std::min(mixed.lidar_range_mul,
                                    current_zone.params.lidar_range_mul);
   state_.latent_moisture = mixed.moisture;
   state_.latent_heat = clamp((mixed.ambient_temperature + 58.0f) / 130.0f, 0.0f, 1.0f);
-  state_.latent_viscosity = mixed.viscosity;
+  state_.latent_viscosity = mixed.viscosity + sand_burial_ * 8.0f;
   state_.latent_sink = mixed.sink_rate;
   state_.latent_charge_reserve = clamp(state_.energy / std::max(1.0f, config_.physics.energy_capacity), 0.0f, 1.0f);
-  state_.latent_suspension = clamp(1.0f - mixed.sink_rate * 0.25f +
+  state_.latent_suspension = clamp(1.0f - mixed.sink_rate * 0.25f - sand_burial_ * 0.18f +
                                            (state_.climb_mode ? 0.12f : 0.0f),
                                    0.65f, 1.25f);
-  state_.latent_traction = mixed.friction_mul;
-  state_.latent_energy_resistance = mixed.energy_drain_mul;
+  state_.latent_traction = mixed.friction_mul * (1.0f - sand_burial_ * 0.70f);
+  state_.latent_energy_resistance = mixed.energy_drain_mul * (1.0f + sand_burial_ * 0.40f);
   state_.latent_gravity_multiplier = mixed.gravity_mul;
   state_.latent_wind_force = mixed.wind_force;
   state_.latent_ambient_temperature = mixed.ambient_temperature;
@@ -605,6 +632,12 @@ void Env::select_mechanic_layout(uint64_t seed) {
       if (candidate == previous_id && pool.size() > 1) {
         pool_cursor += 1;
         candidate = pool[pool_cursor % pool.size()];
+      }
+      if (slot == 0 && pool.size() > 1) {
+        while (bank[static_cast<size_t>(candidate)]->id() == "battery_bay_tycho") {
+          candidate = pool[pool_cursor % pool.size()];
+          ++pool_cursor;
+        }
       }
     }
 
