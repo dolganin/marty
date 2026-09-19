@@ -79,6 +79,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.body_contact_front = false;
   state.body_contact_belly = false;
   state.body_contact_rear = false;
+  state.body_contact_roof = false;
   const bool was_airborne = state.airborne;
   const int previous_airborne_steps = state.airborne_steps;
   const float pre_contact_vertical_speed = state.body.velocity.y;
@@ -664,6 +665,9 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   };
   const auto register_body_contact = [&](Vec2 local) {
     const float half_width = std::max(0.01f, rig.body.collision.size.x * 0.5f);
+    if (local.y > 0.0f) {
+      state.body_contact_roof = true;
+    }
     if (local.x > half_width * 0.55f) {
       state.body_contact_front = true;
     } else if (local.x < -half_width * 0.55f) {

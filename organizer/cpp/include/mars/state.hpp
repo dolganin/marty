@@ -61,7 +61,7 @@ struct RoverState {
   float solar_charge_rate = 0.0f;
   float passive_charge_rate = 0.0f;
   float solar_irradiance = 0.0f;
-  float ballast_air = 0.55f;
+  float ballast_air = 0.0f;
   bool ballast_blowing = false;
   bool ballast_flooding = false;
   bool solar_panel_stationary = false;
@@ -75,6 +75,7 @@ struct RoverState {
   bool body_contact_front = false;
   bool body_contact_belly = false;
   bool body_contact_rear = false;
+  bool body_contact_roof = false;
   int drive_mode = 0;
   bool engine_running = true;
   bool engine_stalled = false;

@@ -399,6 +399,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["body_contact_front"] = state.body_contact_front;
              d["body_contact_belly"] = state.body_contact_belly;
              d["body_contact_rear"] = state.body_contact_rear;
+             d["body_contact_roof"] = state.body_contact_roof;
              d["terrain_surprise_mode"] = zone.terrain_surprise_mode;
              constexpr const char* kTerminationReasons[] = {
                  "RUNNING", "FINISH REACHED", "FATAL LANDING", "ROVER ROLLOVER",

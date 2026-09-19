@@ -14,6 +14,7 @@ Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physic
 
 void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   rng_.seed(seed);
+  roof_contact_latched_ = false;
   endgame_test_world_ = config_.biome_split == 2 || config_.force_endgame_difficulty;
   const int next_episode_in_trial = trial_start ? 0 : state_.episode_in_trial + 1;
   if (trial_start || !has_trial_mechanic_seed_) {
@@ -142,6 +143,13 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   const bool stuck = false;
   trial_steps_used_ += 1;
+  const bool roof_contact_started = state_.body_contact_roof && !roof_contact_latched_;
+  roof_contact_latched_ = state_.body_contact_roof;
+  if (roof_contact_started && trial_step_budget() > 0) {
+    const int penalty_steps = std::max(
+        1, static_cast<int>(std::lround(5.0f / std::max(0.0001f, config_.physics.dt))));
+    trial_steps_used_ = std::min(trial_step_budget(), trial_steps_used_ + penalty_steps);
+  }
 
 
   if (state_.body.position.y < config_.termination.fatal_fall_y) {

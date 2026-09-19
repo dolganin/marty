@@ -107,6 +107,7 @@ class Env {
   bool has_trial_mechanic_seed_ = false;
   int stuck_counter_ = 0;
   int trial_steps_used_ = 0;
+  bool roof_contact_latched_ = false;
   float best_progress_x_ = 0.0f;
   std::array<float, kMaxMechanicZones> pending_basin_depth_{};
   float difficulty_safe_fraction_ = 0.02f;
