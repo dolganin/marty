@@ -1197,6 +1197,7 @@ class TideSwingBasin final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.36f + 0.18f * biome_random01(s);
     p.viscosity = 3.2f + 2.4f * biome_random01(s, 1);
+    p.liquid_current_x = -(5.5f + 2.5f * biome_random01(s, 9));
     p.energy_drain_mul = 1.8f + 0.60f * biome_random01(s, 2);
     p.ambient_temperature = -4.0f + 22.0f * biome_random01(s, 3);
     p.thermal_transfer = 3.8f + 1.2f * biome_random01(s, 4);

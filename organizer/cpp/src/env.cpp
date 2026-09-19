@@ -49,10 +49,10 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
         scaled_terrain.dx, scaled_terrain.dx * static_cast<float>(scaled_terrain.sample_count - 1));
     scaled_terrain.difficulty_distance_offset = physical_length * 32.0f;
     scaled_terrain.preserve_spawn_safety = false;
-    scaled_terrain.crater_count = std::max(240, scaled_terrain.crater_count * 10);
-    scaled_terrain.step_count = std::max(240, scaled_terrain.step_count * 12);
-    scaled_terrain.amplitude = std::max(1.75f, scaled_terrain.amplitude * 2.50f);
-    scaled_terrain.roughness = std::max(1.10f, scaled_terrain.roughness * 2.10f);
+    scaled_terrain.crater_count = std::max(420, scaled_terrain.crater_count * 16);
+    scaled_terrain.step_count = std::max(420, scaled_terrain.step_count * 18);
+    scaled_terrain.amplitude = std::max(3.25f, scaled_terrain.amplitude * 3.80f);
+    scaled_terrain.roughness = std::max(1.65f, scaled_terrain.roughness * 3.00f);
   }
   terrain_.configure(scaled_terrain);
   terrain_.generate(seed ^ 0x9e3779b97f4a7c15ULL);
@@ -688,10 +688,10 @@ void Env::finalize_mechanic_layout() {
     zone.jagged_amplitude = 0.0f;
     const float jagged_scale = std::max(0.0f, config_.terrain.jagged_scale);
     if (endgame_test_world_ && jagged_scale > 0.0f) {
-      zone.jagged_mode = 1 + static_cast<int>(biome_random01(zone.terrain_seed, 61) * 4.0f) % 4;
+      zone.jagged_mode = 1 + static_cast<int>(biome_random01(zone.terrain_seed, 61) * 5.0f) % 5;
       zone.jagged_amplitude =
-          jagged_scale * (0.6f + 0.8f * biome_random01(zone.terrain_seed, 62)) *
-          (0.25f + 0.75f * zone_difficulty);
+          jagged_scale * (1.8f + 1.8f * biome_random01(zone.terrain_seed, 62)) *
+          (0.35f + 0.95f * zone_difficulty);
     }
     const int first_sample = std::max(
         0, static_cast<int>(std::ceil(std::max(0.0f, zone.begin_x) / terrain_.dx())));
@@ -774,11 +774,11 @@ void Env::finalize_mechanic_layout() {
             break;
           }
           default: {
-            const float cell = 3.0f;
+            const float cell = 2.4f;
             const uint64_t block = static_cast<uint64_t>(std::floor(local_x / cell));
-            if (biome_random01(zone.terrain_seed, 900 + block) > 0.72f) {
+            if (biome_random01(zone.terrain_seed, 900 + block) > 0.62f) {
               const float t = local_x / cell - std::floor(local_x / cell);
-              jagged = 0.26f * std::sin(3.14159265f * t);
+              jagged = 0.48f * std::sin(3.14159265f * t);
             }
             break;
           }

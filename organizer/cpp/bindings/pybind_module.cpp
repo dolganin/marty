@@ -279,6 +279,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                                       ? std::max(0.0f, zone.liquid_level -
                                                           env.terrain().query(state.body.position.x).height)
                                       : 0.0f;
+             d["water_current_x"] = zone.params.liquid_current_x;
              d["geyser_active"] = state.geyser_active;
              d["thruster_thrust"] = state.thruster_thrust;
              {
@@ -509,6 +510,7 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       values["friction"] = params.friction_mul;
       values["sink"] = params.sink_rate;
       values["viscosity"] = params.viscosity;
+      values["water_current_x"] = params.liquid_current_x;
       values["wind"] = params.wind_force;
       values["gravity"] = params.gravity_mul;
       values["energy"] = params.energy_drain_mul;

@@ -179,9 +179,12 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   }
   const bool rover_stationary = length(state.body.velocity) < 0.06f &&
                                 std::abs(state.body.angular_velocity) < 0.08f;
+  const auto& charge_zone = mechanics.at(state.body.position.x);
+  const bool charging_in_liquid = charge_zone.type == MechanicType::Liquid;
   state.solar_panel_stationary = rover_stationary;
   state.charging_active = state.solar_panel_requested &&
-                          state.solar_panel_deployment >= 0.999f && rover_stationary;
+                          state.solar_panel_deployment >= 0.999f &&
+                          (rover_stationary || charging_in_liquid);
   const bool shift_up_pressed = control.shift_up && (state.previous_action & ControlShiftUp) == 0;
   const bool shift_down_pressed =
       control.shift_down && (state.previous_action & ControlShiftDown) == 0;
@@ -764,8 +767,11 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
       const float point_speed = length(point_velocity);
       const float ballast_buoyancy = 0.45f + 1.10f * state.ballast_air;
       const Vec2 buoyancy{0.0f, sample_mass * -gravity * ballast_buoyancy * submerged};
-      const Vec2 water_drag =
-          point_velocity * (-sample_mass * submerged * (0.32f + point_speed * 0.52f));
+      const Vec2 fluid_velocity{water_zone.params.liquid_current_x, 0.0f};
+      const Vec2 relative_velocity = point_velocity - fluid_velocity;
+      const float relative_speed = length(relative_velocity);
+      const Vec2 water_drag = relative_velocity *
+          (-sample_mass * submerged * (0.32f + relative_speed * 0.52f));
       const Vec2 water_force = buoyancy + water_drag;
       body_force += water_force;
       body_torque += cross(r, water_force);
@@ -827,8 +833,10 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
                                        : 0.0f;
     Vec2 wheel_force{0.0f, wheel.mass * gravity};
     if (liquid_immersion > 0.0f) {
-      const float water_speed = length(wheel.velocity);
-      wheel_force += wheel.velocity *
+      const Vec2 fluid_velocity{wheel_zone.params.liquid_current_x, 0.0f};
+      const Vec2 relative_velocity = wheel.velocity - fluid_velocity;
+      const float water_speed = length(relative_velocity);
+      wheel_force += relative_velocity *
                      (-wheel.mass * liquid_immersion * (0.55f + water_speed * 0.85f));
       wheel_force.y += wheel.mass * -gravity * 0.48f * liquid_immersion;
       if (state.geyser_active) {

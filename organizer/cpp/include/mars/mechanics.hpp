@@ -50,6 +50,7 @@ struct MechanicParams {
   float moisture = 0.22f;
   float sink_rate = 0.0f;
   float viscosity = 0.0f;
+  float liquid_current_x = 0.0f;
   float wind_force = 0.0f;
   float gravity_mul = 1.0f;
   float energy_drain_mul = 1.0f;

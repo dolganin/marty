@@ -31,6 +31,20 @@ KEY_BITS = {
     "r": 1 << 23,
 }
 
+BUTTONS = (
+    ("Gas", 1 << 0), ("Reverse", (1 << 0) | (1 << 2)), ("Brake", 1 << 1),
+    ("Clutch", 1 << 3), ("Tilt left", 1 << 4), ("Tilt right", 1 << 5),
+    ("Gear +", 1 << 6), ("Gear -", 1 << 7), ("Drive", 1 << 8),
+    ("Ignition", 1 << 9), ("Charge", 1 << 10), ("Lidar", 1 << 11),
+    ("Heater", 1 << 12), ("Jump", 1 << 13), ("Climb", 1 << 14),
+    ("Propeller", 1 << 15), ("Blow", 1 << 21), ("Flood", 1 << 22),
+    ("Thruster", 1 << 23),
+)
+
+GAS = 1 << 0
+REVERSE = (1 << 0) | (1 << 2)
+LATCHED_BITS = {GAS, REVERSE, 1 << 1, 1 << 3, 1 << 4, 1 << 5, 1 << 12, 1 << 21, 1 << 22, 1 << 23}
+
 
 class Player:
     def __init__(self, args: argparse.Namespace):
@@ -48,11 +62,31 @@ class Player:
         self.root.title("Mars Rover")
         self.canvas = tk.Label(self.root)
         self.canvas.pack(side="left")
+        self.sidebar = tk.Frame(self.root)
+        self.sidebar.pack(side="right", fill="y")
         self.telemetry = tk.Label(
-            self.root, width=42, justify="left", anchor="nw", font=("Consolas", 10)
+            self.sidebar, width=44, justify="left", anchor="nw", font=("Consolas", 10)
         )
-        self.telemetry.pack(side="right", fill="y")
+        self.telemetry.pack(fill="x")
+        self.controls = tk.Frame(self.sidebar)
+        self.controls.pack(fill="x", padx=6, pady=6)
         self.keys: set[str] = set()
+        self.latched_action = 0
+        self.pulse_action = 0
+        self.buttons: dict[int, tk.Button] = {}
+        for index, (label, bit) in enumerate(BUTTONS):
+            button = tk.Button(
+                self.controls, text=label, width=12,
+                command=lambda control_bit=bit: self._toggle(control_bit),
+            )
+            button.grid(row=index // 2, column=index % 2, padx=2, pady=2, sticky="ew")
+            self.buttons[bit] = button
+        tk.Button(self.controls, text="Reset", width=12, command=self._reset).grid(
+            row=10, column=0, padx=2, pady=2, sticky="ew"
+        )
+        tk.Button(self.controls, text="New track", width=12, command=self._new_track).grid(
+            row=10, column=1, padx=2, pady=2, sticky="ew"
+        )
         self.photo = None
         self.root.bind("<KeyPress>", self._press)
         self.root.bind("<KeyRelease>", self._release)
@@ -63,22 +97,53 @@ class Player:
         if key == "escape":
             self.root.destroy()
         elif key == "t":
-            self.seed = random.randrange(2**31)
-            self.env.reset(seed=self.seed)
+            self._new_track()
         else:
             self.keys.add(key)
 
     def _release(self, event) -> None:
         self.keys.discard(event.keysym.lower())
 
+    def _toggle(self, bit: int) -> None:
+        if bit not in LATCHED_BITS:
+            self.pulse_action |= bit
+        elif bit == GAS and (self.latched_action & REVERSE) == REVERSE:
+            self.latched_action &= ~(1 << 2)
+        elif bit == REVERSE:
+            if (self.latched_action & REVERSE) == REVERSE:
+                self.latched_action &= ~REVERSE
+            else:
+                self.latched_action = (self.latched_action & ~REVERSE) | REVERSE
+        else:
+            self.latched_action ^= bit
+        self._refresh_buttons()
+
+    def _refresh_buttons(self) -> None:
+        for bit, button in self.buttons.items():
+            active = bit in LATCHED_BITS and (self.latched_action & bit) == bit
+            button.configure(
+                relief="sunken" if active else "raised",
+                bg="#8ccf7e" if active else "#f0f0f0",
+            )
+
+    def _reset(self) -> None:
+        self.latched_action = 0
+        self.pulse_action = 0
+        self._refresh_buttons()
+        self.env.reset(seed=self.seed)
+
+    def _new_track(self) -> None:
+        self.seed = random.randrange(2**31)
+        self._reset()
+
     def _tick(self) -> None:
-        action = 0
+        action = self.latched_action | self.pulse_action
         for key in self.keys:
             action |= KEY_BITS.get(key, 0)
         _, _, terminated, truncated, _ = self.env.step(action)
+        self.pulse_action = 0
         if terminated or truncated:
-            self.seed = random.randrange(2**31)
-            self.env.reset(seed=self.seed)
+            self._new_track()
         frame = self.env.render()
         self.photo = ImageTk.PhotoImage(Image.fromarray(frame))
         self.canvas.configure(image=self.photo)
@@ -89,10 +154,17 @@ class Player:
             ("distance", f"{debug.get('x', 0.0):.1f} m"),
             ("speed", f"{debug.get('speed_kmh', 0.0):.1f} km/h"),
             ("energy", f"{debug.get('energy', 0.0):.1f}"),
+            ("charge", f"{debug.get('solar_charge_rate', 0.0):.2f}/s"),
+            ("panel", f"{debug.get('solar_panel_deployment', 0.0) * 100:.0f}%"),
+            ("current", f"{debug.get('water_current_x', 0.0):.1f} m/s"),
             ("gear", debug.get("gear")),
             ("rpm", f"{debug.get('engine_rpm', 0.0):.0f}"),
             ("slip", f"{debug.get('drivetrain_slip', 0.0):.2f}"),
             ("lidar", f"{debug.get('lidar_range', 0.0):.1f} m"),
+            ("drive", debug.get("drive_layout")),
+            ("propeller", f"{debug.get('propeller_thrust', 0.0):.1f} N"),
+            ("thruster", f"{debug.get('thruster_thrust', 0.0):.1f} N"),
+            ("climb", "on" if debug.get("climb_mode") else "off"),
         )
         self.telemetry.configure(text="\n".join(f"{key:>10}: {value}" for key, value in fields))
         self.root.after(16, self._tick)
