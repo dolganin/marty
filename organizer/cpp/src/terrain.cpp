@@ -30,10 +30,10 @@ void Terrain::configure(const TerrainConfig& config) {
   difficulty_exponent_ = clamp(config.difficulty_exponent, 0.5f, 4.0f);
   difficulty_distance_offset_ = std::max(0.0f, config.difficulty_distance_offset);
   preserve_spawn_safety_ = config.preserve_spawn_safety;
+  height_limit_ = std::max(0.0f, config.height_limit);
   heights_.assign(static_cast<size_t>(config.sample_count), config.base_height);
   solid_.assign(static_cast<size_t>(config.sample_count), 1u);
   surfaces_.clear();
-  deep_pits_.clear();
 }
 
 void Terrain::generate(uint64_t seed) {
@@ -65,6 +65,13 @@ void Terrain::generate(uint64_t seed) {
     return safe_end + 2.0f + t * std::max(1.0f, max_x - safe_end - 6.0f);
   };
   generated_step_count_ = std::max(0, step_count_);
+  struct Step {
+    float x0;
+    float width;
+    float height;
+  };
+  std::vector<Step> steps;
+  steps.reserve(static_cast<size_t>(generated_step_count_));
   for (int n = 0; n < generated_step_count_; ++n) {
     const float x0 = progressive_position();
     const float difficulty = difficulty_at(x0);
@@ -72,11 +79,27 @@ void Terrain::generate(uint64_t seed) {
     const float severity = 0.10f + 0.90f * difficulty;
     const float height = (unit_dist(rng) * 2.0f - 1.0f) * amplitude_ *
                          (0.35f + roughness_) * severity;
+    steps.push_back({x0, width, height});
+  }
+  if (height_limit_ > 0.0f) {
+    std::sort(steps.begin(), steps.end(),
+              [](const Step& a, const Step& b) { return a.x0 < b.x0; });
+    const float step_limit = height_limit_ * 0.25f;
+    float drift = 0.0f;
+    for (auto& step : steps) {
+      step.height = clamp(step.height, -step_limit, step_limit);
+      if (std::abs(drift + step.height) > height_limit_) {
+        step.height = -step.height;
+      }
+      drift += step.height;
+    }
+  }
+  for (const auto& step : steps) {
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
-      const float t = clamp((x - x0) / width, 0.0f, 1.0f);
+      const float t = clamp((x - step.x0) / step.width, 0.0f, 1.0f);
       const float smooth = t * t * (3.0f - 2.0f * t);
-      heights_[static_cast<size_t>(i)] += height * smooth;
+      heights_[static_cast<size_t>(i)] += step.height * smooth;
     }
   }
 
@@ -102,12 +125,6 @@ void Terrain::generate(uint64_t seed) {
         : broad_pit
             ? amplitude_ * (0.24f + difficulty * (0.42f + 0.58f * unit_dist(rng)))
             : amplitude_ * (0.08f + difficulty * (0.45f + 0.85f * unit_dist(rng)));
-    if (deep_pit) {
-      const int center_index = std::clamp(static_cast<int>(std::lround(cx * inv_dx_)), 0,
-                                          static_cast<int>(heights_.size() - 1));
-      deep_pits_.push_back(
-          {cx, radius, heights_[static_cast<size_t>(center_index)], depth});
-    }
     for (int i = 0; i < static_cast<int>(heights_.size()); ++i) {
       const float x = static_cast<float>(i) * dx_;
       const float d = std::abs(x - cx) / radius;
@@ -251,11 +268,6 @@ void Terrain::flatten_region(float begin_x, float end_x) {
     heights_[static_cast<size_t>(i)] =
         heights_[static_cast<size_t>(i)] * (1.0f - blend) + line * blend;
   }
-  deep_pits_.erase(
-      std::remove_if(deep_pits_.begin(), deep_pits_.end(), [&](const auto& pit) {
-        return pit.center_x + pit.radius >= begin_x && pit.center_x - pit.radius <= end_x;
-      }),
-      deep_pits_.end());
 }
 
 void Terrain::flatten_start(float flat_end_x, float blend_end_x, float height) {
@@ -275,11 +287,6 @@ void Terrain::flatten_start(float flat_end_x, float blend_end_x, float height) {
     }
     solid_[static_cast<size_t>(i)] = 1u;
   }
-  deep_pits_.erase(
-      std::remove_if(deep_pits_.begin(), deep_pits_.end(), [&](const auto& pit) {
-        return pit.center_x - pit.radius <= blend_end_x;
-      }),
-      deep_pits_.end());
 }
 
 float Terrain::carve_basin(float begin_x, float end_x, float depth, uint64_t seed) {
@@ -447,17 +454,23 @@ float Terrain::next_solid_x(float x, float required_run) const {
   return std::min(length(), std::max(0.0f, x) + run);
 }
 
-bool Terrain::pit_recovery_x(float x, float body_y, float& recovery_x) const {
-  for (const auto& pit : deep_pits_) {
-    if (x < pit.center_x - pit.radius || x > pit.center_x + pit.radius) continue;
-
-
-    const float fall_threshold = pit.rim_height - std::max(0.35f, pit.depth * 0.18f);
-    if (body_y >= fall_threshold) continue;
-    recovery_x = next_solid_x(pit.center_x + pit.radius * 1.55f, 2.5f);
-    return true;
+float Terrain::previous_solid_x(float x, float required_run) const {
+  if (heights_.empty()) return x;
+  const float run = std::max(dx_, required_run);
+  const int run_samples = std::max(1, static_cast<int>(std::ceil(run * inv_dx_)));
+  const int last = static_cast<int>(solid_.size()) - 1;
+  const int first = std::clamp(static_cast<int>(std::floor(x * inv_dx_)), 0, last);
+  for (int i = first; i - run_samples >= 0; --i) {
+    bool stable = true;
+    for (int j = 0; j <= run_samples; ++j) {
+      if (solid_[static_cast<size_t>(i - j)] == 0u) {
+        stable = false;
+        break;
+      }
+    }
+    if (stable) return static_cast<float>(i) * dx_ - 0.5f * run;
   }
-  return false;
+  return next_solid_x(0.0f, run);
 }
 
 float Terrain::height_at_index(int i) const {

@@ -15,18 +15,25 @@ from mars_rover_env.config import load_env_config
 EPISODE_SECONDS = 300.0
 BASE_SEED_COUNT = 15
 REPLICAS_PER_SCENARIO = 3
-CHAIN_GROUPS = 5
+CHAIN_GROUPS = 7
 BIOME_SCENARIOS = BASE_SEED_COUNT - CHAIN_GROUPS
 BIOME_RUNS = BIOME_SCENARIOS * REPLICAS_PER_SCENARIO
+CHAIN_ONLY_BIOMES = ("gale_dark_flats", "battery_bay_tycho")
+TEST_BIOME_COUNT = BIOME_SCENARIOS + len(CHAIN_ONLY_BIOMES)
 
 
 def _test_biomes() -> list[dict]:
     biomes = [dict(item) for item in biome_catalog() if int(item["split"]) == 2]
-    if len(biomes) != BIOME_SCENARIOS:
+    if len(biomes) != TEST_BIOME_COUNT:
         raise RuntimeError(
-            f"organizer build must contain exactly {BIOME_SCENARIOS} test biomes, got {len(biomes)}"
+            f"organizer build must contain exactly {TEST_BIOME_COUNT} test biomes, got {len(biomes)}"
         )
-    return biomes
+    scenarios = [item for item in biomes if item["id"] not in CHAIN_ONLY_BIOMES]
+    if len(scenarios) != BIOME_SCENARIOS:
+        present = {item["id"] for item in biomes}
+        missing = sorted(set(CHAIN_ONLY_BIOMES) - present)
+        raise RuntimeError(f"chain-only biomes are not in the bank: {', '.join(missing)}")
+    return scenarios
 
 
 def _config(*, fixed_biome_id: int | None):

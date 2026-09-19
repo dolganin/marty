@@ -69,6 +69,9 @@ struct RoverState {
   int lidar_cooldown_steps = 0;
   float lidar_last_energy_cost = 0.0f;
   float lidar_range = 0.0f;
+  float lidar_landing_x = 0.0f;
+  float lidar_landing_y = 0.0f;
+  bool lidar_landing_valid = false;
   Vec2 imu_acceleration{};
   float imu_angular_acceleration = 0.0f;
   float imu_impact = 0.0f;

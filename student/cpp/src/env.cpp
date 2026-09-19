@@ -54,6 +54,7 @@ void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   state_.trial_start = trial_start;
   state_.episode_in_trial = next_episode_in_trial;
   stuck_counter_ = 0;
+  flip_latched_ = false;
   best_progress_x_ = state_.body.position.x;
   build_observation(obs_out);
 }
@@ -96,7 +97,12 @@ StepOutput Env::step(int action, float* obs_out) {
 
   const bool finished = false;
   const bool flipped = is_flipped();
-  const bool fatal = false;
+  const bool flip_started = flipped && !flip_latched_;
+  if (flipped) {
+    flip_latched_ = true;
+  } else if (std::abs(state_.body.angle) < config_.termination.flip_angle * 0.5f) {
+    flip_latched_ = false;
+  }
 
 
 
@@ -119,8 +125,9 @@ StepOutput Env::step(int action, float* obs_out) {
   }
 
 
-  if (state_.body.position.y < config_.termination.fatal_fall_y) {
-    const float pit_recovery_x = terrain_.next_solid_x(state_.body.position.x, 2.5f);
+  const bool over_gap = !terrain_.query(state_.body.position.x).solid;
+  if (over_gap && state_.body.position.y < config_.termination.fatal_fall_y) {
+    const float pit_recovery_x = terrain_.previous_solid_x(state_.body.position.x, 2.5f);
     recover_from_pit(pit_recovery_x);
     if (trial_step_budget() > 0) {
       const int penalty_steps = std::max(
@@ -140,10 +147,12 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   state_.termination_reason = 0;
   if (out.truncated) state_.termination_reason = 7;
-  out.reward = compute_reward(config_.reward, state_, stats.energy_cost, finished, fatal, stuck);
+  out.reward =
+      compute_reward(config_.reward, state_, stats.energy_cost, finished, flip_started, stuck);
   state_.last_reward = out.reward;
   state_.previous_action = action;
   state_.step_index += 1;
+  update_lidar_landing();
   build_observation(obs_out);
   return out;
 }
@@ -168,14 +177,17 @@ void Env::build_observation(float* obs_out) const {
 
 
 
-  obs_out[k++] = 0.0f;
+  obs_out[k++] = state_.lidar_landing_valid
+                     ? clamp((state_.lidar_landing_x - state_.body.position.x) / 50.0f,
+                             -1.0f, 1.0f)
+                     : 0.0f;
   for (int i = 0; i < kMaxWheels; ++i) {
     const auto& w = state_.wheels[static_cast<size_t>(i)];
     obs_out[k++] = (i < state_.wheel_count && w.in_contact) ? 1.0f : 0.0f;
     obs_out[k++] = i < state_.wheel_count ? w.slip : 0.0f;
     obs_out[k++] = i < state_.wheel_count ? w.normal_force / 200.0f : 0.0f;
   }
-  const bool lidar_active = state_.lidar_active_steps > 0 && !state_.airborne;
+  const bool lidar_active = state_.lidar_active_steps > 0;
   const float near_range = std::max(0.0f, config_.physics.near_sense_range);
   const int height_base = k;
   const int slope_base = k + kTerrainSamplesAhead;
@@ -894,6 +906,41 @@ void Env::recover_from_pit(float recovery_x) {
   state_.fatal_error = false;
   state_.pit_recovery_event = true;
   ++state_.pit_recovery_count;
+}
+
+void Env::update_lidar_landing() {
+  state_.lidar_landing_valid = false;
+  state_.lidar_landing_x = state_.body.position.x;
+  state_.lidar_landing_y = state_.body.position.y;
+  if (state_.lidar_active_steps <= 0 || state_.lidar_range <= 0.0f || !state_.airborne) {
+    return;
+  }
+  const float gravity = config_.physics.gravity * state_.latent_gravity_multiplier;
+  if (gravity >= 0.0f) return;
+  const float dt = std::max(0.0001f, config_.physics.dt);
+  Vec2 position = state_.body.position;
+  Vec2 velocity = state_.body.velocity;
+  const int max_steps = static_cast<int>(10.0f / dt);
+  const float damping = 1.0f - clamp(config_.physics.linear_damping, 0.0f, 1.0f);
+  const float wind_acceleration =
+      state_.latent_wind_force / std::max(0.001f, state_.body.mass);
+  for (int i = 0; i < max_steps; ++i) {
+    velocity.y += gravity * dt;
+    velocity.x += wind_acceleration * dt;
+    velocity *= damping;
+    position.x += velocity.x * dt;
+    position.y += velocity.y * dt;
+    if (std::abs(position.x - state_.body.position.x) > state_.lidar_range) return;
+    if (position.x < 0.0f || position.x > terrain_.length()) return;
+    const auto sample = terrain_.query(position.x);
+    if (!sample.solid) continue;
+    if (position.y <= sample.height) {
+      state_.lidar_landing_x = position.x;
+      state_.lidar_landing_y = sample.height;
+      state_.lidar_landing_valid = true;
+      return;
+    }
+  }
 }
 
 bool Env::is_flipped() const {

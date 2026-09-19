@@ -428,7 +428,28 @@ void Renderer::render_rgb(const Env& env, uint8_t* rgb, int width, int height) {
     rgb[i] = static_cast<uint8_t>(clamp(static_cast<float>(rgb[i]) * brightness, 0.0f, 255.0f));
   }
 
-  if (state.lidar_active_steps > 0 && state.lidar_range > 0.0f) {
+  if (state.lidar_active_steps > 0 && state.lidar_range > 0.0f && state.airborne) {
+    const Vec2 origin = screen(state.body.position);
+    const float span = state.lidar_landing_valid
+                           ? state.lidar_landing_x - state.body.position.x
+                           : 0.0f;
+    constexpr int kRays = 18;
+    for (int ray = 1; ray <= kRays; ++ray) {
+      const float x = state.body.position.x + span * static_cast<float>(ray) / kRays;
+      const auto sample = terrain.query(x);
+      if (!sample.solid) continue;
+      const Vec2 hit = screen({x, sample.height});
+      draw_line(rgb, width, height, static_cast<int>(origin.x), static_cast<int>(origin.y),
+                static_cast<int>(hit.x), static_cast<int>(hit.y), {62, 255, 124});
+    }
+    if (state.lidar_landing_valid) {
+      const Vec2 mark = screen({state.lidar_landing_x, state.lidar_landing_y});
+      const int mx = static_cast<int>(mark.x);
+      const int my = static_cast<int>(mark.y);
+      draw_line(rgb, width, height, mx - 9, my, mx + 9, my, {255, 96, 96});
+      draw_line(rgb, width, height, mx, my - 9, mx, my + 9, {255, 96, 96});
+    }
+  } else if (state.lidar_active_steps > 0 && state.lidar_range > 0.0f) {
     const Vec2 local_dir{1.0f, 0.0f};
     const Vec2 world_dir = rotate(local_dir, state.body.angle);
     const Vec2 origin = screen(state.body.position + world_dir * (rig.body.size.x * 0.45f));

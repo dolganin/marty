@@ -119,11 +119,6 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
 
-  if (was_airborne) {
-    state.lidar_active_steps = 0;
-    state.lidar_range = 0.0f;
-    control.lidar = false;
-  }
   if (state.lidar_active_steps > 0) --state.lidar_active_steps;
   if (state.lidar_cooldown_steps > 0) --state.lidar_cooldown_steps;
   if (state.lidar_active_steps == 0) state.lidar_range = 0.0f;
@@ -162,6 +157,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
     control.jump = control.jump_front = control.jump_rear = false;
     control.roof_piston_front = control.roof_piston_rear = false;
     control.ballast_blow = control.ballast_flood = false;
+    control.thruster = false;
     jump_active = false;
     jump_released = false;
     piston_active = false;
@@ -185,7 +181,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   state.solar_panel_stationary = rover_stationary;
   state.charging_active = state.solar_panel_requested &&
                           state.solar_panel_deployment >= 0.999f &&
-                          (rover_stationary || charging_in_liquid);
+                          (rover_stationary || charging_in_liquid || state.airborne);
   const bool shift_up_pressed = control.shift_up && (state.previous_action & ControlShiftUp) == 0;
   const bool shift_down_pressed =
       control.shift_down && (state.previous_action & ControlShiftDown) == 0;
@@ -744,7 +740,7 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
       const float force = state.roof_piston_extension *
-          std::max(0.0f, 338.0f * penetration - 8.0f * tip_speed);
+          std::max(0.0f, 507.0f * penetration - 12.0f * tip_speed);
       const Vec2 reaction = -roof_axis * force;
       body_force += reaction;
       body_torque += cross(base - state.body.position, reaction);

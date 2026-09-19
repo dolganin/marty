@@ -391,6 +391,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              d["lidar_cooldown"] = static_cast<float>(state.lidar_cooldown_steps) *
                                      env.config().physics.dt;
              d["lidar_range"] = state.lidar_range;
+             d["lidar_landing_valid"] = state.lidar_landing_valid;
+             d["lidar_landing_x"] = state.lidar_landing_x;
+             d["lidar_landing_y"] = state.lidar_landing_y;
              d["lidar_energy_cost"] = state.lidar_last_energy_cost;
              d["imu_acceleration_x"] = state.imu_acceleration.x;
              d["imu_acceleration_y"] = state.imu_acceleration.y;

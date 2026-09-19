@@ -21,13 +21,6 @@ struct TerrainSurface {
   float end_height = 0.0f;
 };
 
-struct TerrainPit {
-  float center_x = 0.0f;
-  float radius = 0.0f;
-  float rim_height = 0.0f;
-  float depth = 0.0f;
-};
-
 struct TerrainConfig {
   int sample_count = 2048;
   float dx = 0.25f;
@@ -45,6 +38,8 @@ struct TerrainConfig {
   bool preserve_spawn_safety = true;
 
   float jagged_scale = 1.0f;
+
+  float height_limit = 0.0f;
 };
 
 class Terrain {
@@ -70,7 +65,7 @@ class Terrain {
 
 
   float next_solid_x(float x, float required_run) const;
-  bool pit_recovery_x(float x, float body_y, float& recovery_x) const;
+  float previous_solid_x(float x, float required_run) const;
 
   int sample_count() const { return static_cast<int>(heights_.size()); }
   float dx() const { return dx_; }
@@ -86,7 +81,6 @@ class Terrain {
   std::vector<float> heights_;
   std::vector<uint8_t> solid_;
   std::vector<TerrainSurface> surfaces_;
-  std::vector<TerrainPit> deep_pits_;
   float dx_ = 0.25f;
   float inv_dx_ = 4.0f;
   float base_height_ = 0.0f;
@@ -98,6 +92,7 @@ class Terrain {
   float difficulty_exponent_ = 0.7125f;
   float difficulty_distance_offset_ = 0.0f;
   bool preserve_spawn_safety_ = true;
+  float height_limit_ = 0.0f;
   int generated_pit_count_ = 0;
   int generated_step_count_ = 0;
 };
