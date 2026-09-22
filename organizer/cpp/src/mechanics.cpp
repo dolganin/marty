@@ -14,7 +14,7 @@ float normalized_source(const MechanicParams& p, GenerationParameter source) {
     case GenerationParameter::Temperature:
       return clamp((p.ambient_temperature + 58.0f) / 130.0f, 0.0f, 1.0f);
     case GenerationParameter::Traction:
-      return clamp((p.friction_mul - 0.12f) / (1.45f - 0.12f), 0.0f, 1.0f);
+      return clamp((p.friction_mul - 0.12f) / (1.50f - 0.12f), 0.0f, 1.0f);
     case GenerationParameter::Viscosity: return clamp(p.viscosity / 2.5f, 0.0f, 1.0f);
     case GenerationParameter::EnergyResistance:
       return clamp((p.energy_drain_mul - 0.4f) / 2.6f, 0.0f, 1.0f);
@@ -45,16 +45,16 @@ void apply_target(MechanicParams& p, GenerationParameter target) {
   const float scaled = target_scale(target) * adjustment;
   switch (target) {
     case GenerationParameter::Traction:
-      p.friction_mul = clamp(p.base_friction_mul + scaled, 0.12f, 1.45f);
+      p.friction_mul = clamp(p.base_friction_mul + scaled, 0.12f, 1.50f);
       break;
     case GenerationParameter::Viscosity:
-      p.viscosity = clamp(p.base_viscosity + scaled, 0.0f, 2.5f);
+      p.viscosity = clamp(p.base_viscosity + scaled, 0.0f, 8.0f);
       break;
     case GenerationParameter::EnergyResistance:
-      p.energy_drain_mul = clamp(p.base_energy_drain_mul + scaled, 0.4f, 3.0f);
+      p.energy_drain_mul = clamp(p.base_energy_drain_mul + scaled, 0.4f, 5.0f);
       break;
     case GenerationParameter::ThermalTransfer:
-      p.thermal_transfer = clamp(p.base_thermal_transfer + scaled, 0.25f, 3.0f);
+      p.thermal_transfer = clamp(p.base_thermal_transfer + scaled, 0.20f, 6.50f);
       break;
     default:
       break;
@@ -87,9 +87,9 @@ void apply_generation_influences(MechanicParams& p) {
   p.sink_rate = clamp(p.sink_rate, 0.0f, 1.0f);
 
 
-  p.gravity_mul = clamp(p.gravity_mul, 0.25f, 1.60f);
+  p.gravity_mul = clamp(p.gravity_mul, 0.25f, 1.70f);
   p.wind_force = clamp(p.wind_force, -80.0f, 80.0f);
-  p.ambient_temperature = clamp(p.ambient_temperature, -100.0f, 72.0f);
+  p.ambient_temperature = clamp(p.ambient_temperature, -100.0f, 95.0f);
   p.solar_charge_rate = clamp(p.solar_charge_rate, 0.0f, 8.0f);
   p.lidar_energy_mul = clamp(p.lidar_energy_mul, 0.4f, 3.0f);
   p.lidar_range_mul = clamp(p.lidar_range_mul, 0.0f, 1.5f);
@@ -99,16 +99,16 @@ void prepare_generation_params(MechanicParams& p, MechanicType type, uint64_t se
   p.moisture = sampled_moisture(type, seed);
 
 
-  p.ambient_temperature = clamp(p.ambient_temperature, -100.0f, 72.0f);
-  p.base_friction_mul = clamp(p.friction_mul, 0.12f, 1.45f);
+  p.ambient_temperature = clamp(p.ambient_temperature, -100.0f, 95.0f);
+  p.base_friction_mul = clamp(p.friction_mul, 0.12f, 1.50f);
 
 
 
   p.base_viscosity = p.viscosity > 0.0f
-                         ? clamp(p.viscosity, 0.0f, 2.5f)
+                         ? clamp(p.viscosity, 0.0f, 8.0f)
                          : 0.18f + 0.18f * biome_random01(seed, 0x56495343ULL);
-  p.base_energy_drain_mul = clamp(p.energy_drain_mul, 0.4f, 3.0f);
-  p.base_thermal_transfer = clamp(p.thermal_transfer, 0.25f, 6.0f);
+  p.base_energy_drain_mul = clamp(p.energy_drain_mul, 0.4f, 5.0f);
+  p.base_thermal_transfer = clamp(p.thermal_transfer, 0.20f, 6.50f);
   apply_generation_influences(p);
 }
 

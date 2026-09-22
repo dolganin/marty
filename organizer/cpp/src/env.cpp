@@ -18,7 +18,7 @@ Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physic
 
 void Env::reset(uint64_t seed, bool trial_start, float* obs_out) {
   rng_.seed(seed);
-  roof_contact_latched_ = false;
+  pit_recovery_latched_ = false;
   sand_burial_ = 0.0f;
   endgame_test_world_ = config_.biome_split == 2 || config_.force_endgame_difficulty;
   const int next_episode_in_trial = trial_start ? 0 : state_.episode_in_trial + 1;
@@ -159,10 +159,10 @@ StepOutput Env::step(int action, float* obs_out) {
 
   const bool finished = false;
   const bool flipped = is_flipped();
-  const bool flip_started = flipped && !flip_latched_;
-  if (flipped) {
+  const bool flip_started = flipped && state_.body_contact_roof && !flip_latched_;
+  if (flip_started) {
     flip_latched_ = true;
-  } else if (std::abs(state_.body.angle) < config_.termination.flip_angle * 0.5f) {
+  } else if (flip_latched_ && is_upright_on_wheels()) {
     flip_latched_ = false;
   }
 
@@ -178,24 +178,26 @@ StepOutput Env::step(int action, float* obs_out) {
   }
   const bool stuck = false;
   trial_steps_used_ += 1;
-  const bool roof_contact_started = state_.body_contact_roof && !roof_contact_latched_;
-  roof_contact_latched_ = state_.body_contact_roof;
-  if (roof_contact_started && trial_step_budget() > 0) {
+  if (flip_started && trial_step_budget() > 0) {
     const int penalty_steps = std::max(
-        1, static_cast<int>(std::lround(5.0f / std::max(0.0001f, config_.physics.dt))));
+        1, static_cast<int>(std::lround(10.0f / std::max(0.0001f, config_.physics.dt))));
     trial_steps_used_ = std::min(trial_step_budget(), trial_steps_used_ + penalty_steps);
   }
 
 
   const bool over_gap = !terrain_.query(state_.body.position.x).solid;
-  if (over_gap && state_.body.position.y < config_.termination.fatal_fall_y) {
+  const bool fatal_pit = over_gap && state_.body.position.y < config_.termination.fatal_fall_y;
+  if (fatal_pit && !pit_recovery_latched_) {
+    pit_recovery_latched_ = true;
     const float pit_recovery_x = terrain_.previous_solid_x(state_.body.position.x, 2.5f);
     recover_from_pit(pit_recovery_x);
-    if (trial_step_budget() > 0) {
+    if (!flip_started && trial_step_budget() > 0) {
       const int penalty_steps = std::max(
           1, static_cast<int>(std::lround(10.0f / std::max(0.0001f, config_.physics.dt))));
       trial_steps_used_ = std::min(trial_step_budget(), trial_steps_used_ + penalty_steps);
     }
+  } else if (!fatal_pit) {
+    pit_recovery_latched_ = false;
   }
   StepOutput out{};
   out.terminated = false;
@@ -1039,7 +1041,20 @@ void Env::update_lidar_landing() {
 }
 
 bool Env::is_flipped() const {
-  return std::abs(state_.body.angle) > config_.termination.flip_angle;
+  const float angle = std::atan2(std::sin(state_.body.angle), std::cos(state_.body.angle));
+  return std::abs(angle) >= config_.termination.flip_angle;
+}
+
+bool Env::is_upright_on_wheels() const {
+  const float angle = std::atan2(std::sin(state_.body.angle), std::cos(state_.body.angle));
+  const float upright_limit = std::min(0.35f, config_.termination.flip_angle * 0.25f);
+  if (std::abs(angle) > upright_limit || state_.body_contact_roof || state_.wheel_count <= 0) {
+    return false;
+  }
+  for (int i = 0; i < state_.wheel_count; ++i) {
+    if (!state_.wheels[static_cast<size_t>(i)].in_contact) return false;
+  }
+  return true;
 }
 
 bool Env::is_stuck() const {

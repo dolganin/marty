@@ -48,7 +48,7 @@ physics:
   engine_cooling_conductance: 0.10
   engine_cooling_airflow: 0.08
   engine_heater_energy_rate: 0.15
-  engine_heater_heat: 18.0
+  engine_heater_heat: 42.0
   initial_energy: 100.0
   energy_capacity: 130.0
   panel_deploy_time: 4.0

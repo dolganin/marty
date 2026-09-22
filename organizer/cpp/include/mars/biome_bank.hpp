@@ -609,7 +609,7 @@ class CollapseWindowScarp final : public MoltenWindowBiome {
     p.friction_mul = 0.72f + 0.10f * biome_random01(s, 11);
     p.gravity_mul = 1.42f + 0.12f * biome_random01(s, 12);
     p.ambient_temperature = -10.0f + 10.0f * biome_random01(s, 13);
-    p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 14);
+    p.energy_drain_mul = 2.00f + 0.40f * biome_random01(s, 14);
     p.solar_charge_rate = 0.55f + 0.20f * biome_random01(s, 15);
     p.terrain_amplitude_mul = 1.62f;
     p.terrain_step_mul = 2.10f;
@@ -643,7 +643,7 @@ class CollapseWindowPlaya final : public MoltenWindowBiome {
   int phase_offset() const noexcept override { return 410; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p = MoltenWindowBiome::sample_params(s);
-    p.friction_mul = 1.22f + 0.14f * biome_random01(s, 11);
+    p.friction_mul = 1.18f + 0.14f * biome_random01(s, 11);
     p.gravity_mul = 0.74f + 0.08f * biome_random01(s, 12);
     p.viscosity = 0.45f + 0.20f * biome_random01(s, 13);
     p.ambient_temperature = 50.0f + 12.0f * biome_random01(s, 14);
@@ -690,6 +690,7 @@ class SpeedBandTalus final : public Biome {
     p.solar_charge_rate = 1.2f + 0.4f * biome_random01(s, 4);
     p.lidar_range_mul = 0.40f;
     p.lidar_energy_mul = 2.2f;
+    p.energy_drain_mul = 2.00f + 0.30f * biome_random01(s, 5);
     p.terrain_roughness_mul = 1.3f;
     return p;
   }
@@ -766,7 +767,7 @@ class SlipPhasePan final : public Biome {
     p.ambient_temperature = 16.0f + 16.0f * biome_random01(s, 1);
     p.thermal_transfer = 0.65f + 0.25f * biome_random01(s, 2);
     p.solar_charge_rate = 1.7f + 0.5f * biome_random01(s, 3);
-    p.energy_drain_mul = 1.05f + 0.15f * biome_random01(s, 4);
+    p.energy_drain_mul = 2.00f + 0.30f * biome_random01(s, 4);
     p.lidar_range_mul = 0.36f;
     p.lidar_energy_mul = 2.1f;
     p.terrain_amplitude_mul = 1.15f;
@@ -861,7 +862,7 @@ class SolarWindowPan final : public Biome {
     p.thermal_transfer = 1.45f + 0.35f * biome_random01(s, 3);
 
     p.solar_charge_rate = 0.18f + 0.10f * biome_random01(s, 4);
-    p.energy_drain_mul = 1.35f + 0.20f * biome_random01(s, 5);
+    p.energy_drain_mul = 2.00f + 0.40f * biome_random01(s, 5);
     p.lidar_range_mul = 0.32f;
     p.lidar_energy_mul = 2.4f;
     p.terrain_amplitude_mul = 0.72f;
@@ -924,7 +925,7 @@ class PulseGravityReef final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.68f + 0.12f * biome_random01(s);
-    p.gravity_mul = 0.55f + 0.10f * biome_random01(s, 1);
+    p.gravity_mul = 0.41f + 0.24f * biome_random01(s, 1);
     p.ambient_temperature = -28.0f + 12.0f * biome_random01(s, 2);
     p.thermal_transfer = 0.75f + 0.20f * biome_random01(s, 3);
     p.solar_charge_rate = 1.35f + 0.35f * biome_random01(s, 4);
@@ -999,16 +1000,16 @@ class CadenceDuneBelt final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.58f + 0.12f * biome_random01(s);
     p.sink_rate = 0.042f + 0.014f * biome_random01(s, 1);
-    p.ambient_temperature = 58.0f + 16.0f * biome_random01(s, 2);
+    p.ambient_temperature = 75.0f + 20.0f * biome_random01(s, 2);
     p.thermal_transfer = 2.10f + 0.40f * biome_random01(s, 3);
     p.solar_charge_rate = 5.5f + 1.5f * biome_random01(s, 4);
-    p.energy_drain_mul = 1.20f + 0.20f * biome_random01(s, 5);
+    p.energy_drain_mul = 2.00f + 0.50f * biome_random01(s, 5);
     p.lidar_range_mul = 0.34f;
     p.lidar_energy_mul = 2.3f;
-    p.gravity_mul = 1.30f + 0.20f * biome_random01(s, 6);
+    p.gravity_mul = 1.40f + 0.30f * biome_random01(s, 6);
     p.wind_force = 2.6f + 0.8f * biome_random01(s, 7);
     p.terrain_amplitude_mul = 1.20f;
-    p.terrain_roughness_mul = 1.90f;
+    p.terrain_roughness_mul = 2.00f;
     p.terrain_crater_mul = 0.45f;
     return p;
   }
@@ -1123,14 +1124,15 @@ class FallLineRidges final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.80f + 0.20f * biome_random01(s);
+    p.energy_drain_mul = 2.00f + 0.50f * biome_random01(s, 10);
     p.ambient_temperature = -30.0f + 20.0f * biome_random01(s, 1);
     p.solar_charge_rate = 0.9f + 0.5f * biome_random01(s, 2);
-    p.terrain_amplitude_mul = 1.6f + 0.5f * biome_random01(s, 3);
-    p.terrain_step_mul = 2.2f + 0.8f * biome_random01(s, 4);
-    p.terrain_crater_mul = 1.5f + 0.6f * biome_random01(s, 5);
+    p.terrain_amplitude_mul = 2.5f + 0.6f * biome_random01(s, 3);
+    p.terrain_step_mul = 2.5f + 1.0f * biome_random01(s, 4);
+    p.terrain_crater_mul = 2.0f + 0.5f * biome_random01(s, 5);
     p.ledge_start_x = 12.0f;
-    p.ledge_spacing = 12.0f + 6.0f * biome_random01(s, 6);
-    p.ledge_gap_width = 3.4f + 1.6f * biome_random01(s, 7);
+    p.ledge_spacing = 25.0f + 10.0f * biome_random01(s, 6);
+    p.ledge_gap_width = 5.5f + 2.0f * biome_random01(s, 7);
     p.ledge_ramp_length = 3.0f + 1.5f * biome_random01(s, 8);
     p.ledge_ramp_height = 0.7f + 0.5f * biome_random01(s, 9);
     return p;
@@ -1148,11 +1150,11 @@ class SinkMoonBog final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Mud; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    p.friction_mul = 0.22f + 0.10f * biome_random01(s);
-    p.viscosity = 3.2f + 0.8f * biome_random01(s, 1);
+    p.friction_mul = 0.19f + 0.13f * biome_random01(s);
+    p.viscosity = 6.0f + 2.0f * biome_random01(s, 1);
     p.sink_rate = 0.060f + 0.030f * biome_random01(s, 2);
-    p.energy_drain_mul = 3.0f + 1.0f * biome_random01(s, 3);
-    p.gravity_mul = 0.30f + 0.12f * biome_random01(s, 4);
+    p.energy_drain_mul = 4.0f + 1.0f * biome_random01(s, 3);
+    p.gravity_mul = 0.25f + 0.17f * biome_random01(s, 4);
     p.ambient_temperature = 2.0f + 16.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.6f + 0.6f * biome_random01(s, 6);
     p.solar_charge_rate = 0.5f + 0.3f * biome_random01(s, 7);
@@ -1175,9 +1177,9 @@ class GaleDarkFlats final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.70f + 0.20f * biome_random01(s);
-    p.wind_force = -(35.0f + 20.0f * biome_random01(s, 1));
+    p.wind_force = -(40.0f + 20.0f * biome_random01(s, 1));
     p.energy_drain_mul = 2.5f + 0.7f * biome_random01(s, 2);
-    p.solar_charge_rate = 0.02f + 0.04f * biome_random01(s, 3);
+    p.solar_charge_rate = 0.01f + 0.05f * biome_random01(s, 3);
     p.ambient_temperature = -52.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.9f + 0.5f * biome_random01(s, 5);
     p.lidar_energy_mul = 2.2f;
@@ -1197,9 +1199,9 @@ class PeriodicGravityRelay final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.82f + 0.18f * biome_random01(s);
     p.gravity_mul = 0.96f + 0.08f * biome_random01(s, 1);
-    p.gravity_wave_amplitude = 0.76f + 0.06f * biome_random01(s, 2);
-    p.gravity_wave_period = 8.0f + 4.0f * biome_random01(s, 3);
-    p.energy_drain_mul = 1.15f + 0.25f * biome_random01(s, 4);
+    p.gravity_wave_amplitude = 0.76f + 0.03f * biome_random01(s, 2);
+    p.gravity_wave_period = 8.0f + 1.0f * biome_random01(s, 3);
+    p.energy_drain_mul = 2.00f + 0.40f * biome_random01(s, 4);
     p.ambient_temperature = -38.0f + 18.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.0f + 0.4f * biome_random01(s, 6);
     p.solar_charge_rate = 0.8f + 0.4f * biome_random01(s, 7);
@@ -1228,13 +1230,13 @@ class HardpanRebound final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Crust; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    p.friction_mul = 0.95f + 0.25f * biome_random01(s);
-    p.crust_deform = 0.10f + 0.05f * biome_random01(s, 7);
+    p.friction_mul = 1.25f + 0.25f * biome_random01(s);
+    p.crust_deform = 0.15f + 0.10f * biome_random01(s, 7);
     p.sink_rate = 0.070f + 0.030f * biome_random01(s, 8);
-    p.bounce = 0.60f + 0.25f * biome_random01(s, 1);
-    p.energy_drain_mul = 1.05f + 0.25f * biome_random01(s, 2);
+    p.bounce = 0.60f + 0.30f * biome_random01(s, 1);
+    p.energy_drain_mul = 2.00f + 0.40f * biome_random01(s, 2);
     p.ambient_temperature = -22.0f + 26.0f * biome_random01(s, 3);
-    p.thermal_transfer = 0.8f + 0.4f * biome_random01(s, 4);
+    p.thermal_transfer = 0.2f + 1.0f * biome_random01(s, 4);
     p.solar_charge_rate = 1.0f + 0.5f * biome_random01(s, 5);
     p.terrain_step_mul = 1.5f + 0.6f * biome_random01(s, 6);
     return p;
@@ -1253,14 +1255,14 @@ class GeyserBasin final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.38f + 0.18f * biome_random01(s);
     p.viscosity = 0.60f + 0.70f * biome_random01(s, 1);
-    p.energy_drain_mul = 1.20f + 0.40f * biome_random01(s, 2);
+    p.energy_drain_mul = 2.00f + 0.50f * biome_random01(s, 2);
     p.ambient_temperature = 18.0f + 26.0f * biome_random01(s, 3);
-    p.thermal_transfer = 3.6f + 1.4f * biome_random01(s, 4);
+    p.thermal_transfer = 5.5f + 1.0f * biome_random01(s, 4);
     p.solar_charge_rate = 0.30f + 0.30f * biome_random01(s, 5);
 
 
-    p.geyser_period = 3.0f + 3.0f * biome_random01(s, 6);
-    p.geyser_strength = 12.0f + 6.0f * biome_random01(s, 7);
+    p.geyser_period = 3.0f + 7.0f * biome_random01(s, 6);
+    p.geyser_strength = 12.0f + 18.0f * biome_random01(s, 7);
     return p;
   }
 
@@ -1292,7 +1294,7 @@ class CryogenicHeadwindRun final : public Biome {
     MechanicParams p;
     p.friction_mul = 0.82f + 0.12f * biome_random01(s);
     p.wind_force = -(8.0f + 6.0f * biome_random01(s, 1));
-    p.energy_drain_mul = 1.35f + 0.25f * biome_random01(s, 2);
+    p.energy_drain_mul = 2.00f + 0.50f * biome_random01(s, 2);
     p.ambient_temperature = -85.0f + 10.0f * biome_random01(s, 3);
     p.thermal_transfer = 5.0f + 0.5f * biome_random01(s, 4);
     p.solar_charge_rate = 0.08f + 0.06f * biome_random01(s, 5);
@@ -1525,7 +1527,7 @@ class HysteresisSurgeBog final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
 
-    p.friction_mul = 0.42f + 0.18f * biome_random01(s);
+    p.friction_mul = 0.39f + 0.21f * biome_random01(s);
     p.sink_rate = 0.014f + 0.020f * biome_random01(s, 1);
     p.viscosity = 1.4f + 1.6f * biome_random01(s, 2);
     p.energy_drain_mul = 1.60f + 0.45f * biome_random01(s, 3);
@@ -2373,7 +2375,7 @@ class BlindTractionFlats final : public Biome {
     p.friction_mul = 0.90f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
+    p.energy_drain_mul = 2.00f + 0.30f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
     p.ambient_temperature = -56.0f + 15.0f * biome_random01(s, 4);
@@ -2385,7 +2387,7 @@ class BlindTractionFlats final : public Biome {
     p.lidar_energy_mul = 6.0f + 1.0f * biome_random01(s, 9);
     p.lidar_range_mul = 0.0f;
 
-    p.terrain_amplitude_mul = 0.50f;
+    p.terrain_amplitude_mul = 0.40f;
     p.terrain_roughness_mul = 0.50f;
     p.terrain_crater_mul = 0.0f;
     p.terrain_step_mul = 0.0f;
@@ -3052,7 +3054,7 @@ class BatteryBayTycho final : public Biome {
     p.friction_mul = 0.95f + 0.10f * biome_random01(s);
     p.sink_rate = 0.002f + 0.003f * biome_random01(s, 1);
     p.viscosity = 0.0f;
-    p.energy_drain_mul = 1.30f + 0.20f * biome_random01(s, 2);
+    p.energy_drain_mul = 2.00f + 0.30f * biome_random01(s, 2);
     p.wind_force = 0.5f + 0.5f * biome_random01(s, 3);
 
     p.ambient_temperature = 48.0f + 14.0f * biome_random01(s, 4);
@@ -3065,7 +3067,7 @@ class BatteryBayTycho final : public Biome {
     p.lidar_range_mul = 0.10f + 0.04f * biome_random01(s, 10);
 
     p.terrain_amplitude_mul = 0.50f + 0.10f * biome_random01(s, 11);
-    p.terrain_roughness_mul = 0.30f + 0.10f * biome_random01(s, 12);
+    p.terrain_roughness_mul = 0.40f + 0.10f * biome_random01(s, 12);
     p.terrain_crater_mul = 0.30f + 0.10f * biome_random01(s, 13);
     p.terrain_step_mul = 0.20f + 0.10f * biome_random01(s, 14);
     return p;

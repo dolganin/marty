@@ -94,7 +94,20 @@ void Env::update_lidar_landing() {
 }
 
 bool Env::is_flipped() const {
-  return std::abs(state_.body.angle) > config_.termination.flip_angle;
+  const float angle = std::atan2(std::sin(state_.body.angle), std::cos(state_.body.angle));
+  return std::abs(angle) >= config_.termination.flip_angle;
+}
+
+bool Env::is_upright_on_wheels() const {
+  const float angle = std::atan2(std::sin(state_.body.angle), std::cos(state_.body.angle));
+  const float upright_limit = std::min(0.35f, config_.termination.flip_angle * 0.25f);
+  if (std::abs(angle) > upright_limit || state_.body_contact_roof || state_.wheel_count <= 0) {
+    return false;
+  }
+  for (int i = 0; i < state_.wheel_count; ++i) {
+    if (!state_.wheels[static_cast<size_t>(i)].in_contact) return false;
+  }
+  return true;
 }
 
 bool Env::is_stuck() const {
