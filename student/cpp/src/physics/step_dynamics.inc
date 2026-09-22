@@ -90,11 +90,11 @@
   }
 
   state.thruster_thrust = 0.0f;
-  if (control.thruster && state.energy > 0.0f) {
+  if (control.thruster && state.energy > 0.0f && !state.engine_overheated) {
     constexpr float kThrusterWeightRatio = 2.4f;
     const float rover_weight = rover_mass * std::abs(gravity);
     const float thrust = kThrusterWeightRatio * rover_weight;
     body_force += rotate_body({0.0f, 1.0f}) * thrust;
     state.thruster_thrust = thrust;
-    stats.energy_cost += 12.0f * dt;
+    stats.energy_cost += 8.0f * dt;
   }

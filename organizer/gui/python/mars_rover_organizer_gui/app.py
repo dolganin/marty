@@ -336,10 +336,10 @@ class OrganizerPlayer:
             f"SPRING {jump_phase} {debug.get('suspension_jump_charge', 0.0) * 100:3.0f}%",
             f"PISTON {debug.get('roof_piston_extension', 0.0) * 100:3.0f}%   CONTACT {contacts}",
             f"SOLAR {debug.get('solar_panel_deployment', 0.0) * 100:3.0f}%   +{debug.get('solar_charge_rate', 0.0):.2f}/s",
-            f"LIDAR {debug.get('lidar_range', 0.0):5.1f}m   CURRENT {debug.get('water_current_x', 0.0):+.2f}m/s",
+            f"LIDAR {debug.get('lidar_range', 0.0):5.1f}m",
             f"LANDING {landing}",
             f"PROPELLER {debug.get('propeller_thrust', 0.0):6.1f}N   ROCKET {debug.get('thruster_thrust', 0.0):6.1f}N",
-            f"GRAVITY {debug.get('gravity', -3.71):+.2f}m/s²   DAMAGE {debug.get('damage', 0.0):.3f}",
+            f"GRAVITY {debug.get('gravity', -3.71):+.2f}m/s²",
         )
         self.telemetry.configure(text="\n".join(lines))
         self.status.configure(text=f"reward={self.last_reward:.3f}   {self.notice}")

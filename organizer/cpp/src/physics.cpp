@@ -533,10 +533,16 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
   if (state.heater_active) {
     stats.energy_cost += heater_energy;
   }
+  constexpr float kThrusterHeat = 90.0f;
+  const float thruster_heat = control.thruster && state.energy > 0.0f &&
+                                      !state.engine_overheated
+                                  ? kThrusterHeat
+                                  : 0.0f;
   const float total_heat = combustion_heat +
                            (state.heater_active
                                 ? std::max(0.0f, config_.engine_heater_heat)
-                                : 0.0f);
+                                : 0.0f) +
+                           thruster_heat;
   state.engine_temperature += (total_heat - heat_removed) / thermal_mass * dt;
   if (state.engine_temperature >= config_.overheat_temperature) {
     state.engine_temperature = std::min(state.engine_temperature,
@@ -811,13 +817,13 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
   state.thruster_thrust = 0.0f;
-  if (control.thruster && state.energy > 0.0f) {
+  if (control.thruster && state.energy > 0.0f && !state.engine_overheated) {
     constexpr float kThrusterWeightRatio = 2.4f;
     const float rover_weight = rover_mass * std::abs(gravity);
     const float thrust = kThrusterWeightRatio * rover_weight;
     body_force += rotate_body({0.0f, 1.0f}) * thrust;
     state.thruster_thrust = thrust;
-    stats.energy_cost += 12.0f * dt;
+    stats.energy_cost += 8.0f * dt;
   }
 
   float next_drivetrain_slip = 0.0f;

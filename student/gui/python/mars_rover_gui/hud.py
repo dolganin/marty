@@ -38,5 +38,5 @@ def telemetry_lines(debug: dict, fps: float, seed: int) -> tuple[str, ...]:
         f"LIDAR {debug.get('lidar_range', 0.0):5.1f}m",
         f"LANDING {landing}",
         f"PROPELLER {debug.get('propeller_thrust', 0.0):6.1f}N   ROCKET {debug.get('thruster_thrust', 0.0):6.1f}N",
-        f"GRAVITY {debug.get('gravity', -3.71):+.2f}m/s²   DAMAGE {debug.get('damage', 0.0):.3f}",
+        f"GRAVITY {debug.get('gravity', -3.71):+.2f}m/s²",
     )
