@@ -54,13 +54,17 @@ class BuildExt(build_ext):
 sources = [
     "cpp/bindings/pybind_module.cpp",
     "cpp/src/batch_env.cpp",
+    "cpp/src/episode.cpp",
     "cpp/src/env.cpp",
     "cpp/src/mechanics.cpp",
+    "cpp/src/observation.cpp",
     "cpp/src/physics.cpp",
     "cpp/src/renderer.cpp",
     "cpp/src/reward.cpp",
     "cpp/src/rover_rig.cpp",
     "cpp/src/terrain.cpp",
+    "cpp/src/world_latents.cpp",
+    "cpp/src/world_layout.cpp",
 ]
 
 setup(

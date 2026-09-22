@@ -11,4 +11,6 @@ if os.name == "nt":
 from .envs.mars_rover_env import MarsRoverEnv
 from .envs.mars_rover_vec_env import MarsRoverVecEnv
 
-__all__ = ["MarsRoverEnv", "MarsRoverVecEnv"]
+__version__ = "0.16.0"
+
+__all__ = ["MarsRoverEnv", "MarsRoverVecEnv", "__version__"]

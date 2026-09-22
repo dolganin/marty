@@ -47,6 +47,7 @@ constexpr int kDebugGearCount = 8;
 }
 
 PYBIND11_MODULE(_mars_rover_cpp, m) {
+  m.attr("__version__") = std::string(mars::kRepositoryVersion);
   m.def("biome_bank_version", [] { return std::string(mars::kBiomeBankVersion); });
   m.def("environment_version", [] { return std::string(mars::kEnvironmentVersion); });
   py::enum_<mars::CollisionType>(m, "CollisionType")

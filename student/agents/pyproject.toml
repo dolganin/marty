@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mars-rover-student"
-version = "1.0.0"
+version = "0.16.0"
 description = "Student PPO training entry point"
 requires-python = ">=3.10"
 dependencies = [
-  "mars-rover-env>=0.1.0",
+  "mars-rover-env==0.16.0",
   "numpy>=1.23",
   "stable-baselines3>=2.3",
 ]

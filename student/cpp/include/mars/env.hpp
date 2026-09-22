@@ -8,11 +8,9 @@
 #include "mars/observation.hpp"
 #include "mars/physics.hpp"
 #include "mars/reward.hpp"
+#include "mars/version.hpp"
 
 namespace mars {
-
-inline constexpr std::string_view kEnvironmentVersion =
-    "mars-env-v16-high-speed-ruts-pit-recovery";
 
 struct EnvConfig {
   TerrainConfig terrain{};
@@ -26,17 +24,6 @@ struct EnvConfig {
   int fixed_biome_id = -1;
   bool debug = false;
 
-
-
-
-
-
-
-
-
-
-
-
   bool chain_biomes = false;
   int chain_zone_count = 8;
   float chain_segment_min_length = 120.0f;
@@ -47,9 +34,6 @@ struct EnvConfig {
   float difficulty_safe_fraction_max = 0.02f;
   float difficulty_exponent = 0.7125f;
   float terrain_profile_frequency_growth = 0.75f;
-
-
-
 
   std::array<MechanicType, 4> evaluation_stack_types{};
   int evaluation_stack_count = 0;

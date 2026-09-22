@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(mars_rover LANGUAGES CXX)
+project(mars_rover VERSION 0.16.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,13 +17,17 @@ endif()
 
 add_library(mars_rover_core
   src/batch_env.cpp
+  src/episode.cpp
   src/env.cpp
   src/mechanics.cpp
+  src/observation.cpp
   src/physics.cpp
   src/renderer.cpp
   src/reward.cpp
   src/rover_rig.cpp
   src/terrain.cpp
+  src/world_latents.cpp
+  src/world_layout.cpp
 )
 
 target_include_directories(mars_rover_core PUBLIC include)

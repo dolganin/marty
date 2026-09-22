@@ -1,4 +1,3 @@
-"""Deterministic behavioral fingerprint of a biome compiled into biome_bank.hpp."""
 from __future__ import annotations
 
 import math
