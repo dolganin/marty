@@ -11,6 +11,8 @@ class PeriodicGravityTest(unittest.TestCase):
         item = next(entry for entry in biome_catalog() if entry["id"] == "periodic_gravity_relay")
         self.assertEqual(int(item["split"]), 2)
         self.assertGreater(float(item["parameters"]["gravity_wave_amplitude"]), 0.7)
+        self.assertGreaterEqual(float(item["parameters"]["gravity_wave_period"]), 8.0)
+        self.assertLessEqual(float(item["parameters"]["gravity_wave_period"]), 12.0)
 
         config = load_env_config()
         config.fixed_biome_id = int(item["index"])
@@ -31,7 +33,7 @@ class PeriodicGravityTest(unittest.TestCase):
 
         samples = {index: [] for index in range(4)}
         gravities = []
-        for _ in range(1_600):
+        for _ in range(6_200):
             env.step(actions, observations, rewards, terminated, truncated)
             debug = env.debug_info(0)
             waveform = int(debug["gravity_waveform"])

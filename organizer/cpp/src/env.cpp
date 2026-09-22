@@ -590,7 +590,8 @@ void Env::select_mechanic_layout(uint64_t seed) {
         biome.visual_type() == MechanicType::Liquid
             ? 2.5f + zone_difficulty * 4.5f + u(rng_) * (1.0f + 2.0f * zone_difficulty)
             : -1.0f;
-    build_layers();
+    mechanic_layout_.layer_count = 1;
+    mechanic_layout_.layers[0] = zone;
     return;
   }
 

@@ -6,6 +6,7 @@ sink_moon_bog
 gale_dark_flats
 periodic_gravity_relay
 hardpan_rebound
+cryogenic_headwind_run
 blind_traction_flats
 battery_bay_tycho
 water_current_x

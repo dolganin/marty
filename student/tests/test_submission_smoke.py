@@ -47,6 +47,10 @@ EXPECTED_ACTION_MACROS = (
     1 << 22,
     1 << 23,
     1 | (1 << 23),
+    1 << 12,
+    1 | (1 << 12),
+    1 | (1 << 4) | (1 << 12),
+    1 | (1 << 5) | (1 << 12),
 )
 
 
@@ -63,7 +67,7 @@ class SubmissionSmokeTest(unittest.TestCase):
 
         self.assertEqual(env.obs_dim, 160)
         self.assertEqual(tuple(ACTION_MACROS), EXPECTED_ACTION_MACROS)
-        self.assertEqual(len(ACTION_MACROS), 27)
+        self.assertEqual(len(ACTION_MACROS), 31)
         self.assertEqual(env.action_dim, 1 << 24)
 
         self.assertAlmostEqual(config.rig.body.mass, 18.0)

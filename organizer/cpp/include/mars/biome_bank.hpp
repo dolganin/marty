@@ -710,18 +710,18 @@ class SpeedBandTalus final : public Biome {
     if (speed > kCeiling) {
 
       const float over = clamp((speed - kCeiling) * 1.5f, 0.0f, 5.0f);
-      c.contact->penetration += (0.22f + 0.40f * over) * c.dt;
+      c.contact->penetration += (0.70f + 1.20f * over) * c.dt;
       if (c.wheel_force) {
-        *c.wheel_force += c.contact->tangent * (-7.5f * c.wheel_speed * (1.0f + over));
-        *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.6f + 0.4f * over));
+        *c.wheel_force += c.contact->tangent * (-24.0f * c.wheel_speed * (1.0f + over));
+        *c.wheel_force -= c.contact->normal * (c.contact->normal_force * (0.85f + 0.75f * over));
       }
-      if (c.energy_cost) *c.energy_cost += (0.08f + 0.12f * over) * p.energy_drain_mul * c.dt;
+      if (c.energy_cost) *c.energy_cost += (0.25f + 0.40f * over) * p.energy_drain_mul * c.dt;
     } else if (speed < kFloor) {
 
       const float bite = clamp((kFloor - speed) / kFloor, 0.0f, 1.0f);
-      c.contact->penetration += 0.14f * bite * c.dt;
-      if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-11.0f * bite * c.wheel_speed);
-      if (c.energy_cost) *c.energy_cost += 0.07f * bite * p.energy_drain_mul * c.dt;
+      c.contact->penetration += 0.45f * bite * c.dt;
+      if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-30.0f * bite * c.wheel_speed);
+      if (c.energy_cost) *c.energy_cost += 0.22f * bite * p.energy_drain_mul * c.dt;
     }
   }
 
@@ -729,13 +729,13 @@ class SpeedBandTalus final : public Biome {
     const float speed = std::abs(c.velocity.x);
     if (speed <= kCeiling) return;
     const float over = clamp((speed - kCeiling) * 1.3f, 0.0f, 4.0f);
-    if (c.body_force) c.body_force->y -= c.mass * std::abs(c.gravity) * (0.35f + 0.25f * over);
-    if (c.body_torque) *c.body_torque -= c.mass * (0.6f + 0.5f * over);
+    if (c.body_force) c.body_force->y -= c.mass * std::abs(c.gravity) * (0.85f + 0.60f * over);
+    if (c.body_torque) *c.body_torque -= c.mass * (1.8f + 1.5f * over);
   }
 
  private:
-  static constexpr float kFloor = 0.75f;
-  static constexpr float kCeiling = 2.30f;
+  static constexpr float kFloor = 1.00f;
+  static constexpr float kCeiling = 1.80f;
 };
 
 
@@ -1031,23 +1031,23 @@ class CadenceDuneBelt final : public Biome {
     if (must_hold(c.step_index)) {
       const float idle_burial = clamp((kCreep - speed) / kCreep, 0.0f, 1.0f);
       const float over = clamp((speed - kSafeSpeed) * 1.5f, 0.0f, 5.0f);
-      c.contact->penetration += (0.12f + 0.38f * idle_burial + 0.48f * over) * c.dt;
+      c.contact->penetration += (0.40f + 1.10f * idle_burial + 1.35f * over) * c.dt;
       if (c.wheel_force) {
         *c.wheel_force += c.contact->tangent *
-                          (-8.0f * c.wheel_speed * (1.0f + idle_burial + over));
+                          (-25.0f * c.wheel_speed * (1.0f + idle_burial + over));
         *c.wheel_force -= c.contact->normal *
-                          (c.contact->normal_force * (0.45f * idle_burial + 0.75f * over));
+                          (c.contact->normal_force * (0.90f * idle_burial + 1.40f * over));
       }
       if (c.energy_cost) {
-        *c.energy_cost += (0.10f + 0.18f * idle_burial + 0.16f * over) *
+        *c.energy_cost += (0.30f + 0.55f * idle_burial + 0.50f * over) *
                           p.energy_drain_mul * c.dt;
       }
     } else if (must_move(c.step_index)) {
       if (speed >= kRelease) return;
       const float bite = clamp((kRelease - speed) / kRelease, 0.0f, 1.0f);
-      c.contact->penetration += 0.15f * bite * c.dt;
-      if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-12.0f * bite * c.wheel_speed);
-      if (c.energy_cost) *c.energy_cost += 0.08f * bite * p.energy_drain_mul * c.dt;
+      c.contact->penetration += 0.50f * bite * c.dt;
+      if (c.wheel_force) *c.wheel_force += c.contact->tangent * (-34.0f * bite * c.wheel_speed);
+      if (c.energy_cost) *c.energy_cost += 0.25f * bite * p.energy_drain_mul * c.dt;
     }
   }
 
@@ -1057,9 +1057,9 @@ class CadenceDuneBelt final : public Biome {
   static constexpr int kHoldSteps = 170;
   static constexpr int kFreeSteps = 260;
   static constexpr int kMoveSteps = 200;
-  static constexpr float kCreep = 0.55f;
-  static constexpr float kSafeSpeed = 1.35f;
-  static constexpr float kRelease = 0.85f;
+  static constexpr float kCreep = 0.70f;
+  static constexpr float kSafeSpeed = 1.10f;
+  static constexpr float kRelease = 1.30f;
 };
 
 
@@ -1129,8 +1129,8 @@ class FallLineRidges final : public Biome {
     p.terrain_step_mul = 2.2f + 0.8f * biome_random01(s, 4);
     p.terrain_crater_mul = 1.5f + 0.6f * biome_random01(s, 5);
     p.ledge_start_x = 12.0f;
-    p.ledge_spacing = 14.0f + 8.0f * biome_random01(s, 6);
-    p.ledge_gap_width = 2.2f + 1.4f * biome_random01(s, 7);
+    p.ledge_spacing = 12.0f + 6.0f * biome_random01(s, 6);
+    p.ledge_gap_width = 3.4f + 1.6f * biome_random01(s, 7);
     p.ledge_ramp_length = 3.0f + 1.5f * biome_random01(s, 8);
     p.ledge_ramp_height = 0.7f + 0.5f * biome_random01(s, 9);
     return p;
@@ -1148,10 +1148,10 @@ class SinkMoonBog final : public Biome {
   MechanicType visual_type() const noexcept override { return MechanicType::Mud; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    p.friction_mul = 0.30f + 0.15f * biome_random01(s);
-    p.viscosity = 1.9f + 0.6f * biome_random01(s, 1);
-    p.sink_rate = 0.030f + 0.020f * biome_random01(s, 2);
-    p.energy_drain_mul = 2.0f + 0.7f * biome_random01(s, 3);
+    p.friction_mul = 0.22f + 0.10f * biome_random01(s);
+    p.viscosity = 3.2f + 0.8f * biome_random01(s, 1);
+    p.sink_rate = 0.060f + 0.030f * biome_random01(s, 2);
+    p.energy_drain_mul = 3.0f + 1.0f * biome_random01(s, 3);
     p.gravity_mul = 0.30f + 0.12f * biome_random01(s, 4);
     p.ambient_temperature = 2.0f + 16.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.6f + 0.6f * biome_random01(s, 6);
@@ -1175,8 +1175,8 @@ class GaleDarkFlats final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.70f + 0.20f * biome_random01(s);
-    p.wind_force = -(18.0f + 16.0f * biome_random01(s, 1));
-    p.energy_drain_mul = 1.7f + 0.5f * biome_random01(s, 2);
+    p.wind_force = -(35.0f + 20.0f * biome_random01(s, 1));
+    p.energy_drain_mul = 2.5f + 0.7f * biome_random01(s, 2);
     p.solar_charge_rate = 0.02f + 0.04f * biome_random01(s, 3);
     p.ambient_temperature = -52.0f + 14.0f * biome_random01(s, 4);
     p.thermal_transfer = 1.9f + 0.5f * biome_random01(s, 5);
@@ -1198,7 +1198,7 @@ class PeriodicGravityRelay final : public Biome {
     p.friction_mul = 0.82f + 0.18f * biome_random01(s);
     p.gravity_mul = 0.96f + 0.08f * biome_random01(s, 1);
     p.gravity_wave_amplitude = 0.76f + 0.06f * biome_random01(s, 2);
-    p.gravity_wave_period = 2.0f + 0.5f * biome_random01(s, 3);
+    p.gravity_wave_period = 8.0f + 4.0f * biome_random01(s, 3);
     p.energy_drain_mul = 1.15f + 0.25f * biome_random01(s, 4);
     p.ambient_temperature = -38.0f + 18.0f * biome_random01(s, 5);
     p.thermal_transfer = 1.0f + 0.4f * biome_random01(s, 6);
@@ -1229,9 +1229,9 @@ class HardpanRebound final : public Biome {
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
     p.friction_mul = 0.95f + 0.25f * biome_random01(s);
-    p.crust_deform = 0.060f + 0.035f * biome_random01(s, 7);
-    p.sink_rate = 0.035f + 0.025f * biome_random01(s, 8);
-    p.bounce = 0.30f + 0.20f * biome_random01(s, 1);
+    p.crust_deform = 0.10f + 0.05f * biome_random01(s, 7);
+    p.sink_rate = 0.070f + 0.030f * biome_random01(s, 8);
+    p.bounce = 0.60f + 0.25f * biome_random01(s, 1);
     p.energy_drain_mul = 1.05f + 0.25f * biome_random01(s, 2);
     p.ambient_temperature = -22.0f + 26.0f * biome_random01(s, 3);
     p.thermal_transfer = 0.8f + 0.4f * biome_random01(s, 4);
@@ -1260,7 +1260,7 @@ class GeyserBasin final : public Biome {
 
 
     p.geyser_period = 3.0f + 3.0f * biome_random01(s, 6);
-    p.geyser_strength = 7.0f + 4.0f * biome_random01(s, 7);
+    p.geyser_strength = 12.0f + 6.0f * biome_random01(s, 7);
     return p;
   }
 
@@ -1281,6 +1281,43 @@ class GeyserBasin final : public Biome {
   }
 };
 
+class CryogenicHeadwindRun final : public Biome {
+ public:
+  std::string_view id() const noexcept override { return "cryogenic_headwind_run"; }
+  std::string_view display_name() const noexcept override { return "Cryogenic Headwind Run"; }
+  std::string_view skill_stratum() const noexcept override { return "thermal_management"; }
+  BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
+  MechanicType visual_type() const noexcept override { return MechanicType::Ice; }
+  MechanicParams sample_params(uint64_t s) const noexcept override {
+    MechanicParams p;
+    p.friction_mul = 0.82f + 0.12f * biome_random01(s);
+    p.wind_force = -(8.0f + 6.0f * biome_random01(s, 1));
+    p.energy_drain_mul = 1.35f + 0.25f * biome_random01(s, 2);
+    p.ambient_temperature = -85.0f + 10.0f * biome_random01(s, 3);
+    p.thermal_transfer = 5.0f + 0.5f * biome_random01(s, 4);
+    p.solar_charge_rate = 0.08f + 0.06f * biome_random01(s, 5);
+    p.lidar_energy_mul = 2.5f;
+    p.lidar_range_mul = 0.45f;
+    p.terrain_amplitude_mul = 0.85f;
+    p.terrain_roughness_mul = 1.15f;
+    p.terrain_crater_mul = 0.70f;
+    p.terrain_step_mul = 0.80f;
+    return p;
+  }
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {38, 54, 76};
+    v.ground = {72, 92, 112};
+    v.particles = {190, 218, 238};
+    v.particle_rate = 18.0f;
+    v.particle_lift = 1.8f;
+    v.ambient_particles = 52;
+    v.ambient_drift = 4.0f;
+    v.screen_brightness = 0.72f;
+    return v;
+  }
+};
+
 inline void append(std::vector<const Biome*>& out) {
   static const CollapseWindowFlats collapse_flats; out.push_back(&collapse_flats);
   static const CollapseWindowGulch collapse_gulch; out.push_back(&collapse_gulch);
@@ -1296,6 +1333,7 @@ inline void append(std::vector<const Biome*>& out) {
   static const GaleDarkFlats gale_dark_flats; out.push_back(&gale_dark_flats);
   static const PeriodicGravityRelay periodic_gravity_relay; out.push_back(&periodic_gravity_relay);
   static const HardpanRebound hardpan_rebound; out.push_back(&hardpan_rebound);
+  static const CryogenicHeadwindRun cryogenic_headwind_run; out.push_back(&cryogenic_headwind_run);
 }
 
 }
