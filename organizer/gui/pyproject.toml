@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mars-rover-gui"
-version = "1.0.0"
+name = "mars-rover-organizer-gui"
+version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = ["mars-rover-env==0.1.0", "pillow>=10"]
 
 [project.scripts]
-mars-rover-play = "mars_rover_gui.app:main"
+mars-rover-organizer-play = "mars_rover_organizer_gui.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}

@@ -4,11 +4,15 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <stdexcept>
 #include <vector>
 
 namespace mars {
 
 Env::Env(EnvConfig config) : config_(std::move(config)), physics_(config_.physics) {
+  if (config_.biome_split < 0 || config_.biome_split > 3) {
+    throw std::invalid_argument("organizer biome_split must be in [0, 3]");
+  }
   terrain_.configure(config_.terrain);
 }
 

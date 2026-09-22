@@ -68,9 +68,8 @@ struct MechanicParams {
   float bounce = 0.0f;
 
 
-  float gravity_schedule_low = 0.0f;
-  float gravity_schedule_high = 0.0f;
-  float gravity_schedule_step = 0.0f;
+  float gravity_wave_amplitude = 0.0f;
+  float gravity_wave_period = 0.0f;
 
 
 

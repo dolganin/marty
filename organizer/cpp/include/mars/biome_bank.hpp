@@ -1186,29 +1186,35 @@ class GaleDarkFlats final : public Biome {
 };
 
 
-class TideSwingBasin final : public Biome {
+class PeriodicGravityRelay final : public Biome {
  public:
-  std::string_view id() const noexcept override { return "tide_swing_basin"; }
-  std::string_view display_name() const noexcept override { return "Tide Swing Basin"; }
+  std::string_view id() const noexcept override { return "periodic_gravity_relay"; }
+  std::string_view display_name() const noexcept override { return "Periodic Gravity Relay"; }
   std::string_view skill_stratum() const noexcept override { return "gravity_change"; }
   BiomeSplit split() const noexcept override { return BiomeSplit::Test; }
-  MechanicType visual_type() const noexcept override { return MechanicType::Liquid; }
+  MechanicType visual_type() const noexcept override { return MechanicType::LowGravity; }
   MechanicParams sample_params(uint64_t s) const noexcept override {
     MechanicParams p;
-    p.friction_mul = 0.36f + 0.18f * biome_random01(s);
-    p.viscosity = 3.2f + 2.4f * biome_random01(s, 1);
-    p.liquid_current_x = -(1.25f + 0.75f * biome_random01(s, 9));
-    p.energy_drain_mul = 1.8f + 0.60f * biome_random01(s, 2);
-    p.ambient_temperature = -4.0f + 22.0f * biome_random01(s, 3);
-    p.thermal_transfer = 3.8f + 1.2f * biome_random01(s, 4);
-    p.solar_charge_rate = 0.30f + 0.25f * biome_random01(s, 5);
-    p.gravity_schedule_low = 0.35f + 0.10f * biome_random01(s, 6);
-    p.gravity_schedule_high = 1.25f + 0.25f * biome_random01(s, 7);
-    p.gravity_schedule_step = 4.0f + 6.0f * biome_random01(s, 8);
+    p.friction_mul = 0.82f + 0.18f * biome_random01(s);
+    p.gravity_mul = 0.96f + 0.08f * biome_random01(s, 1);
+    p.gravity_wave_amplitude = 0.76f + 0.06f * biome_random01(s, 2);
+    p.gravity_wave_period = 2.0f + 0.5f * biome_random01(s, 3);
+    p.energy_drain_mul = 1.15f + 0.25f * biome_random01(s, 4);
+    p.ambient_temperature = -38.0f + 18.0f * biome_random01(s, 5);
+    p.thermal_transfer = 1.0f + 0.4f * biome_random01(s, 6);
+    p.solar_charge_rate = 0.8f + 0.4f * biome_random01(s, 7);
     return p;
   }
-  float friction_scale(const MechanicParams& p) const noexcept override {
-    return p.friction_mul * 0.28f;
+  BiomeVisuals visuals() const noexcept override {
+    BiomeVisuals v;
+    v.sky = {82, 66, 126};
+    v.ground = {112, 92, 138};
+    v.particles = {202, 184, 238};
+    v.particle_rate = 12.0f;
+    v.particle_lift = 2.8f;
+    v.ambient_particles = 28;
+    v.screen_brightness = 0.88f;
+    return v;
   }
 };
 
@@ -1288,7 +1294,7 @@ inline void append(std::vector<const Biome*>& out) {
   static const FallLineRidges fall_line_ridges; out.push_back(&fall_line_ridges);
   static const SinkMoonBog sink_moon_bog; out.push_back(&sink_moon_bog);
   static const GaleDarkFlats gale_dark_flats; out.push_back(&gale_dark_flats);
-  static const TideSwingBasin tide_swing_basin; out.push_back(&tide_swing_basin);
+  static const PeriodicGravityRelay periodic_gravity_relay; out.push_back(&periodic_gravity_relay);
   static const HardpanRebound hardpan_rebound; out.push_back(&hardpan_rebound);
 }
 
@@ -3732,7 +3738,11 @@ inline constexpr int kGeneratedBiomeBankEnd = 0;
 
 }
 
-inline constexpr std::string_view kBiomeBankVersion = "sha256:8521dea9659864c0612ee9e5447b0aaf7dc9d5d279aa078cefad0f913db3f262";
+#ifdef MARS_ROVER_BANK_VERSION
+inline constexpr std::string_view kBiomeBankVersion = MARS_ROVER_BANK_VERSION;
+#else
+inline constexpr std::string_view kBiomeBankVersion = "sha256:unfingerprinted";
+#endif
 
 inline const std::vector<const Biome*>& biome_registry() {
   static const NormalBiome normal; static const SandBiome sand; static const IceBiome ice;

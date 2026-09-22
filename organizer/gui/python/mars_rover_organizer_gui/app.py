@@ -3,11 +3,7 @@ from __future__ import annotations
 import argparse
 import random
 import time
-import tkinter as tk
-
-from PIL import Image, ImageTk
 from _mars_rover_cpp import biome_catalog
-from mars_rover_env import MarsRoverEnv
 
 
 GAS = 1 << 0
@@ -65,8 +61,13 @@ PULSE_CONTROLS = (
 )
 
 
-class Player:
+class OrganizerPlayer:
     def __init__(self, args: argparse.Namespace):
+        global tk, Image, ImageTk
+        import tkinter as tk
+        from PIL import Image, ImageTk
+        from mars_rover_env import MarsRoverEnv
+
         self.root = tk.Tk()
         self.root.title("Mars Rover Manual Control")
         self.fullscreen = bool(args.fullscreen)
@@ -398,7 +399,7 @@ def main() -> None:
         if match is None:
             parser.error(f"unknown biome: {args.biome}")
         args.biome_index = int(match["index"])
-    Player(args).run()
+    OrganizerPlayer(args).run()
 
 
 if __name__ == "__main__":

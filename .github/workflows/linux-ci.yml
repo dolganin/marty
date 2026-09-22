@@ -15,6 +15,11 @@ jobs:
       - run: python -m pip install --upgrade pip setuptools wheel pybind11
       - run: cd student && python -m pip install --editable . --no-build-isolation
       - run: python -c "import _mars_rover_cpp; assert len(_mars_rover_cpp.biome_catalog()) == 20"
+      - run: cd student && python -m unittest discover -s tests -v
+      - run: cd student && MARS_ROVER_SMOKE_TEST=1 MARS_ROVER_OUTPUT_PATH=/tmp/policy.zip python train.py
+      - run: cd student && python check_policy.py /tmp/policy.zip
+      - run: python -m unittest discover -s student/gui/tests -v
+      - run: python organizer/gui/test_student_boundary.py
 
   organizer:
     runs-on: ubuntu-latest
@@ -26,3 +31,4 @@ jobs:
       - run: python -m pip install --upgrade pip setuptools wheel pybind11
       - run: cd organizer && python -m pip install --editable . --no-build-isolation
       - run: python -c "import _mars_rover_cpp; assert len(_mars_rover_cpp.biome_catalog()) == 30"
+      - run: python -m unittest discover -s organizer/tests -v

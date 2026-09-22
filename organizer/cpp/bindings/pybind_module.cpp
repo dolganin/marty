@@ -289,7 +289,11 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
                d["geyser_vent_distance"] = vent_distance;
                d["geyser_vent_x"] = vent_distance >= 0.0f ? vent_x : 0.0f;
              }
-             d["gravity_schedule_level"] = state.gravity_schedule_level;
+             d["gravity_wave_multiplier"] = state.gravity_wave_multiplier;
+             d["gravity_wave_value"] = state.gravity_wave_value;
+             d["gravity_waveform"] = state.gravity_waveform;
+             d["gravity_wave_period"] = zone.params.gravity_wave_period;
+             d["gravity_wave_amplitude"] = zone.params.gravity_wave_amplitude;
              d["bounce"] = zone.params.bounce;
              d["geyser_period"] = state.geyser_period;
              d["geyser_strength"] = state.geyser_strength;
@@ -341,8 +345,9 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
              const float speed = std::abs(state.body.velocity.x);
              d["speed"] = speed;
              d["speed_kmh"] = speed * 3.6f;
-             d["gravity"] = env.config().physics.gravity * state.latent_gravity_multiplier;
-             d["gravity_multiplier"] = state.latent_gravity_multiplier;
+             d["gravity"] = state.effective_gravity;
+             d["gravity_multiplier"] = state.latent_gravity_multiplier *
+                                         state.gravity_wave_multiplier;
              d["engine_rpm"] = state.engine_rpm;
              d["engine_temperature"] = state.engine_temperature;
              d["ambient_temperature"] = state.ambient_temperature;
@@ -517,6 +522,8 @@ PYBIND11_MODULE(_mars_rover_cpp, m) {
       values["water_current_x"] = params.liquid_current_x;
       values["wind"] = params.wind_force;
       values["gravity"] = params.gravity_mul;
+      values["gravity_wave_amplitude"] = params.gravity_wave_amplitude;
+      values["gravity_wave_period"] = params.gravity_wave_period;
       values["energy"] = params.energy_drain_mul;
       values["temperature"] = params.ambient_temperature;
       values["thermal"] = params.thermal_transfer;

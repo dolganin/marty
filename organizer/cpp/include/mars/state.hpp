@@ -142,7 +142,10 @@ struct RoverState {
   bool geyser_active = false;
   float geyser_phase = 0.0f;
   float thruster_thrust = 0.0f;
-  float gravity_schedule_level = 1.0f;
+  float effective_gravity = -3.71f;
+  float gravity_wave_multiplier = 1.0f;
+  float gravity_wave_value = 0.0f;
+  int gravity_waveform = -1;
   int active_layer_count = 0;
   float active_layer_weight = 0.0f;
   bool climb_mode = false;

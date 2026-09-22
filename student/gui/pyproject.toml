@@ -3,17 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mars-rover-evaluator"
-version = "1.0.0"
+name = "mars-rover-student-gui"
+version = "0.16.0"
 requires-python = ">=3.10"
-dependencies = [
-  "mars-rover-env==0.1.0",
-  "numpy>=1.23",
-  "stable-baselines3>=2.3,<3",
-]
+dependencies = ["mars-rover-env==0.16.0", "pillow>=10"]
 
 [project.scripts]
-mars-rover-score = "mars_rover_evaluator.evaluate:main"
+mars-rover-play = "mars_rover_gui.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "python"}

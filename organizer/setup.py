@@ -1,10 +1,25 @@
 from __future__ import annotations
 
 import os
+import hashlib
 from pathlib import Path
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
+
+
+def bank_version() -> str:
+    bank_root = Path(os.environ.get("MARS_ROVER_BANK_INCLUDE", "cpp/include"))
+    paths = [
+        bank_root / "mars/biome_bank.hpp",
+        Path("cpp/include/mars/mechanics.hpp"),
+        Path("cpp/src/mechanics.cpp"),
+    ]
+    digest = hashlib.sha256()
+    for index, path in enumerate(paths):
+        digest.update(str(index).encode())
+        digest.update(path.read_bytes())
+    return f"sha256:{digest.hexdigest()}"
 
 
 class BuildExt(build_ext):
@@ -73,6 +88,7 @@ setup(
             "_mars_rover_cpp",
             sources=sources,
             language="c++",
+            define_macros=[("MARS_ROVER_BANK_VERSION", f'"{bank_version()}"')],
         )
     ],
     cmdclass={"build_ext": BuildExt},

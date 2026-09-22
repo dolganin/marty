@@ -13,6 +13,19 @@ make build
 Ставит два пакета в editable-режиме — саму среду и оценщик — и добавляет команду
 `mars-rover-score`.
 
+## GUI организатора
+
+Полный GUI является отдельным пакетом внутри `gui/` и не зависит от
+студенческого GUI:
+
+```bash
+make play ARGS="--list-biomes"
+make play ARGS="--config python/mars_rover_env/configs/play.yaml --debug"
+```
+
+Команда устанавливает `mars-rover-organizer-gui` и запускает
+`mars-rover-organizer-play`.
+
 ## Оценка модели
 
 ```bash
@@ -42,7 +55,7 @@ make score MODEL=/путь/к/model.zip ARGS="--device cuda --output run1.json"
 
 - **8 биомных сценариев** — по одному фиксированному тестовому биому на каждый:
   `speed_band_talus`, `cadence_dune_belt`, `geyser_basin`, `fall_line_ridges`,
-  `sink_moon_bog`, `tide_swing_basin`, `hardpan_rebound`, `blind_traction_flats`;
+  `sink_moon_bog`, `periodic_gravity_relay`, `hardpan_rebound`, `blind_traction_flats`;
 - **7 цепочечных сценариев** — трасса собирается из тестового сплита по seed.
 
 `gale_dark_flats` и `battery_bay_tycho` в банке остались, но отдельных сценариев

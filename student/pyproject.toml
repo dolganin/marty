@@ -10,7 +10,8 @@ requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.23",
   "gymnasium>=0.29",
-  "PyYAML>=6.0"
+  "PyYAML>=6.0",
+  "stable-baselines3>=2.3,<3"
 ]
 
 [tool.setuptools]

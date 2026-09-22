@@ -12,9 +12,18 @@ RUN command -v g++ >/dev/null 2>&1 && \
      rm -rf /var/lib/apt/lists/*)
 RUN python -c "import pybind11" >/dev/null 2>&1 || \
     python -m pip install --no-cache-dir "pybind11==3.1.0"
+RUN python -m pip install --no-cache-dir "stable-baselines3>=2.3,<3"
 
 RUN python -m pip install --no-build-isolation --no-deps --force-reinstall /submission
-RUN MARS_ROVER_REQUIRE_PLATFORM=1 python -m unittest discover -s /submission/tests -v
+RUN python -m unittest discover -s /submission/tests -v
+RUN mkdir -p /tmp/submission-smoke-output && \
+    timeout --signal=TERM --kill-after=10s 180s env \
+      MARS_ROVER_SMOKE_TEST=1 \
+      MARS_ROVER_OUTPUT_PATH=/tmp/submission-smoke-output/policy.zip \
+      OMP_NUM_THREADS=2 \
+      python /submission/train.py && \
+    python /submission/check_policy.py /tmp/submission-smoke-output/policy.zip && \
+    rm -rf /tmp/submission-smoke-output /tmp/training
 
 USER 10000:10000
 CMD ["python", "/submission/train.py"]

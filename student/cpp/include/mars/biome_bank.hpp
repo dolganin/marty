@@ -21,7 +21,7 @@ struct FrozenMechanismStack {
   BiomeSplit split = BiomeSplit::Builtin;
 };
 
-inline constexpr std::array<FrozenMechanismStack, 14> kFrozenMechanismStacks{{
+inline constexpr std::array<FrozenMechanismStack, 12> kFrozenMechanismStacks{{
     {{MechanicType::Normal, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Builtin},
     {{MechanicType::Sand, MechanicType::Wind, MechanicType::Normal, MechanicType::Normal}, 2, BiomeSplit::Train},
     {{MechanicType::Mud, MechanicType::Crust, MechanicType::Wind, MechanicType::Normal}, 3, BiomeSplit::Train},

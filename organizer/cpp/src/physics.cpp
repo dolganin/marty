@@ -564,40 +564,46 @@ PhysicsStepStats PhysicsEngine::step(const RoverRig& rig, const Terrain& terrain
 
 
   constexpr float kGeyserBurstSeconds = 0.35f;
-  const auto& geyser_zone = mechanics.at(state.body.position.x);
+  const auto& active_zone = mechanics.at(state.body.position.x);
 
 
 
-  const float schedule_step = geyser_zone.params.gravity_schedule_step;
-  if (schedule_step > 0.0f) {
+  const float wave_period = active_zone.params.gravity_wave_period;
+  const float wave_amplitude = active_zone.params.gravity_wave_amplitude;
+  if (wave_period > 0.0f && wave_amplitude > 0.0f) {
     const float elapsed = static_cast<float>(state.step_index) * dt;
-    const float slot = elapsed / schedule_step;
-    const uint64_t index = static_cast<uint64_t>(slot);
-    const auto level = [&](uint64_t i) {
-      const float u = biome_random01(geyser_zone.terrain_seed, 1300 + i);
-      return geyser_zone.params.gravity_schedule_low +
-             (geyser_zone.params.gravity_schedule_high -
-              geyser_zone.params.gravity_schedule_low) * u;
-    };
-    const float blend = clamp((slot - static_cast<float>(index)) * 6.0f, 0.0f, 1.0f);
-    const float current = level(index);
-    const float previous = index == 0 ? current : level(index - 1);
-    const float smooth = blend * blend * (3.0f - 2.0f * blend);
-    state.gravity_schedule_level = previous + (current - previous) * smooth;
-    gravity *= state.gravity_schedule_level;
+    const float cycle_position = elapsed / wave_period;
+    const int cycle = static_cast<int>(std::floor(cycle_position));
+    const float phase = cycle_position - static_cast<float>(cycle);
+    state.gravity_waveform = (cycle / 2) % 4;
+    if (state.gravity_waveform == 0) {
+      state.gravity_wave_value = std::sin(6.28318530718f * phase);
+    } else if (state.gravity_waveform == 1) {
+      state.gravity_wave_value = 1.0f - 4.0f * std::abs(phase - 0.5f);
+    } else if (state.gravity_waveform == 2) {
+      state.gravity_wave_value = phase < 0.5f ? 1.0f : -1.0f;
+    } else {
+      state.gravity_wave_value = 2.0f * phase - 1.0f;
+    }
+    state.gravity_wave_multiplier = clamp(
+        1.0f + wave_amplitude * state.gravity_wave_value, 0.15f, 1.90f);
+    gravity *= state.gravity_wave_multiplier;
   } else {
-    state.gravity_schedule_level = 1.0f;
+    state.gravity_waveform = -1;
+    state.gravity_wave_value = 0.0f;
+    state.gravity_wave_multiplier = 1.0f;
   }
+  state.effective_gravity = gravity;
   const int geyser_period_steps =
-      geyser_zone.params.geyser_period > 0.0f
-          ? std::max(1, static_cast<int>(std::lround(geyser_zone.params.geyser_period / dt)))
+      active_zone.params.geyser_period > 0.0f
+          ? std::max(1, static_cast<int>(std::lround(active_zone.params.geyser_period / dt)))
           : 0;
   const int geyser_burst_steps =
       std::max(1, static_cast<int>(std::lround(kGeyserBurstSeconds / dt)));
-  const float geyser_strength = geyser_zone.params.geyser_strength;
+  const float geyser_strength = active_zone.params.geyser_strength;
   state.geyser_active = geyser_period_steps > 0 && geyser_strength > 0.0f &&
                         (state.step_index % geyser_period_steps) < geyser_burst_steps;
-  state.geyser_period = geyser_zone.params.geyser_period;
+  state.geyser_period = active_zone.params.geyser_period;
   state.geyser_strength = geyser_strength;
   state.geyser_phase =
       state.geyser_active

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import importlib
 import os
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import numpy as np
-import torch
 
 from _mars_rover_cpp import (
     MarsRoverBatchEnv,
@@ -16,9 +18,6 @@ from _mars_rover_cpp import (
 from mars_rover_env import __version__
 from mars_rover_env.actions import ACTION_MACROS
 from mars_rover_env.config import load_env_config
-
-from model import Policy
-
 
 EXPECTED_ACTION_MACROS = (
     0,
@@ -56,7 +55,7 @@ class SubmissionSmokeTest(unittest.TestCase):
         self.assertEqual(__version__, "0.16.0")
         self.assertEqual(native_version, __version__)
         self.assertEqual(environment_version(), __version__)
-        self.assertEqual(biome_bank_version(), __version__)
+        self.assertRegex(biome_bank_version(), r"^sha256:[0-9a-f]{64}$")
 
     def test_environment_contract_and_rollout(self) -> None:
         config = load_env_config()
@@ -86,48 +85,34 @@ class SubmissionSmokeTest(unittest.TestCase):
             self.assertTrue(np.isfinite(observations).all())
             self.assertTrue(np.isfinite(rewards).all())
 
-    def test_recurrent_policy_shapes(self) -> None:
-        batch = 3
-        steps = 4
-        policy = Policy(obs_dim=160, action_dim=27, hidden_size=32)
-        memory = policy.initial(batch, torch.device("cpu"))
+    def test_invalid_student_test_split_is_rejected(self) -> None:
+        config = load_env_config()
+        config.biome_split = 2
+        with self.assertRaises((ValueError, RuntimeError)):
+            MarsRoverBatchEnv(1, config)
 
-        step_result = policy.step(
-            torch.zeros(batch, 160),
-            torch.zeros(batch, dtype=torch.long),
-            torch.zeros(batch),
-            torch.zeros(batch),
-            torch.zeros(batch),
-            torch.ones(batch),
-            memory,
-        )
-        logits, values, next_memory = step_result
-        self.assertEqual(tuple(logits.shape), (batch, 27))
-        self.assertEqual(tuple(values.shape), (batch,))
-        self.assertEqual(tuple(next_memory.shape), (batch, 32))
+    def test_training_entrypoint_uses_sb3_contract(self) -> None:
+        train = importlib.import_module("train")
+        with mock.patch.dict(os.environ, {"MARS_ROVER_SMOKE_TEST": "1"}):
+            settings = train.training_settings()
+        self.assertEqual(settings["total_timesteps"], 512)
+        self.assertEqual(settings["num_envs"], 4)
+        self.assertEqual(settings["n_steps"], 64)
+        self.assertEqual(settings["batch_size"], 64)
+        self.assertEqual(settings["device"], "cpu")
+        self.assertEqual(settings["train_seconds"], 120.0)
+        self.assertEqual(train.DEFAULT_OUTPUT, Path("/output/policy.zip"))
 
-        logits, values = policy.sequence(
-            torch.zeros(steps, batch, 160),
-            torch.zeros(steps, batch, dtype=torch.long),
-            torch.zeros(steps, batch),
-            torch.zeros(steps, batch),
-            torch.zeros(steps, batch),
-            torch.zeros(steps, batch),
-            memory,
-        )
-        self.assertEqual(tuple(logits.shape), (steps, batch, 27))
-        self.assertEqual(tuple(values.shape), (steps, batch))
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "policy.zip"
 
-    def test_training_entrypoint_uses_platform_api(self) -> None:
-        try:
-            train = importlib.import_module("train")
-        except ModuleNotFoundError:
-            if os.environ.get("MARS_ROVER_REQUIRE_PLATFORM") == "1":
-                raise
-            self.skipTest("arena-base platform modules are unavailable")
+            class FakeModel:
+                def save(self, path):
+                    Path(path).write_bytes(b"sb3")
 
-        self.assertIs(train.ppo.Agent, Policy)
-        self.assertIs(train.ppo.save, train.save_weights)
+            train.atomic_save(FakeModel(), output)
+            self.assertEqual(output.read_bytes(), b"sb3")
+            self.assertFalse((output.parent / ".policy.tmp.zip").exists())
 
 
 if __name__ == "__main__":

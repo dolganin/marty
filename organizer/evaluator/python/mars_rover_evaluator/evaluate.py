@@ -121,11 +121,11 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
     starts = np.asarray([batch.debug_info(i)["x"] for i in range(count)], dtype=np.float64)
     model = PPO.load(str(model_path), device=device)
     action_count = int(model.action_space.n)
-    if action_count < 1 or action_count > len(ACTION_MACROS):
+    if action_count != len(ACTION_MACROS):
         raise RuntimeError(
-            f"model has {action_count} actions, organizer contract supports 1..{len(ACTION_MACROS)}"
+            f"model has {action_count} actions, organizer contract requires {len(ACTION_MACROS)}"
         )
-    macro_table = np.asarray(ACTION_MACROS[:action_count], dtype=np.int32)
+    macro_table = np.asarray(ACTION_MACROS, dtype=np.int32)
 
     done = np.zeros(count, dtype=bool)
     final_x = starts.copy()
