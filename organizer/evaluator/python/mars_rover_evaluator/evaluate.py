@@ -118,7 +118,6 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
     actions = np.zeros(count, dtype=np.int32)
     for index, seed in enumerate(seeds):
         batch.reset_at(index, seed, True, observations[index])
-    starts = np.asarray([batch.debug_info(i)["x"] for i in range(count)], dtype=np.float64)
     model = PPO.load(str(model_path), device=device)
     action_count = int(model.action_space.n)
     if action_count != len(ACTION_MACROS):
@@ -128,7 +127,7 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
     macro_table = np.asarray(ACTION_MACROS, dtype=np.int32)
 
     done = np.zeros(count, dtype=bool)
-    final_x = starts.copy()
+    best_distances = np.zeros(count, dtype=np.float64)
     started = time.perf_counter()
     max_steps = max(config.termination.max_steps for config in configs)
     for _ in range(max_steps):
@@ -138,14 +137,16 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
         batch.step(actions, observations, rewards, terminated, truncated)
         just_done = np.logical_and(~done, np.logical_or(terminated != 0, truncated != 0))
         for index in np.flatnonzero(just_done):
-            final_x[index] = float(batch.debug_info(int(index))["x"])
+            best_distances[index] = float(batch.debug_info(int(index))["best_distance_m"])
         done |= just_done
         if done.all():
             break
     for index in np.flatnonzero(~done):
-        final_x[index] = float(batch.debug_info(int(index))["x"])
+        best_distances[index] = float(batch.debug_info(int(index))["best_distance_m"])
     wall_seconds = time.perf_counter() - started
-    distances = final_x - starts
+    if not np.isfinite(best_distances).all():
+        raise RuntimeError("evaluation produced a non-finite distance")
+    distances = np.maximum(best_distances, 0.0)
     rows = [{
         "scenario": labels[i],
         "seed": seeds[i],
@@ -154,7 +155,7 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
         "distance": float(distances[i]),
     } for i in range(count)]
     result = {
-        "score": float(np.mean(distances)),
+        "score": float(np.median(distances)),
         "episodes": count,
         "episode_seconds": EPISODE_SECONDS,
         "simulated_seconds": count * EPISODE_SECONDS,
@@ -164,8 +165,16 @@ def evaluate(model_path: Path, output_path: Path, device: str) -> dict:
         "chain_mean": float(np.mean(distances[BIOME_RUNS:])),
         "results": rows,
     }
+    summary_keys = ("score", "biome_mean", "chain_mean", "wall_seconds", "realtime_speedup")
+    if not all(np.isfinite(result[key]) for key in summary_keys):
+        raise RuntimeError("evaluation produced a non-finite summary metric")
+    for key in ("score", "biome_mean", "chain_mean"):
+        if result[key] < 0.0:
+            raise RuntimeError(f"evaluation produced an out-of-range {key}: {result[key]}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    output_path.write_text(
+        json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8"
+    )
     return result
 
 
